@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -e
+
+./hack/check.sh
+exit $?
