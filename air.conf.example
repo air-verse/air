@@ -1,0 +1,20 @@
+# TOML format
+
+# where runner watches
+root = "."
+tmp_path = "./tmp"
+
+[build]
+bin = "./tmp/server"
+cmd = "go build -o ./tmp/server ./cmd/server"
+log = "server-errors.log"
+include_ext = ["go", "tpl", "tmpl", "html"]
+exclude_dir = ["assets", "tmp", "vendor"]
+delay = 1000 # ms
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+app = "white"

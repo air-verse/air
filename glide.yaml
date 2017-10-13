@@ -1,2 +1,11 @@
 package: github.com/cosmtrek/air
-import: []
+import:
+- package: github.com/pelletier/go-toml
+  version: ^1.0.1
+- package: github.com/fatih/color
+  version: ^1.5.0
+- package: golang.org/x/sys
+  subpackages:
+  - '...'
+- package: github.com/fsnotify/fsnotify
+  version: ^1.4.2
