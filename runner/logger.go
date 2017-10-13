@@ -42,8 +42,7 @@ func NewLogger(cfg *config) *logger {
 
 func newLogFunc(nameColor string) logFunc {
 	return func(msg string, v ...interface{}) {
-		now := time.Now()
-		t := fmt.Sprintf("%d:%d:%02d", now.Hour(), now.Minute(), now.Second())
+		t := time.Now().Format("15:04:05.000")
 		fmtStr := "[%s] %s\n"
 		format := fmt.Sprintf(fmtStr, t, msg)
 		color.New(getColor(nameColor)).Fprintf(os.Stdout, format, v...)
