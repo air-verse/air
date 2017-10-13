@@ -250,7 +250,7 @@ func (e *Engine) runBin() error {
 		e.binRunning = true
 	})
 
-	aw := newAppLogWrite(e.logger)
+	aw := newAppLogWriter(e.logger)
 	go io.Copy(aw, stderr)
 	go io.Copy(aw, stdout)
 

@@ -94,7 +94,7 @@ type appLogWriter struct {
 	l logFunc
 }
 
-func newAppLogWrite(l *logger) appLogWriter {
+func newAppLogWriter(l *logger) appLogWriter {
 	return appLogWriter{
 		l: l.App(),
 	}
