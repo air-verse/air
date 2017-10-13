@@ -26,12 +26,12 @@ and focus on your code.
 go get github.com/cosmtrek/air
 ```
 
-## usage
+## Usage
 
 First enter into your project
 
 ```bash
-cd /path/to/my_project
+cd /path/to/your_project
 ```
 
 The simplest usage is run
