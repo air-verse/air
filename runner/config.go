@@ -37,8 +37,12 @@ func InitConfig(path string) (*config, error) {
 		dft := defaultConfig()
 		return &dft, nil
 	}
-	// TODO: merge default config
-	return readConfig(path)
+	cfg, err := readConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	cfg.preprocess()
+	return cfg, nil
 }
 
 func defaultConfig() config {
@@ -75,6 +79,14 @@ func readConfig(path string) (*config, error) {
 		return nil, err
 	}
 	return &c, nil
+}
+
+func (c *config) preprocess() {
+	ed := c.Build.ExcludeDir
+	for i := range ed {
+		ed[i] = cleanPath(ed[i])
+	}
+	c.Build.ExcludeDir = ed
 }
 
 func (c *config) colorInfo() map[string]string {

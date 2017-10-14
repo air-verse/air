@@ -99,7 +99,7 @@ func (e *Engine) watching() error {
 			}
 			// exclude user specified directories
 			if e.isExcludeDir(path) {
-				e.watcherLog("exclude %s", path)
+				e.watcherLog("!exclude %s", path)
 				return filepath.SkipDir
 			}
 			return e.watchDir(e.config.Root + "/" + path)

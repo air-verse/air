@@ -9,7 +9,7 @@ bin = "./tmp/server"
 cmd = "go build -o ./tmp/server ./cmd/server"
 log = "server-errors.log"
 include_ext = ["go", "tpl", "tmpl", "html"]
-exclude_dir = ["assets", "tmp", "vendor"]
+exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
 delay = 1000 # ms
 
 [color]

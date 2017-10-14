@@ -36,10 +36,13 @@ func isHiddenDirectory(path string) bool {
 	return len(path) > 1 && strings.HasPrefix(filepath.Base(path), ".")
 }
 
+func cleanPath(path string) string {
+	return strings.TrimSuffix(strings.TrimSpace(path), "/")
+}
+
 func (e *Engine) isExcludeDir(path string) bool {
-	paths := strings.Split(path, "/")
-	for _, e := range e.config.Build.ExcludeDir {
-		if paths[0] == strings.TrimSpace(e) {
+	for _, d := range e.config.Build.ExcludeDir {
+		if cleanPath(path) == d {
 			return true
 		}
 	}
