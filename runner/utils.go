@@ -27,9 +27,7 @@ func (e *Engine) appLog(format string, v ...interface{}) {
 }
 
 func (e *Engine) isTmpDir(path string) bool {
-	absTmpPath, _ := filepath.Abs(e.config.TmpPath)
-	absPath, _ := filepath.Abs(path)
-	return absTmpPath == absPath
+	return e.config.FullPath(path) == e.config.TmpPath()
 }
 
 func isHiddenDirectory(path string) bool {
@@ -41,8 +39,9 @@ func cleanPath(path string) string {
 }
 
 func (e *Engine) isExcludeDir(path string) bool {
+	rp := e.config.Rel(path)
 	for _, d := range e.config.Build.ExcludeDir {
-		if cleanPath(path) == d {
+		if cleanPath(rp) == d {
 			return true
 		}
 	}
@@ -61,7 +60,7 @@ func (e *Engine) isIncludeExt(path string) bool {
 
 func (e *Engine) writeBuildErrorLog(msg string) error {
 	var err error
-	f, err := os.OpenFile(e.config.Build.Log, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(e.config.BuildLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -75,4 +74,23 @@ func (e *Engine) withLock(f func()) {
 	e.mu.Lock()
 	f()
 	e.mu.Unlock()
+}
+
+func expandPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~") {
+		home := os.Getenv("HOME")
+		return home + path[1:], nil
+	}
+	var err error
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	if path == "." {
+		return wd, nil
+	}
+	if strings.HasPrefix(path, "./") {
+		return wd + path[2:], nil
+	}
+	return path, nil
 }

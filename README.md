@@ -37,7 +37,7 @@ cd /path/to/your_project
 The simplest usage is run
 
 ```bash
-# start air with defaults
+# firstly find `.air.conf` in current directory, if not found, use defaults
 air
 ```
 
@@ -47,37 +47,18 @@ While I prefer the second way
 # 1. create a new file
 touch .air.conf
 
-# 2. paste the air preference following into this file, and modify it to satisfy your needs
+# 2. paste `air.conf.example` into this file, and modify it to satisfy your needs
 
-# 3. run air with your configs
-air -c ./.air.conf
+# 3. run air with your configs. If file name is `.air.conf`, just run `air`
+air -c .air.conf
 ```
 
-Here is the complete air preference:
-
-```toml
-# TOML format
-
-# where runner watches
-root = "."
-tmp_path = "./tmp"
-
-[build]
-bin = "./tmp/server"
-cmd = "go build -o ./tmp/server ./cmd/server"
-log = "server-errors.log"
-include_ext = ["go", "tpl", "tmpl", "html"]
-exclude_dir = ["assets", "tmp", "vendor"]
-delay = 1000 # ms
-
-[color]
-main = "magenta"
-watcher = "cyan"
-build = "yellow"
-runner = "green"
-app = "white"
-```
+See the complete [air.conf.example](air.conf.example)
 
 ## Contributing
 
 PRs are welcome~
+
+## License
+
+[GNU General Public License v3.0](LICENSE)

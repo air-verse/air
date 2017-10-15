@@ -1,16 +1,17 @@
-# TOML format
+# conf for Air in toml format
 
-# where runner watches
-root = "."
-tmp_path = "./tmp"
+# working directory
+root = "." # . or absolute path, please note that the directories following must be under root
+watch_dir = "runner" # optional, if no watch_dir, use root
+tmp_dir = "tmp"
 
 [build]
-bin = "./tmp/server"
+bin = "tmp/server"
 cmd = "go build -o ./tmp/server ./cmd/server"
-log = "server-errors.log"
+log = "server-errors.log" # this log file places in your tmp_dir
 include_ext = ["go", "tpl", "tmpl", "html"]
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
-delay = 1000 # ms
+delay = 800 # ms
 
 [color]
 main = "magenta"

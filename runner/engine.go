@@ -75,7 +75,7 @@ func (e *Engine) Run() {
 }
 
 func (e *Engine) checkRunEnv() error {
-	p := e.config.TmpPath
+	p := e.config.TmpPath()
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		e.runnerLog("mkdir %s", p)
 		if err := os.Mkdir(p, 0755); err != nil {
@@ -87,24 +87,25 @@ func (e *Engine) checkRunEnv() error {
 }
 
 func (e *Engine) watching() error {
-	return filepath.Walk(e.config.Root, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			// exclude tmp dir
-			if e.isTmpDir(path) {
-				return filepath.SkipDir
-			}
-			// exclude hidden directories like .git, .idea, etc.
-			if isHiddenDirectory(path) {
-				return filepath.SkipDir
-			}
-			// exclude user specified directories
-			if e.isExcludeDir(path) {
-				e.watcherLog("!exclude %s", path)
-				return filepath.SkipDir
-			}
-			return e.watchDir(e.config.Root + "/" + path)
+	return filepath.Walk(e.config.WatchDirRoot(), func(path string, info os.FileInfo, err error) error {
+		// NOTE: path is absolute
+		if !info.IsDir() {
+			return nil
 		}
-		return nil
+		// exclude tmp dir
+		if e.isTmpDir(path) {
+			return filepath.SkipDir
+		}
+		// exclude hidden directories like .git, .idea, etc.
+		if isHiddenDirectory(path) {
+			return filepath.SkipDir
+		}
+		// exclude user specified directories
+		if e.isExcludeDir(path) {
+			e.watcherLog("!exclude %s", e.config.Rel(path))
+			return filepath.SkipDir
+		}
+		return e.watchDir(path)
 	})
 }
 
@@ -113,14 +114,14 @@ func (e *Engine) watchDir(path string) error {
 		e.watcherLog("failed to watching %s, error: %s", err.Error())
 		return err
 	}
-	e.watcherLog("watching %s", path)
+	e.watcherLog("watching %s", e.config.Rel(path))
 
 	go func() {
-		e.withLock(func(){
+		e.withLock(func() {
 			e.watchers++
 		})
 		defer func() {
-			e.withLock(func(){
+			e.withLock(func() {
 				e.watchers--
 			})
 		}()
@@ -139,7 +140,7 @@ func (e *Engine) watchDir(path string) error {
 				if !e.isIncludeExt(ev.Name) {
 					break
 				}
-				e.watcherLog("%s has changed", ev.Name)
+				e.watcherLog("%s has changed", e.config.Rel(ev.Name))
 				e.eventCh <- ev.Name
 			case err := <-e.watcher.Errors:
 				e.watcherLog("error: %s", err.Error())
@@ -232,7 +233,7 @@ func (e *Engine) runBin() error {
 	var err error
 
 	e.runnerLog("running...")
-	cmd := exec.Command("/bin/sh", "-c", e.config.Build.Bin)
+	cmd := exec.Command("/bin/sh", "-c", e.config.BinPath())
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -272,13 +273,13 @@ func (e *Engine) cleanup() {
 	e.mainLog("cleaning...")
 	defer e.mainLog("see you again~")
 
-	e.withLock(func(){
+	e.withLock(func() {
 		if e.binRunning {
 			e.binStopCh <- true
 		}
 	})
 
-	e.withLock(func(){
+	e.withLock(func() {
 		for i := 0; i < int(e.watchers); i++ {
 			e.watcherStopCh <- true
 		}
@@ -287,9 +288,6 @@ func (e *Engine) cleanup() {
 	var err error
 	if err = e.watcher.Close(); err != nil {
 		e.mainLog("failed to close watcher, error: %s", err.Error())
-	}
-	if err = os.RemoveAll(e.config.TmpPath); err != nil {
-		e.mainLog("failed to remove tmp dir, error: %s", err.Error())
 	}
 }
 
