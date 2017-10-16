@@ -153,9 +153,12 @@ func (e *Engine) watchDir(path string) error {
 // Endless loop and never return
 func (e *Engine) start() {
 	_binRunning := false
+	firstRunCh := make(chan bool, 1)
+	firstRunCh <- true
 
 	for {
 		var filename string
+		var firstRun bool
 
 		select {
 		case <-e.exitCh:
@@ -163,11 +166,13 @@ func (e *Engine) start() {
 		case filename = <-e.eventCh:
 			time.Sleep(e.config.BuildDelay())
 			e.flushEvents()
-		}
-
-		// TODO: better build policy
-		if !e.isIncludeExt(filename) {
-			continue
+			// TODO: better build policy
+			if !e.isIncludeExt(filename) {
+				continue
+			}
+		case firstRun = <-firstRunCh:
+			// go down
+			break
 		}
 
 		var err error
@@ -175,6 +180,9 @@ func (e *Engine) start() {
 		if err != nil {
 			e.buildLog("failed to build, error: %s", err.Error())
 			e.writeBuildErrorLog(err.Error())
+			if firstRun {
+				os.Exit(1)
+			}
 			continue
 		}
 		if _binRunning {
@@ -183,6 +191,9 @@ func (e *Engine) start() {
 		err = e.runBin()
 		if err != nil {
 			e.runnerLog("failed to run, error: %s", err.Error())
+			if firstRun {
+				os.Exit(1)
+			}
 		} else {
 			_binRunning = true
 		}
