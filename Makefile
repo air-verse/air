@@ -25,4 +25,9 @@ ci: init
 	@make check
 
 .PHONY: build
+build: check
 	go build -ldflags '$(LDFLAGS)'
+
+.PHONY: install
+install: check
+	go install -ldflags '$(LDFLAGS)'
