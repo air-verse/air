@@ -20,10 +20,12 @@ type Engine struct {
 	logger  *logger
 	watcher *fsnotify.Watcher
 
-	eventCh       chan string
-	binStopCh     chan bool
-	exitCh        chan bool
-	watcherStopCh chan bool
+	eventCh        chan string
+	watcherStopCh  chan bool
+	buildRunCh     chan bool
+	buildRunStopCh chan bool
+	binStopCh      chan bool
+	exitCh         chan bool
 
 	mu         sync.RWMutex
 	binRunning bool
@@ -46,15 +48,17 @@ func NewEngine(cfgPath string) (*Engine, error) {
 	}
 
 	return &Engine{
-		config:        cfg,
-		logger:        logger,
-		watcher:       watcher,
-		eventCh:       make(chan string, 1000),
-		binStopCh:     make(chan bool),
-		exitCh:        make(chan bool),
-		watcherStopCh: make(chan bool, 10),
-		binRunning:    false,
-		watchers:      0,
+		config:         cfg,
+		logger:         logger,
+		watcher:        watcher,
+		eventCh:        make(chan string, 1000),
+		watcherStopCh:  make(chan bool, 10),
+		buildRunCh:     make(chan bool, 1),
+		buildRunStopCh: make(chan bool, 1),
+		binStopCh:      make(chan bool),
+		exitCh:         make(chan bool),
+		binRunning:     false,
+		watchers:       0,
 	}, nil
 }
 
@@ -152,13 +156,11 @@ func (e *Engine) watchDir(path string) error {
 
 // Endless loop and never return
 func (e *Engine) start() {
-	_binRunning := false
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
 
 	for {
 		var filename string
-		var firstRun bool
 
 		select {
 		case <-e.exitCh:
@@ -166,38 +168,54 @@ func (e *Engine) start() {
 		case filename = <-e.eventCh:
 			time.Sleep(e.config.BuildDelay())
 			e.flushEvents()
-			// TODO: better build policy
 			if !e.isIncludeExt(filename) {
 				continue
 			}
-		case firstRun = <-firstRunCh:
+		case <-firstRunCh:
 			// go down
 			break
 		}
 
-		var err error
-		err = e.building()
-		if err != nil {
-			e.buildLog("failed to build, error: %s", err.Error())
-			e.writeBuildErrorLog(err.Error())
-			if firstRun {
-				os.Exit(1)
+		select {
+		case <-e.buildRunCh:
+			e.buildRunStopCh <- true
+		default:
+		}
+		e.withLock(func() {
+			if e.binRunning {
+				e.binStopCh <- true
 			}
-			continue
-		}
-		if _binRunning {
-			e.binStopCh <- true
-		}
-		err = e.runBin()
-		if err != nil {
-			e.runnerLog("failed to run, error: %s", err.Error())
-			if firstRun {
-				os.Exit(1)
-			}
-		} else {
-			_binRunning = true
-		}
+		})
+		go e.buildRun()
 	}
+}
+
+func (e *Engine) buildRun() {
+	e.buildRunCh <- true
+
+	select {
+	case <-e.buildRunStopCh:
+		return
+	default:
+	}
+	var err error
+	err = e.building()
+	if err != nil {
+		e.buildLog("failed to build, error: %s", err.Error())
+		e.writeBuildErrorLog(err.Error())
+	}
+
+	select {
+	case <-e.buildRunStopCh:
+		return
+	default:
+	}
+	err = e.runBin()
+	if err != nil {
+		e.runnerLog("failed to run, error: %s", err.Error())
+	}
+
+	<-e.buildRunCh
 }
 
 func (e *Engine) flushEvents() {
@@ -227,6 +245,7 @@ func (e *Engine) building() error {
 	if err != nil {
 		return err
 	}
+
 	io.Copy(os.Stdout, stdout)
 	errMsg, err := ioutil.ReadAll(stderr)
 	if err != nil {
@@ -268,8 +287,8 @@ func (e *Engine) runBin() error {
 
 	go func() {
 		<-e.binStopCh
-		pid := cmd.Process.Pid
-		if err := cmd.Process.Kill(); err != nil {
+		pid, err := killCmd(cmd)
+		if err != nil {
 			e.mainLog("failed to kill PID %d, error: %s", pid, err.Error())
 			os.Exit(1)
 		}

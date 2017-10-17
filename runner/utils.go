@@ -2,6 +2,7 @@ package runner
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -51,7 +52,7 @@ func (e *Engine) isExcludeDir(path string) bool {
 func (e *Engine) isIncludeExt(path string) bool {
 	ext := filepath.Ext(path)
 	for _, v := range e.config.Build.IncludeExt {
-		if ext == "." + strings.TrimSpace(v) {
+		if ext == "."+strings.TrimSpace(v) {
 			return true
 		}
 	}
@@ -93,4 +94,9 @@ func expandPath(path string) (string, error) {
 		return wd + path[2:], nil
 	}
 	return path, nil
+}
+
+func killCmd(cmd *exec.Cmd) (int, error) {
+	pid := cmd.Process.Pid
+	return pid, cmd.Process.Kill()
 }
