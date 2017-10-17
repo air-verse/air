@@ -100,3 +100,11 @@ func killCmd(cmd *exec.Cmd) (int, error) {
 	pid := cmd.Process.Pid
 	return pid, cmd.Process.Kill()
 }
+
+func isDir(path string) bool {
+	i, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return i.IsDir()
+}

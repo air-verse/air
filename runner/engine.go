@@ -70,7 +70,7 @@ func (e *Engine) Run() {
 		os.Exit(1)
 	}
 
-	if err = e.watching(); err != nil {
+	if err = e.watching(e.config.watchDirRoot()); err != nil {
 		os.Exit(1)
 	}
 
@@ -90,8 +90,8 @@ func (e *Engine) checkRunEnv() error {
 	return nil
 }
 
-func (e *Engine) watching() error {
-	return filepath.Walk(e.config.watchDirRoot(), func(path string, info os.FileInfo, err error) error {
+func (e *Engine) watching(root string) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		// NOTE: path is absolute
 		if !info.IsDir() {
 			return nil
@@ -131,7 +131,12 @@ func (e *Engine) watchDir(path string) error {
 		}()
 
 		validEvent := func(ev fsnotify.Event) bool {
-			return ev.Op&fsnotify.Create == fsnotify.Create || ev.Op&fsnotify.Write == fsnotify.Write
+			return ev.Op&fsnotify.Create == fsnotify.Create ||
+				ev.Op&fsnotify.Write == fsnotify.Write ||
+				ev.Op&fsnotify.Remove == fsnotify.Remove
+		}
+		removeEvent := func(ev fsnotify.Event) bool {
+			return ev.Op&fsnotify.Remove == fsnotify.Remove
 		}
 		for {
 			select {
@@ -139,6 +144,24 @@ func (e *Engine) watchDir(path string) error {
 				return
 			case ev := <-e.watcher.Events:
 				if !validEvent(ev) {
+					break
+				}
+				if isDir(ev.Name) {
+					if isHiddenDirectory(ev.Name) || e.isExcludeDir(ev.Name) {
+						e.watcherLog("!exclude %s", e.config.rel(ev.Name))
+						break
+					}
+					if removeEvent(ev) {
+						if err := e.watcher.Remove(ev.Name); err != nil {
+							e.watcherLog("failed to stop watching %s, error: %s", ev.Name, err.Error())
+						}
+						return
+					}
+					go func(dir string) {
+						if err := e.watching(dir); err != nil {
+							e.watcherLog("failed to watching %s, error: %s", ev.Name, err.Error())
+						}
+					}(ev.Name)
 					break
 				}
 				if !e.isIncludeExt(ev.Name) {
