@@ -26,8 +26,7 @@ type logger struct {
 	loggers map[string]logFunc
 }
 
-// NewLogger ...
-func NewLogger(cfg *config) *logger {
+func newLogger(cfg *config) *logger {
 	colors := cfg.colorInfo()
 	loggers := make(map[string]logFunc, len(colors))
 	for name, nameColor := range colors {
@@ -56,23 +55,23 @@ func getColor(name string) color.Attribute {
 	return color.FgWhite
 }
 
-func (l *logger) Main() logFunc {
+func (l *logger) main() logFunc {
 	return l.getLogger("main")
 }
 
-func (l *logger) Build() logFunc {
+func (l *logger) build() logFunc {
 	return l.getLogger("build")
 }
 
-func (l *logger) Runner() logFunc {
+func (l *logger) runner() logFunc {
 	return l.getLogger("runner")
 }
 
-func (l *logger) Watcher() logFunc {
+func (l *logger) watcher() logFunc {
 	return l.getLogger("watcher")
 }
 
-func (l *logger) App() logFunc {
+func (l *logger) app() logFunc {
 	return l.getLogger("app")
 }
 
@@ -95,7 +94,7 @@ type appLogWriter struct {
 
 func newAppLogWriter(l *logger) appLogWriter {
 	return appLogWriter{
-		l: l.App(),
+		l: l.app(),
 	}
 }
 

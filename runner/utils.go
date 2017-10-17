@@ -8,27 +8,27 @@ import (
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
-	e.logger.Main()(format, v...)
+	e.logger.main()(format, v...)
 }
 
 func (e *Engine) buildLog(format string, v ...interface{}) {
-	e.logger.Build()(format, v...)
+	e.logger.build()(format, v...)
 }
 
 func (e *Engine) runnerLog(format string, v ...interface{}) {
-	e.logger.Runner()(format, v...)
+	e.logger.runner()(format, v...)
 }
 
 func (e *Engine) watcherLog(format string, v ...interface{}) {
-	e.logger.Watcher()(format, v...)
+	e.logger.watcher()(format, v...)
 }
 
 func (e *Engine) appLog(format string, v ...interface{}) {
-	e.logger.App()(format, v...)
+	e.logger.app()(format, v...)
 }
 
 func (e *Engine) isTmpDir(path string) bool {
-	return e.config.FullPath(path) == e.config.TmpPath()
+	return e.config.fullPath(path) == e.config.tmpPath()
 }
 
 func isHiddenDirectory(path string) bool {
@@ -40,7 +40,7 @@ func cleanPath(path string) string {
 }
 
 func (e *Engine) isExcludeDir(path string) bool {
-	rp := e.config.Rel(path)
+	rp := e.config.rel(path)
 	for _, d := range e.config.Build.ExcludeDir {
 		if cleanPath(rp) == d {
 			return true
@@ -61,7 +61,7 @@ func (e *Engine) isIncludeExt(path string) bool {
 
 func (e *Engine) writeBuildErrorLog(msg string) error {
 	var err error
-	f, err := os.OpenFile(e.config.BuildLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(e.config.buildLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}

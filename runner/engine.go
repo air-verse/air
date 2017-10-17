@@ -35,12 +35,12 @@ type Engine struct {
 // NewEngine ...
 func NewEngine(cfgPath string) (*Engine, error) {
 	var err error
-	cfg, err := InitConfig(cfgPath)
+	cfg, err := initConfig(cfgPath)
 	if err != nil {
 		return nil, err
 	}
 
-	logger := NewLogger(cfg)
+	logger := newLogger(cfg)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -79,7 +79,7 @@ func (e *Engine) Run() {
 }
 
 func (e *Engine) checkRunEnv() error {
-	p := e.config.TmpPath()
+	p := e.config.tmpPath()
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		e.runnerLog("mkdir %s", p)
 		if err := os.Mkdir(p, 0755); err != nil {
@@ -91,7 +91,7 @@ func (e *Engine) checkRunEnv() error {
 }
 
 func (e *Engine) watching() error {
-	return filepath.Walk(e.config.WatchDirRoot(), func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(e.config.watchDirRoot(), func(path string, info os.FileInfo, err error) error {
 		// NOTE: path is absolute
 		if !info.IsDir() {
 			return nil
@@ -106,7 +106,7 @@ func (e *Engine) watching() error {
 		}
 		// exclude user specified directories
 		if e.isExcludeDir(path) {
-			e.watcherLog("!exclude %s", e.config.Rel(path))
+			e.watcherLog("!exclude %s", e.config.rel(path))
 			return filepath.SkipDir
 		}
 		return e.watchDir(path)
@@ -118,7 +118,7 @@ func (e *Engine) watchDir(path string) error {
 		e.watcherLog("failed to watching %s, error: %s", err.Error())
 		return err
 	}
-	e.watcherLog("watching %s", e.config.Rel(path))
+	e.watcherLog("watching %s", e.config.rel(path))
 
 	go func() {
 		e.withLock(func() {
@@ -144,7 +144,7 @@ func (e *Engine) watchDir(path string) error {
 				if !e.isIncludeExt(ev.Name) {
 					break
 				}
-				e.watcherLog("%s has changed", e.config.Rel(ev.Name))
+				e.watcherLog("%s has changed", e.config.rel(ev.Name))
 				e.eventCh <- ev.Name
 			case err := <-e.watcher.Errors:
 				e.watcherLog("error: %s", err.Error())
@@ -166,7 +166,7 @@ func (e *Engine) start() {
 		case <-e.exitCh:
 			return
 		case filename = <-e.eventCh:
-			time.Sleep(e.config.BuildDelay())
+			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
 			if !e.isIncludeExt(filename) {
 				continue
@@ -263,7 +263,7 @@ func (e *Engine) runBin() error {
 	var err error
 
 	e.runnerLog("running...")
-	cmd := exec.Command("/bin/sh", "-c", e.config.BinPath())
+	cmd := exec.Command("/bin/sh", "-c", e.config.binPath())
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -321,6 +321,7 @@ func (e *Engine) cleanup() {
 	}
 }
 
+// Stop the air
 func (e *Engine) Stop() {
 	e.exitCh <- true
 }

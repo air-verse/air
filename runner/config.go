@@ -36,8 +36,7 @@ type cfgColor struct {
 	App     string `toml:"app"`
 }
 
-// InitConfig loads config info
-func InitConfig(path string) (*config, error) {
+func initConfig(path string) (*config, error) {
 	var err error
 	var useDftCfg bool
 	dft := defaultConfig()
@@ -133,34 +132,34 @@ func dftConfPath() (string, error) {
 	return filepath.Join(wd, dftConf), nil
 }
 
-func (c *config) WatchDirRoot() string {
+func (c *config) watchDirRoot() string {
 	if c.WatchDir != "" {
-		return c.FullPath(c.WatchDir)
+		return c.fullPath(c.WatchDir)
 	}
 	return c.Root
 }
 
-func (c *config) BuildLogPath() string {
-	return filepath.Join(c.TmpPath(), c.Build.Log)
+func (c *config) buildLogPath() string {
+	return filepath.Join(c.tmpPath(), c.Build.Log)
 }
 
-func (c *config) BuildDelay() time.Duration {
+func (c *config) buildDelay() time.Duration {
 	return time.Duration(c.Build.Delay) * time.Millisecond
 }
 
-func (c *config) FullPath(path string) string {
+func (c *config) fullPath(path string) string {
 	return filepath.Join(c.Root, path)
 }
 
-func (c *config) BinPath() string {
+func (c *config) binPath() string {
 	return filepath.Join(c.Root, c.Build.Bin)
 }
 
-func (c *config) TmpPath() string {
+func (c *config) tmpPath() string {
 	return filepath.Join(c.Root, c.TmpDir)
 }
 
-func (c *config) Rel(path string) string {
+func (c *config) rel(path string) string {
 	s, err := filepath.Rel(c.Root, path)
 	if err != nil {
 		return ""
