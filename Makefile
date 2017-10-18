@@ -31,3 +31,8 @@ build: check
 .PHONY: install
 install: check
 	go install -ldflags '$(LDFLAGS)'
+
+.PHONY: release
+release: check
+	GOOS=darwin go build -ldflags '$(LDFLAGS)' -o bin/darwin/air
+	GOOS=linux go build -ldflags '$(LDFLAGS)' -o bin/linux/air
