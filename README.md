@@ -82,8 +82,8 @@ See the complete [air.conf.example](air.conf.example)
 # 1. fork this project
 
 # 2. clone it
-mkdir -p $GOPATH/github.com/cosmtrek
-cd $GOPATH/github.com/cosmtrek
+mkdir -p $GOPATH/src/github.com/cosmtrek
+cd $GOPATH/src/github.com/cosmtrek
 git clone git@github.com:<YOUR USERNAME>/air.git
 
 # 3. install dependencies
