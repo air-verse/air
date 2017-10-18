@@ -12,6 +12,7 @@ import (
 )
 
 var cfgPath string
+var debugMode bool
 
 func main() {
 	fmt.Print(`
@@ -26,13 +27,14 @@ Live reload for Go apps :)
 
 `)
 	flag.StringVar(&cfgPath, "c", "", "config path")
+	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.Parse()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	var err error
-	r, err := runner.NewEngine(cfgPath)
+	r, err := runner.NewEngine(cfgPath, debugMode)
 	if err != nil {
 		log.Fatal(err)
 	}

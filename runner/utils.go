@@ -11,20 +11,50 @@ func (e *Engine) mainLog(format string, v ...interface{}) {
 	e.logger.main()(format, v...)
 }
 
+func (e *Engine) mainDebug(format string, v ...interface{}) {
+	if e.debugMode {
+		e.mainLog(format, v...)
+	}
+}
+
 func (e *Engine) buildLog(format string, v ...interface{}) {
 	e.logger.build()(format, v...)
+}
+
+func (e *Engine) buildDebug(format string, v ...interface{}) {
+	if e.debugMode {
+		e.buildLog(format, v...)
+	}
 }
 
 func (e *Engine) runnerLog(format string, v ...interface{}) {
 	e.logger.runner()(format, v...)
 }
 
+func (e *Engine) runnerDebug(format string, v ...interface{}) {
+	if e.debugMode {
+		e.runnerLog(format, v...)
+	}
+}
+
 func (e *Engine) watcherLog(format string, v ...interface{}) {
 	e.logger.watcher()(format, v...)
 }
 
+func (e *Engine) watcherDebug(format string, v ...interface{}) {
+	if e.debugMode {
+		e.watcherLog(format, v...)
+	}
+}
+
 func (e *Engine) appLog(format string, v ...interface{}) {
 	e.logger.app()(format, v...)
+}
+
+func (e *Engine) appDebug(format string, v ...interface{}) {
+	if e.debugMode {
+		e.appLog(format, v...)
+	}
 }
 
 func (e *Engine) isTmpDir(path string) bool {

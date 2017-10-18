@@ -56,6 +56,10 @@ air -c .air.conf
 
 See the complete [air.conf.example](air.conf.example)
 
+### Debug
+
+`air -d` prints all logs.
+
 ## Contributing
 
 PRs are welcome~
