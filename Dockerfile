@@ -1,10 +1,10 @@
-FROM golang
+FROM golang:1.9
 
 MAINTAINER Rick Yu <cosmtrek@gmail.com>
 
 ENV GOPATH /go
 
-ADD . /go/src/github.com/cosmtrek/air
+COPY . /go/src/github.com/cosmtrek/air
 WORKDIR /go/src/github.com/cosmtrek/air
 RUN make ci && make install
 
