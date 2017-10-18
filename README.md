@@ -91,6 +91,7 @@ cd air
 make ci
 
 # 4. explore it and happy hacking!
+make install
 ```
 
 ## Contributing
