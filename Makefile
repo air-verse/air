@@ -22,7 +22,6 @@ check:
 .PHONY: ci
 ci: init
 	@glide install
-	@make check
 
 .PHONY: build
 build: check
@@ -34,5 +33,9 @@ install: check
 
 .PHONY: release
 release: check
-	GOOS=darwin go build -ldflags '$(LDFLAGS)' -o bin/darwin/air
-	GOOS=linux go build -ldflags '$(LDFLAGS)' -o bin/linux/air
+	GOOS=darwin GOARCH=amd64 go build -ldflags '$(LDFLAGS)' -o bin/darwin/air
+	GOOS=linux GOARCH=amd64 go build -ldflags '$(LDFLAGS)' -o bin/linux/air
+
+.PHONY: docker-image
+docker-image:
+	docker build -t cosmtrek/air:latest -f ./Dockerfile .

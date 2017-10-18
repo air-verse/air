@@ -9,7 +9,10 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
-const dftConf = ".air.conf"
+const (
+	dftConf = ".air.conf"
+	airWd   = "air_wd"
+)
 
 type config struct {
 	Root     string   `toml:"root"`
@@ -42,10 +45,15 @@ func initConfig(path string) (*config, error) {
 	dft := defaultConfig()
 	if path == "" {
 		useDftCfg = true
-		// when path is blank, first find `.air.conf` in root directory, if not found, use defaults
-		path, err = dftConfPath()
-		if err != nil {
-			return &dft, nil
+		// when path is blank, first find `.air.conf` in `air_wd` and current working directory, if not found, use defaults
+		wd := os.Getenv(airWd)
+		if wd != "" {
+			path = filepath.Join(wd, dftConf)
+		} else {
+			path, err = dftConfPath()
+			if err != nil {
+				return &dft, nil
+			}
 		}
 	}
 	cfg, err := readConfig(path)
@@ -99,6 +107,13 @@ func readConfig(path string) (*config, error) {
 func (c *config) preprocess() error {
 	// TODO: merge defaults if some options are not set
 	var err error
+	cwd := os.Getenv(airWd)
+	if cwd != "" {
+		if err = os.Chdir(cwd); err != nil {
+			return err
+		}
+		c.Root = cwd
+	}
 	c.Root, err = expandPath(c.Root)
 	if c.TmpDir == "" {
 		c.TmpDir = "tmp"

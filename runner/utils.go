@@ -61,7 +61,7 @@ func (e *Engine) appDebug(format string, v ...interface{}) {
 }
 
 func (e *Engine) isTmpDir(path string) bool {
-	return e.config.fullPath(path) == e.config.tmpPath()
+	return path == e.config.tmpPath()
 }
 
 func isHiddenDirectory(path string) bool {
@@ -111,7 +111,7 @@ func (e *Engine) withLock(f func()) {
 }
 
 func expandPath(path string) (string, error) {
-	if strings.HasPrefix(path, "~") {
+	if strings.HasPrefix(path, "~/") {
 		home := os.Getenv("HOME")
 		return home + path[1:], nil
 	}
@@ -124,7 +124,7 @@ func expandPath(path string) (string, error) {
 		return wd, nil
 	}
 	if strings.HasPrefix(path, "./") {
-		return wd + path[2:], nil
+		return wd + path[1:], nil
 	}
 	return path, nil
 }

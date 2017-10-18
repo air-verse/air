@@ -39,7 +39,27 @@ curl -fLo ~/.air https://raw.githubusercontent.com/cosmtrek/air/master/bin/linux
 chmod +x ~/.air
 ``` 
 
-Sorry for no Windows platform I'm not working on, but PRs are welcome :)
+### Docker way
+
+```bash
+docker run -it --rm \
+    -e "air_wd=<YOUR PROJECT DIR>" \
+    -v $(pwd):<YOUR PROJECT DIR> \
+    -p <PORT>:<YOUR APP SERVER PORT> \ 
+    cosmtrek/air
+``` 
+
+For example, one of my project runs in docker:
+
+```bash
+docker run -it --rm \ 
+    -e "air_wd=/go/src/github.com/cosmtrek/hub" \
+    -v $(pwd):/go/src/github.com/cosmtrek/hub \
+    -p 9090:9090 \
+    cosmtrek/air
+```
+
+Sorry for no Windows platform since I'm not working on it, but PRs are welcome :)
 
 For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
 

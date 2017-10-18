@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
@@ -65,12 +66,12 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 
 // Run run run
 func (e *Engine) Run() {
-	var err error
+	e.mainDebug("CWD: %s", e.config.Root)
 
+	var err error
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
-
 	if err = e.watching(e.config.watchDirRoot()); err != nil {
 		os.Exit(1)
 	}
@@ -99,6 +100,7 @@ func (e *Engine) watching(root string) error {
 		}
 		// exclude tmp dir
 		if e.isTmpDir(path) {
+			e.watcherLog("!exclude %s", e.config.rel(path))
 			return filepath.SkipDir
 		}
 		// exclude hidden directories like .git, .idea, etc.
@@ -286,8 +288,9 @@ func (e *Engine) runBin() error {
 	go io.Copy(aw, stderr)
 	go io.Copy(aw, stdout)
 
-	go func() {
+	go func(cmd *exec.Cmd) {
 		<-e.binStopCh
+		e.mainDebug("trying to kill cmd %+v", cmd)
 		pid, err := killCmd(cmd)
 		if err != nil {
 			e.mainLog("failed to kill PID %d, error: %s", pid, err.Error())
@@ -296,7 +299,7 @@ func (e *Engine) runBin() error {
 		e.withLock(func() {
 			e.binRunning = false
 		})
-	}()
+	}(cmd)
 	return nil
 }
 
