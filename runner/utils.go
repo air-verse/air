@@ -1,10 +1,13 @@
 package runner
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
@@ -137,4 +140,32 @@ func isDir(path string) bool {
 		return false
 	}
 	return i.IsDir()
+}
+
+func validEvent(ev fsnotify.Event) bool {
+	return ev.Op&fsnotify.Create == fsnotify.Create ||
+		ev.Op&fsnotify.Write == fsnotify.Write ||
+		ev.Op&fsnotify.Remove == fsnotify.Remove
+}
+
+func removeEvent(ev fsnotify.Event) bool {
+	return ev.Op&fsnotify.Remove == fsnotify.Remove
+}
+
+func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+	var err error
+	c := exec.Command("/bin/sh", "-c", cmd)
+	stderr, err := c.StderrPipe()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	stdout, err := c.StdoutPipe()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	err = c.Start()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return c, stdout, stderr, err
 }

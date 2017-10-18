@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
@@ -132,14 +131,6 @@ func (e *Engine) watchDir(path string) error {
 			})
 		}()
 
-		validEvent := func(ev fsnotify.Event) bool {
-			return ev.Op&fsnotify.Create == fsnotify.Create ||
-				ev.Op&fsnotify.Write == fsnotify.Write ||
-				ev.Op&fsnotify.Remove == fsnotify.Remove
-		}
-		removeEvent := func(ev fsnotify.Event) bool {
-			return ev.Op&fsnotify.Remove == fsnotify.Remove
-		}
 		for {
 			select {
 			case <-e.watcherStopCh:
@@ -150,21 +141,7 @@ func (e *Engine) watchDir(path string) error {
 					break
 				}
 				if isDir(ev.Name) {
-					if isHiddenDirectory(ev.Name) || e.isExcludeDir(ev.Name) {
-						e.watcherLog("!exclude %s", e.config.rel(ev.Name))
-						break
-					}
-					if removeEvent(ev) {
-						if err := e.watcher.Remove(ev.Name); err != nil {
-							e.watcherLog("failed to stop watching %s, error: %s", ev.Name, err.Error())
-						}
-						return
-					}
-					go func(dir string) {
-						if err := e.watching(dir); err != nil {
-							e.watcherLog("failed to watching %s, error: %s", ev.Name, err.Error())
-						}
-					}(ev.Name)
+					e.watchNewDir(ev.Name, removeEvent(ev))
 					break
 				}
 				if !e.isIncludeExt(ev.Name) {
@@ -178,6 +155,24 @@ func (e *Engine) watchDir(path string) error {
 		}
 	}()
 	return nil
+}
+
+func (e *Engine) watchNewDir(dir string, removeDir bool) {
+	if isHiddenDirectory(dir) || e.isExcludeDir(dir) {
+		e.watcherLog("!exclude %s", e.config.rel(dir))
+		return
+	}
+	if removeDir {
+		if err := e.watcher.Remove(dir); err != nil {
+			e.watcherLog("failed to stop watching %s, error: %s", dir, err.Error())
+		}
+		return
+	}
+	go func(dir string) {
+		if err := e.watching(dir); err != nil {
+			e.watcherLog("failed to watching %s, error: %s", dir, err.Error())
+		}
+	}(dir)
 }
 
 // Endless loop and never return
@@ -257,27 +252,17 @@ func (e *Engine) flushEvents() {
 
 func (e *Engine) building() error {
 	var err error
-
 	e.buildLog("building...")
-	cmd := exec.Command("/bin/sh", "-c", e.config.Build.Cmd)
-	stderr, err := cmd.StderrPipe()
+	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
 	if err != nil {
 		return err
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	err = cmd.Start()
-	if err != nil {
-		return err
-	}
-
 	io.Copy(os.Stdout, stdout)
 	errMsg, err := ioutil.ReadAll(stderr)
 	if err != nil {
 		return err
 	}
+	// wait for building
 	err = cmd.Wait()
 	if err != nil {
 		e := fmt.Sprintf("stderr: %s, cmd err: %s", string(errMsg), err)
@@ -288,22 +273,11 @@ func (e *Engine) building() error {
 
 func (e *Engine) runBin() error {
 	var err error
-
 	e.runnerLog("running...")
-	cmd := exec.Command("/bin/sh", "-c", e.config.binPath())
-	stderr, err := cmd.StderrPipe()
+	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Bin)
 	if err != nil {
 		return err
 	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	err = cmd.Start()
-	if err != nil {
-		return err
-	}
-
 	e.withLock(func() {
 		e.binRunning = true
 	})
