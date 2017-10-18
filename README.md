@@ -14,11 +14,34 @@ In addition, great thanks to [pilu](https://github.com/pilu), no fresh, no air :
 Air is a terminal command for live-reloading Go applications. Just `air` in your project root directory, leave it alone,
 and focus on your code.
 
+## Features
+
+* Colorful log output
+* Customize go build command
+* Customize binary execution command
+* Support excluding subdirectories
+* Allow watching new directories after Air started
+* Better building process
+
 ## Installation
 
+### on macOS
+
 ```bash
-go get github.com/cosmtrek/air
+curl -fLo ~/.air https://raw.githubusercontent.com/cosmtrek/air/master/bin/darwin/air
+chmod +x ~/.air
 ```
+
+### on Linux
+
+```bash
+curl -fLo ~/.air https://raw.githubusercontent.com/cosmtrek/air/master/bin/linux/air
+chmod +x ~/.air
+``` 
+
+Sorry for no Windows platform I'm not working on, but PRs are welcome :)
+
+For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
 
 ## Usage
 
@@ -52,6 +75,23 @@ See the complete [air.conf.example](air.conf.example)
 ### Debug
 
 `air -d` prints all logs.
+
+## Development
+
+```bash
+# 1. fork this project
+
+# 2. clone it
+mkdir -p $GOPATH/github.com/cosmtrek
+cd $GOPATH/github.com/cosmtrek
+git clone git@github.com:cosmtrek/air.git
+
+# 3. install dependencies
+cd air
+make ci
+
+# 4. explore it and happy hacking!
+```
 
 ## Contributing
 
