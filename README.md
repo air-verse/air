@@ -28,18 +28,22 @@ and focus on your code.
 ### on macOS
 
 ```bash
-curl -fLo ~/.air https://raw.githubusercontent.com/cosmtrek/air/master/bin/darwin/air
+curl -fLo ~/.air \ 
+    https://raw.githubusercontent.com/cosmtrek/air/master/bin/darwin/air
 chmod +x ~/.air
 ```
 
 ### on Linux
 
 ```bash
-curl -fLo ~/.air https://raw.githubusercontent.com/cosmtrek/air/master/bin/linux/air
+curl -fLo ~/.air \
+    https://raw.githubusercontent.com/cosmtrek/air/master/bin/linux/air
 chmod +x ~/.air
 ``` 
 
 ### Docker way
+
+Please check this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
 ```bash
 docker run -it --rm \
@@ -59,11 +63,13 @@ docker run -it --rm \
     cosmtrek/air
 ```
 
+### Windows
+
 Sorry for no Windows platform since I'm not working on it, but PRs are welcome :)
 
-For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
-
 ## Usage
+
+For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
 
 First enter into your project
 
