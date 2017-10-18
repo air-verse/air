@@ -84,7 +84,7 @@ See the complete [air.conf.example](air.conf.example)
 # 2. clone it
 mkdir -p $GOPATH/github.com/cosmtrek
 cd $GOPATH/github.com/cosmtrek
-git clone git@github.com:cosmtrek/air.git
+git clone git@github.com:<YOUR USERNAME>/air.git
 
 # 3. install dependencies
 cd air
