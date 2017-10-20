@@ -169,3 +169,7 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	}
 	return c, stdout, stderr, err
 }
+
+func cmdPath(path string) string {
+	return strings.Split(path, " ")[0]
+}

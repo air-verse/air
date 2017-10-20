@@ -290,7 +290,8 @@ func (e *Engine) runBin() error {
 
 	go func(cmd *exec.Cmd) {
 		<-e.binStopCh
-		e.mainDebug("trying to kill cmd %+v", cmd)
+		e.mainDebug("trying to kill cmd %+v", cmd.Args)
+		var err error
 		pid, err := killCmd(cmd)
 		if err != nil {
 			e.mainLog("failed to kill PID %d, error: %s", pid, err.Error())
@@ -299,6 +300,9 @@ func (e *Engine) runBin() error {
 		e.withLock(func() {
 			e.binRunning = false
 		})
+		if err = os.Remove(cmdPath(e.config.binPath())); err != nil {
+			e.mainLog("failed to remove %s", e.config.rel(e.config.binPath()))
+		}
 	}(cmd)
 	return nil
 }
