@@ -295,7 +295,9 @@ func (e *Engine) runBin() error {
 		pid, err := killCmd(cmd)
 		if err != nil {
 			e.mainLog("failed to kill PID %d, error: %s", pid, err.Error())
-			os.Exit(1)
+			if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+				os.Exit(1)
+			}
 		}
 		e.withLock(func() {
 			e.binRunning = false

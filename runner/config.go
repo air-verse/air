@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/pelletier/go-toml"
@@ -75,6 +76,10 @@ func defaultConfig() config {
 		IncludeExt: []string{"go", "tpl", "tmpl", "html"},
 		ExcludeDir: []string{"assets", "tmp", "vendor"},
 		Delay:      1000,
+	}
+	if runtime.GOOS == "windows" {
+		build.Bin = `tmp\main`
+		build.Cmd = "go build -o ./tmp/main.exe main.go"
 	}
 	color := cfgColor{
 		Main:    "magenta",

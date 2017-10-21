@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/fatih/color"
@@ -44,7 +43,7 @@ func newLogFunc(nameColor string) logFunc {
 		t := time.Now().Format("15:04:05.000")
 		fmtStr := "[%s] %s\n"
 		format := fmt.Sprintf(fmtStr, t, msg)
-		color.New(getColor(nameColor)).Fprintf(os.Stdout, format, v...)
+		color.New(getColor(nameColor)).Fprintf(color.Output, format, v...)
 	}
 }
 

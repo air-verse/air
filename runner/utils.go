@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -154,7 +155,12 @@ func removeEvent(ev fsnotify.Event) bool {
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	var err error
-	c := exec.Command("/bin/sh", "-c", cmd)
+	var c *exec.Cmd
+	if runtime.GOOS == "windows" {
+		c = exec.Command("cmd", "/c", cmd)
+	} else {
+		c = exec.Command("/bin/sh", "-c", cmd)
+	}
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err
