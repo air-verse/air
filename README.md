@@ -41,6 +41,16 @@ curl -fLo ~/.air \
 chmod +x ~/.air
 ``` 
 
+### Windows
+
+```bash
+curl -fLo ~/.air \
+    https://raw.githubusercontent.com/cosmtrek/air/master/bin/windows/air
+chmod +x ~/.air
+```
+
+P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
+
 ### Docker way
 
 Please check this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
@@ -62,10 +72,6 @@ docker run -it --rm \
     -p 9090:9090 \
     cosmtrek/air
 ```
-
-### Windows
-
-Sorry for no Windows platform since I'm not working on it, but PRs are welcome :)
 
 ## Usage
 
