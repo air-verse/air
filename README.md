@@ -41,7 +41,7 @@ curl -fLo ~/.air \
 chmod +x ~/.air
 ``` 
 
-### Windows
+### on Windows
 
 ```bash
 curl -fLo ~/.air \
