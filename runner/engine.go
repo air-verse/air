@@ -305,7 +305,7 @@ func (e *Engine) runBin() error {
 			e.binRunning = false
 		})
 		if err = os.Remove(cmdPath(e.config.binPath())); err != nil {
-			e.mainLog("failed to remove %s", e.config.rel(e.config.binPath()))
+			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
 	}(cmd)
 	return nil
