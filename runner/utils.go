@@ -12,7 +12,9 @@ import (
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
-	e.logger.main()(format, v...)
+	e.logWithLock(func() {
+		e.logger.main()(format, v...)
+	})
 }
 
 func (e *Engine) mainDebug(format string, v ...interface{}) {
@@ -22,7 +24,9 @@ func (e *Engine) mainDebug(format string, v ...interface{}) {
 }
 
 func (e *Engine) buildLog(format string, v ...interface{}) {
-	e.logger.build()(format, v...)
+	e.logWithLock(func() {
+		e.logger.build()(format, v...)
+	})
 }
 
 func (e *Engine) buildDebug(format string, v ...interface{}) {
@@ -32,7 +36,9 @@ func (e *Engine) buildDebug(format string, v ...interface{}) {
 }
 
 func (e *Engine) runnerLog(format string, v ...interface{}) {
-	e.logger.runner()(format, v...)
+	e.logWithLock(func() {
+		e.logger.runner()(format, v...)
+	})
 }
 
 func (e *Engine) runnerDebug(format string, v ...interface{}) {
@@ -42,7 +48,9 @@ func (e *Engine) runnerDebug(format string, v ...interface{}) {
 }
 
 func (e *Engine) watcherLog(format string, v ...interface{}) {
-	e.logger.watcher()(format, v...)
+	e.logWithLock(func() {
+		e.logger.watcher()(format, v...)
+	})
 }
 
 func (e *Engine) watcherDebug(format string, v ...interface{}) {
@@ -52,7 +60,9 @@ func (e *Engine) watcherDebug(format string, v ...interface{}) {
 }
 
 func (e *Engine) appLog(format string, v ...interface{}) {
-	e.logger.app()(format, v...)
+	e.logWithLock(func() {
+		e.logger.app()(format, v...)
+	})
 }
 
 func (e *Engine) appDebug(format string, v ...interface{}) {
@@ -109,6 +119,12 @@ func (e *Engine) withLock(f func()) {
 	e.mu.Lock()
 	f()
 	e.mu.Unlock()
+}
+
+func (e *Engine) logWithLock(f func()) {
+	e.ll.Lock()
+	f()
+	e.ll.Unlock()
 }
 
 func expandPath(path string) (string, error) {

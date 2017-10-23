@@ -31,6 +31,8 @@ type Engine struct {
 	mu         sync.RWMutex
 	binRunning bool
 	watchers   uint
+
+	ll         sync.Mutex // lock for logger
 }
 
 // NewEngine ...
