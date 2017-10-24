@@ -14,7 +14,14 @@ import (
 var cfgPath string
 var debugMode bool
 
+func init() {
+	flag.StringVar(&cfgPath, "c", "", "config path")
+	flag.BoolVar(&debugMode, "d", false, "debug mode")
+}
+
 func main() {
+	flag.Parse()
+
 	fmt.Print(`
              _
      /\     (_)
@@ -24,11 +31,10 @@ func main() {
  /_/    \_\ |_| |_|
 
 Live reload for Go apps :)
-
 `)
-	flag.StringVar(&cfgPath, "c", "", "config path")
-	flag.BoolVar(&debugMode, "d", false, "debug mode")
-	flag.Parse()
+	if debugMode {
+		fmt.Println("[debug] mode")
+	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

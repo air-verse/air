@@ -32,7 +32,7 @@ type Engine struct {
 	binRunning bool
 	watchers   uint
 
-	ll         sync.Mutex // lock for logger
+	ll sync.Mutex // lock for logger
 }
 
 // NewEngine ...
@@ -151,7 +151,7 @@ func (e *Engine) watchDir(path string) error {
 				if !e.isIncludeExt(ev.Name) {
 					break
 				}
-				e.watcherLog("%s has changed", e.config.rel(ev.Name))
+				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
 				e.eventCh <- ev.Name
 			case err := <-e.watcher.Errors:
 				e.watcherLog("error: %s", err.Error())
@@ -162,6 +162,9 @@ func (e *Engine) watchDir(path string) error {
 }
 
 func (e *Engine) watchNewDir(dir string, removeDir bool) {
+	if e.isTmpDir(dir) {
+		return
+	}
 	if isHiddenDirectory(dir) || e.isExcludeDir(dir) {
 		e.watcherLog("!exclude %s", e.config.rel(dir))
 		return
@@ -196,6 +199,7 @@ func (e *Engine) start() {
 			if !e.isIncludeExt(filename) {
 				continue
 			}
+			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
 			break
@@ -296,15 +300,21 @@ func (e *Engine) runBin() error {
 		var err error
 		pid, err := killCmd(cmd)
 		if err != nil {
-			e.mainLog("failed to kill PID %d, error: %s", pid, err.Error())
+			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
 			if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
 				os.Exit(1)
 			}
+		} else {
+			e.mainDebug("cmd killed, pid: %d", pid)
 		}
 		e.withLock(func() {
 			e.binRunning = false
 		})
-		if err = os.Remove(cmdPath(e.config.binPath())); err != nil {
+		cmdBinPath := cmdPath(e.config.binPath())
+		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
+			return
+		}
+		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
 	}(cmd)

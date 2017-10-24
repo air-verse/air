@@ -44,9 +44,8 @@ chmod +x ~/.air
 ### on Windows
 
 ```bash
-curl -fLo ~/.air \
-    https://raw.githubusercontent.com/cosmtrek/air/master/bin/windows/air
-chmod +x ~/.air
+curl -fLo ~/.air.exe \
+    https://raw.githubusercontent.com/cosmtrek/air/master/bin/windows/air.exe
 ```
 
 P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.

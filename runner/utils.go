@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -148,6 +149,11 @@ func expandPath(path string) (string, error) {
 
 func killCmd(cmd *exec.Cmd) (int, error) {
 	pid := cmd.Process.Pid
+	// https://stackoverflow.com/a/44551450
+	if runtime.GOOS == "windows" {
+		kill := exec.Command("TASKKILL", "/T", "/F", "/PID", strconv.Itoa(cmd.Process.Pid))
+		return pid, kill.Run()
+	}
 	return pid, cmd.Process.Kill()
 }
 

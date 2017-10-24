@@ -78,7 +78,7 @@ func defaultConfig() config {
 		Delay:      1000,
 	}
 	if runtime.GOOS == "windows" {
-		build.Bin = `tmp\main`
+		build.Bin = `tmp\main.exe`
 		build.Cmd = "go build -o ./tmp/main.exe main.go"
 	}
 	color := cfgColor{
