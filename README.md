@@ -6,29 +6,31 @@
 
 ## Motivation
 
-When I get started with developing websites in Go and [gin](https://github.com/gin-gonic/gin) framework, it's a pity 
-that gin lacks live-reloading function. In fact, I tried [fresh](https://github.com/pilu/fresh) and it seems not much 
-flexible, so I intended to rewrite it in a better way. Finally, Air's born. 
+When I get started with developing websites in Go and [gin](https://github.com/gin-gonic/gin) framework, it's a pity
+that gin lacks live-reloading function. In fact, I tried [fresh](https://github.com/pilu/fresh) and it seems not much
+flexible, so I intended to rewrite it in a better way. Finally, Air's born.
 In addition, great thanks to [pilu](https://github.com/pilu), no fresh, no air :)
 
-Air is a terminal command for live-reloading Go applications. Just `air` in your project root directory, leave it alone,
+Air is yet another live-reloading command line utility for Go applications in development. Just `air` in your project root directory, leave it alone,
 and focus on your code.
+
+NOTE: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
-* Colorful log output
-* Customize go build command
-* Customize binary execution command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+* colorful log output
+* customize go build command
+* customize binary execution command
+* support excluding subdirectories
+* allow watching new directories after Air started
+* better building process
 
 ## Installation
 
 ### on macOS
 
 ```bash
-curl -fLo ~/.air \ 
+curl -fLo ~/.air \
     https://raw.githubusercontent.com/cosmtrek/air/master/bin/darwin/air
 chmod +x ~/.air
 ```
@@ -39,7 +41,7 @@ chmod +x ~/.air
 curl -fLo ~/.air \
     https://raw.githubusercontent.com/cosmtrek/air/master/bin/linux/air
 chmod +x ~/.air
-``` 
+```
 
 ### on Windows
 
@@ -52,20 +54,20 @@ P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for suppo
 
 ### Docker way
 
-Please check this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
+Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
 ```bash
 docker run -it --rm \
     -e "air_wd=<YOUR PROJECT DIR>" \
     -v $(pwd):<YOUR PROJECT DIR> \
-    -p <PORT>:<YOUR APP SERVER PORT> \ 
+    -p <PORT>:<YOUR APP SERVER PORT> \
     cosmtrek/air
-``` 
+```
 
 For example, one of my project runs in docker:
 
 ```bash
-docker run -it --rm \ 
+docker run -it --rm \
     -e "air_wd=/go/src/github.com/cosmtrek/hub" \
     -v $(pwd):/go/src/github.com/cosmtrek/hub \
     -p 9090:9090 \
