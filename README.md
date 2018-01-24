@@ -38,6 +38,12 @@ chmod +x ~/.air
 ### on Linux
 
 ```bash
+go get github.com/cosmtrek/air # Then run "air" in project directory
+```
+
+or
+
+```bash
 curl -fLo ~/.air \
     https://raw.githubusercontent.com/cosmtrek/air/master/bin/linux/air
 chmod +x ~/.air
