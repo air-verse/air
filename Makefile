@@ -3,9 +3,8 @@ LDFLAGS += -X "main.Version=$(shell git rev-parse HEAD)"
 
 .PHONY: init
 init:
-	go get -u golang.org/x/tools/cmd/goimports
 	go get -u github.com/golang/lint/golint
-	go get -u github.com/Masterminds/glide
+	go get -u github.com/golang/dep/cmd/dep
 	@echo "Install pre-commit hook"
 	@ln -s $(shell pwd)/hooks/pre-commit $(shell pwd)/.git/hooks/pre-commit || true
 	@chmod +x ./hack/check.sh
@@ -13,7 +12,7 @@ init:
 .PHONY: setup
 setup: init
 	git init
-	glide init
+	dep init
 
 .PHONY: check
 check:
@@ -21,7 +20,7 @@ check:
 
 .PHONY: ci
 ci: init
-	@glide install
+	@dep ensure
 
 .PHONY: build
 build: check
@@ -29,7 +28,8 @@ build: check
 
 .PHONY: install
 install: check
-	go install -ldflags '$(LDFLAGS)'
+	@echo "Installing..."
+	@go install -ldflags '$(LDFLAGS)'
 
 .PHONY: release
 release: check
