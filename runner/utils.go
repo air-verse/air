@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -154,6 +155,11 @@ func killCmd(cmd *exec.Cmd) (int, error) {
 		kill := exec.Command("TASKKILL", "/T", "/F", "/PID", strconv.Itoa(pid))
 		return pid, kill.Run()
 	}
+	// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
+	if runtime.GOOS == "linux" {
+		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		return pid, err
+	}
 	return pid, cmd.Process.Kill()
 }
 
@@ -182,6 +188,7 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 		c = exec.Command("cmd", "/c", cmd)
 	} else {
 		c = exec.Command("/bin/sh", "-c", cmd)
+		c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	}
 	stderr, err := c.StderrPipe()
 	if err != nil {
