@@ -1,14 +1,9 @@
 package runner
 
 import (
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -148,21 +143,6 @@ func expandPath(path string) (string, error) {
 	return path, nil
 }
 
-func killCmd(cmd *exec.Cmd) (int, error) {
-	pid := cmd.Process.Pid
-	// https://stackoverflow.com/a/44551450
-	if runtime.GOOS == "windows" {
-		kill := exec.Command("TASKKILL", "/T", "/F", "/PID", strconv.Itoa(pid))
-		return pid, kill.Run()
-	}
-	// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
-	if runtime.GOOS == "linux" {
-		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		return pid, err
-	}
-	return pid, cmd.Process.Kill()
-}
-
 func isDir(path string) bool {
 	i, err := os.Stat(path)
 	if err != nil {
@@ -179,30 +159,6 @@ func validEvent(ev fsnotify.Event) bool {
 
 func removeEvent(ev fsnotify.Event) bool {
 	return ev.Op&fsnotify.Remove == fsnotify.Remove
-}
-
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
-	var err error
-	var c *exec.Cmd
-	if runtime.GOOS == "windows" {
-		c = exec.Command("cmd", "/c", cmd)
-	} else {
-		c = exec.Command("/bin/sh", "-c", cmd)
-		c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	}
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	stdout, err := c.StdoutPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	err = c.Start()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return c, stdout, stderr, err
 }
 
 func cmdPath(path string) string {
