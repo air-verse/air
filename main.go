@@ -17,21 +17,22 @@ var debugMode bool
 func init() {
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
+	flag.Parse()
 }
 
 func main() {
-	flag.Parse()
+	fmt.Printf(`
+U  /"\  u       ___      U |  _"\ u  
+ \/ _ \/       |_"_|      \| |_) |/  
+ / ___ \        | |        |  _ <    
+/_/   \_\     U/| |\u      |_| \_\   
+ \\    >>  .-,_|___|_,-.   //   \\_  
+(__)  (__)  \_)-' '-(_/   (__)  (__)
 
-	fmt.Print(`
-             _
-     /\     (_)
-    /  \     _   _ __
-   / /\ \   | | | '__|
-  / ____ \  | | | |
- /_/    \_\ |_| |_|
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  Live reload for Go apps - v%s
 
-Live reload for Go apps :)
-`)
+`, version)
 	if debugMode {
 		fmt.Println("[debug] mode")
 	}
