@@ -50,5 +50,11 @@ U  /"\  u       ___      U |  _"\ u
 		r.Stop()
 	}()
 
+	defer func() {
+		if e := recover(); e != nil {
+			log.Fatalf("PANIC: %+v", e)
+		}
+	}()
+
 	r.Run()
 }
