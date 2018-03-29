@@ -1,8 +1,8 @@
-# conf for Air in toml format
+# conf for [Air](https://github.com/cosmtrek/air) in TOML format
 
 # working directory
 root = "." # . or absolute path, please note that the directories following must be under root
-watch_dir = "runner" # optional, if no watch_dir, use root
+watch_dir = "" # optional! if no watch_dir, use root
 tmp_dir = "tmp"
 
 [build]

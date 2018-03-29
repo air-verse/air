@@ -97,7 +97,7 @@ While I prefer the second way
 # 1. create a new file
 touch .air.conf
 
-# 2. paste `air.conf.example` into this file, and modify it to satisfy your needs
+# 2. paste `air.conf.example` into this file, and **modify it** to satisfy your needs
 
 # 3. run air with your configs. If file name is `.air.conf`, just run `air`
 air -c .air.conf
