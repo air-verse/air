@@ -29,7 +29,7 @@ func newLogger(cfg *config) *logger {
 	colors := cfg.colorInfo()
 	loggers := make(map[string]logFunc, len(colors))
 	for name, nameColor := range colors {
-		loggers[name] = newLogFunc(nameColor)
+		loggers[name] = newLogFunc(nameColor, cfg.Log)
 	}
 	loggers["default"] = defaultLogger()
 	return &logger{
@@ -38,12 +38,17 @@ func newLogger(cfg *config) *logger {
 	}
 }
 
-func newLogFunc(nameColor string) logFunc {
+func newLogFunc(nameColor string, cfg cfgLog) logFunc {
 	return func(msg string, v ...interface{}) {
-		t := time.Now().Format("15:04:05.000")
-		fmtStr := "[%s] %s\n"
-		format := fmt.Sprintf(fmtStr, t, msg)
-		color.New(getColor(nameColor)).Fprintf(color.Output, format, v...)
+		if msg[len(msg)-1:] != "\n" {
+			msg = msg + "\n"
+		}
+
+		if cfg.AddTime {
+			t := time.Now().Format("15:04:05.000")
+			msg = fmt.Sprintf("[%s] %s", t, msg)
+		}
+		color.New(getColor(nameColor)).Fprintf(color.Output, msg, v...)
 	}
 }
 
@@ -75,7 +80,7 @@ func (l *logger) app() logFunc {
 }
 
 func defaultLogger() logFunc {
-	return newLogFunc("white")
+	return newLogFunc("white", cfgLog{AddTime: true})
 }
 
 func (l *logger) getLogger(name string) logFunc {

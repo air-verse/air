@@ -13,6 +13,9 @@ include_ext = ["go", "tpl", "tmpl", "html"]
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
 delay = 800 # ms
 
+[log]
+time=true
+
 [color]
 main = "magenta"
 watcher = "cyan"

@@ -21,6 +21,7 @@ type config struct {
 	TmpDir   string   `toml:"tmp_dir"`
 	Build    cfgBuild `toml:"build"`
 	Color    cfgColor `toml:"color"`
+	Log      cfgLog   `toml:"log"`
 }
 
 type cfgBuild struct {
@@ -30,6 +31,10 @@ type cfgBuild struct {
 	IncludeExt []string `toml:"include_ext"`
 	ExcludeDir []string `toml:"exclude_dir"`
 	Delay      int      `toml:"delay"`
+}
+
+type cfgLog struct {
+	AddTime bool `toml:"time"`
 }
 
 type cfgColor struct {
@@ -88,12 +93,16 @@ func defaultConfig() config {
 		Runner:  "green",
 		App:     "white",
 	}
+	log := cfgLog{
+		AddTime: true,
+	}
 	return config{
 		Root:     ".",
 		TmpDir:   "tmp",
 		WatchDir: "",
 		Build:    build,
 		Color:    color,
+		Log:      log,
 	}
 }
 
