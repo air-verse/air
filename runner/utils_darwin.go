@@ -8,7 +8,9 @@ import (
 
 func killCmd(cmd *exec.Cmd) (int, error) {
 	pid := cmd.Process.Pid
-	return pid, cmd.Process.Kill()
+	// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
+	err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	return pid, err
 }
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
