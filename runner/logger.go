@@ -43,7 +43,6 @@ func newLogFunc(nameColor string, cfg cfgLog) logFunc {
 		if msg[len(msg)-1:] != "\n" {
 			msg = msg + "\n"
 		}
-
 		if cfg.AddTime {
 			t := time.Now().Format("15:04:05.000")
 			msg = fmt.Sprintf("[%s] %s", t, msg)
