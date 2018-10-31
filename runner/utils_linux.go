@@ -17,6 +17,7 @@ func (e *Engine) startCmd(cmd string, args []string) (*exec.Cmd, io.ReadCloser, 
 	var err error
 
 	params := e.cmdgen(cmd, args)
+
 	c := exec.Command("/bin/sh", params...)
 
 	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

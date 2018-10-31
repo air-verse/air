@@ -32,6 +32,7 @@ type cfgBuild struct {
 	IncludeExt []string `toml:"include_ext"`
 	ExcludeDir []string `toml:"exclude_dir"`
 	Delay      int      `toml:"delay"`
+	Remove     bool     `toml:"remove_after"`
 }
 
 type cfgLog struct {
@@ -77,6 +78,7 @@ func initConfig(path string) (*config, error) {
 func defaultConfig() config {
 	build := cfgBuild{
 		Bin:        "tmp/main",
+		Args:       []string{},
 		Cmd:        "go build -o ./tmp/main main.go",
 		Log:        "build-errors.log",
 		IncludeExt: []string{"go", "tpl", "tmpl", "html"},

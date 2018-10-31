@@ -13,6 +13,7 @@ log = "server-errors.log" # this log file places in your tmp_dir
 include_ext = ["go", "tpl", "tmpl", "html"]
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
 delay = 800 # ms
+remove_after=false
 
 [log]
 time = true
