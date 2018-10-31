@@ -13,7 +13,7 @@ func killCmd(cmd *exec.Cmd) (int, error) {
 	return pid, err
 }
 
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+func (e *Engine) startCmd(cmd string, args []string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	var err error
 
 	params := e.cmdgen(cmd, args)
