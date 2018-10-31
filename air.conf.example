@@ -7,6 +7,7 @@ tmp_dir = "tmp"
 
 [build]
 bin = "tmp/server"
+args = ["-c","10","-user","root"]
 cmd = "go build -o ./tmp/server ./cmd/server"
 log = "server-errors.log" # this log file places in your tmp_dir
 include_ext = ["go", "tpl", "tmpl", "html"]

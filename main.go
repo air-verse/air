@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cosmtrek/air/runner"
+	"github.com/c1982/air/runner"
 )
 
 var cfgPath string
@@ -18,6 +18,7 @@ func init() {
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.Parse()
+
 }
 
 func main() {

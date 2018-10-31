@@ -13,9 +13,12 @@ func killCmd(cmd *exec.Cmd) (int, error) {
 	return pid, err
 }
 
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+func (e *Engine) startCmd(cmd string, args []string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	var err error
-	c := exec.Command("/bin/sh", "-c", cmd)
+
+	params := e.cmdgen(cmd, args)
+	c := exec.Command("/bin/sh", params...)
+
 	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	stderr, err := c.StderrPipe()
 	if err != nil {
@@ -30,4 +33,12 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 		return nil, nil, nil, err
 	}
 	return c, stdout, stderr, err
+}
+
+func (e *Engine) cmdgen(cmd string, args []string) []string {
+
+	prms := []string{"-c", cmd}
+	prms = append(prms, args...)
+
+	return prms
 }

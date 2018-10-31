@@ -6,3 +6,5 @@
 *.out
 
 vendor/
+air
+tmp/build-errors.log

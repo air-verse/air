@@ -261,7 +261,7 @@ func (e *Engine) flushEvents() {
 func (e *Engine) building() error {
 	var err error
 	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd, e.config.Build.Args)
 	if err != nil {
 		return err
 	}
@@ -282,7 +282,7 @@ func (e *Engine) building() error {
 func (e *Engine) runBin() error {
 	var err error
 	e.runnerLog("running...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Bin)
+	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Bin, e.config.Build.Args)
 	if err != nil {
 		return err
 	}

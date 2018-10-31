@@ -15,7 +15,10 @@ func killCmd(cmd *exec.Cmd) (int, error) {
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	var err error
-	c := exec.Command("cmd", "/c", cmd)
+
+	params := e.cmdgen(cmd, args)
+	c := exec.Command("cmd", "/c", params...)
+
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err
@@ -29,4 +32,12 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 		return nil, nil, nil, err
 	}
 	return c, stdout, stderr, err
+}
+
+func (e *Engine) cmdgen(cmd string, args []string) []string {
+
+	prms := []string{"/c", cmd}
+	prms = append(prms, args...)
+
+	return prms
 }

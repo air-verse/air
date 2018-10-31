@@ -26,6 +26,7 @@ type config struct {
 
 type cfgBuild struct {
 	Bin        string   `toml:"bin"`
+	Args       []string `toml:"args"`
 	Cmd        string   `toml:"cmd"`
 	Log        string   `toml:"log"`
 	IncludeExt []string `toml:"include_ext"`
