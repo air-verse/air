@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/pelletier/go-toml"
+	toml "github.com/pelletier/go-toml"
 )
 
 const (
@@ -140,6 +140,14 @@ func (c *config) preprocess() error {
 		ed[i] = cleanPath(ed[i])
 	}
 	c.Build.ExcludeDir = ed
+
+	// Fix windows CMD processor
+	// CMD will not recognize relative path like ./tmp/server
+	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
