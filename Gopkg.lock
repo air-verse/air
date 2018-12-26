@@ -2,44 +2,69 @@
 
 
 [[projects]]
+  digest = "1:b52e8ce5be5a722b5432bf3f8f5cd90c7af27506b590c105d64f77f12203e13e"
+  name = "github.com/cosmtrek/air"
+  packages = ["runner"]
+  pruneopts = "UT"
+  revision = "6ce432d1c519270cc15d64cd9096a8c92dfc4ca9"
+  version = "v1.0.2"
+
+[[projects]]
+  digest = "1:4bb94bb2d837b5c7489d9e5e1fcffbc81fa1cb43024cbb4fe827787378f01e3b"
   name = "github.com/fatih/color"
   packages = ["."]
+  pruneopts = "UT"
   revision = "507f6050b8568533fb3f5504de8e5205fa62a114"
   version = "v1.6.0"
 
 [[projects]]
+  digest = "1:abeb38ade3f32a92943e5be54f55ed6d6e3b6602761d74b4aab4c9dd45c18abd"
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
+  pruneopts = "UT"
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
   version = "v1.4.7"
 
 [[projects]]
+  digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
+  pruneopts = "UT"
   revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
   version = "v0.0.9"
 
 [[projects]]
+  digest = "1:d4d17353dbd05cb52a2a52b7fe1771883b682806f68db442b436294926bbfafb"
   name = "github.com/mattn/go-isatty"
   packages = ["."]
+  pruneopts = "UT"
   revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
   version = "v0.0.3"
 
 [[projects]]
+  digest = "1:7231124c9669dfb54b82ef8b89f2735cf5d5d2529a23c6ac93a8c4b8bbb28b28"
   name = "github.com/pelletier/go-toml"
   packages = ["."]
+  pruneopts = "UT"
   revision = "acdc4509485b587f5e675510c4f2c63e90ff68a8"
   version = "v1.1.0"
 
 [[projects]]
   branch = "master"
+  digest = "1:762c02c879782ea804e683ef112a5c77c0ca5866e8e6be264f87f6d596874ae1"
   name = "golang.org/x/sys"
   packages = ["unix"]
+  pruneopts = "UT"
   revision = "d8e400bc7db4870d786864138af681469693d18c"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f926c4a97a838652d6bc27c9b4f93e6e06a0400bf151476d122e14959c3a47b8"
+  input-imports = [
+    "github.com/cosmtrek/air/runner",
+    "github.com/fatih/color",
+    "github.com/fsnotify/fsnotify",
+    "github.com/pelletier/go-toml",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
