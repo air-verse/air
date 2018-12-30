@@ -12,4 +12,4 @@ All notable changes to this project will be documented in this file.
 * Update the demo picture.
 
 P.S. 
-Jump this version to 1.10 to celebrate the date(2018.01.10) that I fall in love with my girlfriend. Besides, today is also my girlfriend's birthday. Happy birthday to my girlfriend, Bay! 
+Bump version to 1.10 to celebrate the date(2018.01.10) that I fall in love with my girlfriend. Besides, today is also my girlfriend's birthday. Happy birthday to my girlfriend, Bay! 
