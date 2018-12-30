@@ -18,12 +18,11 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
-* colorful log output
-* customize go build command
-* customize binary execution command
-* support excluding subdirectories
-* allow watching new directories after Air started
-* better building process
+* Colorful log output
+* Customize build or binary command
+* Support excluding subdirectories
+* Allow watching new directories after Air started
+* Better building process
 
 ## Installation
 
@@ -58,17 +57,19 @@ Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/a
 
 ```bash
 docker run -it --rm \
-    -e "air_wd=<YOUR PROJECT DIR>" \
-    -v $(pwd):<YOUR PROJECT DIR> \
-    -p <PORT>:<YOUR APP SERVER PORT> \
+    -w "<PROJECT>" \
+    -e "air_wd=<PROJECT>" \
+    -v $(pwd):<PROJECT> \
+    -p <PORT>:<APP SERVER PORT> \
     cosmtrek/air
+    -c <CONF>
 ```
 
 For example, one of my project runs in docker:
 
 ```bash
 docker run -it --rm \
-    -e "air_wd=/go/src/github.com/cosmtrek/hub" \
+    -w "/go/src/github.com/cosmtrek/hub" \
     -v $(pwd):/go/src/github.com/cosmtrek/hub \
     -p 9090:9090 \
     cosmtrek/air
@@ -97,9 +98,9 @@ While I prefer the second way
 # 1. create a new file
 touch .air.conf
 
-# 2. paste `air.conf.example` into this file, and **modify it** to satisfy your needs
+# 2. paste `air.conf.example` into this file, and **modify it** to satisfy your needs.
 
-# 3. run air with your configs. If file name is `.air.conf`, just run `air`
+# 3. run air with your config. If file name is `.air.conf`, just run `air`.
 air -c .air.conf
 ```
 
@@ -110,6 +111,8 @@ See the complete [air.conf.example](air.conf.example)
 `air -d` prints all logs.
 
 ## Development
+
+Please note that it requires Go 1.11+ since I use `go mod` to manage dependencies.
 
 ```bash
 # 1. fork this project
@@ -129,7 +132,7 @@ make install
 
 ## Contributing
 
-PRs are welcome~
+Pull requests are welcome~
 
 ## License
 

@@ -47,10 +47,9 @@ type cfgColor struct {
 
 func initConfig(path string) (*config, error) {
 	var err error
-	var useDftCfg bool
-	dft := defaultConfig()
+	var isDftPath bool
 	if path == "" {
-		useDftCfg = true
+		isDftPath = true
 		// when path is blank, first find `.air.conf` in `air_wd` and current working directory, if not found, use defaults
 		wd := os.Getenv(airWd)
 		if wd != "" {
@@ -58,17 +57,17 @@ func initConfig(path string) (*config, error) {
 		} else {
 			path, err = dftConfPath()
 			if err != nil {
-				return &dft, nil
+				return nil, err
 			}
 		}
 	}
-	cfg, err := readConfig(path)
+	cfg, err := readConfigOrDefault(path)
 	if err != nil {
-		if !useDftCfg {
+		if !isDftPath {
 			return nil, err
 		}
-		cfg = &dft
 	}
+	cfg.mergeDefaults(defaultConfig())
 	err = cfg.preprocess()
 	return cfg, err
 }
@@ -86,15 +85,14 @@ func defaultConfig() config {
 		build.Bin = `tmp\main.exe`
 		build.Cmd = "go build -o ./tmp/main.exe main.go"
 	}
+	log := cfgLog{
+		AddTime: false,
+	}
 	color := cfgColor{
 		Main:    "magenta",
 		Watcher: "cyan",
 		Build:   "yellow",
 		Runner:  "green",
-		App:     "white",
-	}
-	log := cfgLog{
-		AddTime: true,
 	}
 	return config{
 		Root:     ".",
@@ -106,20 +104,59 @@ func defaultConfig() config {
 	}
 }
 
-func readConfig(path string) (*config, error) {
+func (c *config) mergeDefaults(dft config) {
+	if c == nil {
+		return
+	}
+	// TODO: maybe better way to assign
+	// build
+	if c.Build.Bin == "" {
+		c.Build.Bin = dft.Build.Bin
+	}
+	if c.Build.Cmd == "" {
+		c.Build.Cmd = dft.Build.Cmd
+	}
+	if c.Build.Log == "" {
+		c.Build.Log = dft.Build.Log
+	}
+	if len(c.Build.IncludeExt) == 0 {
+		c.Build.IncludeExt = dft.Build.IncludeExt
+	}
+	if len(c.Build.ExcludeDir) == 0 {
+		c.Build.ExcludeDir = dft.Build.ExcludeDir
+	}
+	if c.Build.Delay == 0 {
+		c.Build.Delay = dft.Build.Delay
+	}
+	// color
+	if c.Color.Main == "" {
+		c.Color.Main = dft.Color.Main
+	}
+	if c.Color.Watcher == "" {
+		c.Color.Watcher = dft.Color.Watcher
+	}
+	if c.Color.Build == "" {
+		c.Color.Build = dft.Color.Build
+	}
+	if c.Color.Runner == "" {
+		c.Color.Runner = dft.Color.Runner
+	}
+}
+
+func readConfigOrDefault(path string) (*config, error) {
+	dftCfg := defaultConfig()
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return &dftCfg, err
 	}
-	c := config{}
-	if err = toml.Unmarshal(data, &c); err != nil {
-		return nil, err
+	cfg := new(config)
+	if err = toml.Unmarshal(data, cfg); err != nil {
+		return &dftCfg, err
 	}
-	return &c, nil
+	return cfg, nil
 }
 
 func (c *config) preprocess() error {
-	// TODO: merge defaults if some options are not set
 	var err error
 	cwd := os.Getenv(airWd)
 	if cwd != "" {
@@ -140,15 +177,10 @@ func (c *config) preprocess() error {
 		ed[i] = cleanPath(ed[i])
 	}
 	c.Build.ExcludeDir = ed
-
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (c *config) colorInfo() map[string]string {

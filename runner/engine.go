@@ -1,10 +1,7 @@
 package runner
 
 import (
-	"errors"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,12 +41,10 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 	}
 
 	logger := newLogger(cfg)
-
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-
 	return &Engine{
 		config:         cfg,
 		logger:         logger,
@@ -265,16 +260,16 @@ func (e *Engine) building() error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		stdout.Close()
+		stderr.Close()
+	}()
 	io.Copy(os.Stdout, stdout)
-	errMsg, err := ioutil.ReadAll(stderr)
-	if err != nil {
-		return err
-	}
+	io.Copy(os.Stderr, stderr)
 	// wait for building
 	err = cmd.Wait()
 	if err != nil {
-		e := fmt.Sprintf("stderr: %s, cmd err: %s", string(errMsg), err)
-		return errors.New(e)
+		return err
 	}
 	return nil
 }
@@ -294,9 +289,14 @@ func (e *Engine) runBin() error {
 	go io.Copy(aw, stderr)
 	go io.Copy(aw, stdout)
 
-	go func(cmd *exec.Cmd) {
+	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
 		<-e.binStopCh
 		e.mainDebug("trying to kill cmd %+v", cmd.Args)
+		defer func() {
+			stdout.Close()
+			stderr.Close()
+		}()
+
 		var err error
 		pid, err := killCmd(cmd)
 		if err != nil {
@@ -317,7 +317,7 @@ func (e *Engine) runBin() error {
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
-	}(cmd)
+	}(cmd, stdout, stderr)
 	return nil
 }
 

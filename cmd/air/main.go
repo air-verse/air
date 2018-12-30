@@ -11,8 +11,12 @@ import (
 	"github.com/cosmtrek/air/runner"
 )
 
-var cfgPath string
-var debugMode bool
+const version = "1.10"
+
+var (
+	cfgPath   string
+	debugMode bool
+)
 
 func init() {
 	flag.StringVar(&cfgPath, "c", "", "config path")
@@ -22,11 +26,11 @@ func init() {
 
 func main() {
 	fmt.Printf(`
-U  /"\  u       ___      U |  _"\ u  
- \/ _ \/       |_"_|      \| |_) |/  
- / ___ \        | |        |  _ <    
-/_/   \_\     U/| |\u      |_| \_\   
- \\    >>  .-,_|___|_,-.   //   \\_  
+U  /"\  u       ___      U |  _"\ u
+ \/ _ \/       |_"_|      \| |_) |/
+ / ___ \        | |        |  _ <
+/_/   \_\     U/| |\u      |_| \_\
+ \\    >>  .-,_|___|_,-.   //   \\_
 (__)  (__)  \_)-' '-(_/   (__)  (__)
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,6 +48,7 @@ U  /"\  u       ___      U |  _"\ u
 	r, err := runner.NewEngine(cfgPath, debugMode)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 	go func() {
 		<-sigs

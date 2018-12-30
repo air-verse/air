@@ -9,6 +9,5 @@ vendor/
 tmp/
 
 # IDE specific files
-
 .vscode
 .idea

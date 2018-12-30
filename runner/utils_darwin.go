@@ -4,6 +4,8 @@ import (
 	"io"
 	"os/exec"
 	"syscall"
+
+	"github.com/kr/pty"
 )
 
 func killCmd(cmd *exec.Cmd) (int, error) {
@@ -14,20 +16,11 @@ func killCmd(cmd *exec.Cmd) (int, error) {
 }
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
-	var err error
 	c := exec.Command("/bin/sh", "-c", cmd)
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		return nil, nil, nil, err
+	c.SysProcAttr = &syscall.SysProcAttr{
+		Setsid:  true,
+		Setctty: true,
 	}
-	stdout, err := c.StdoutPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	err = c.Start()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return c, stdout, stderr, err
+	f, err := pty.Start(c)
+	return c, f, f, err
 }

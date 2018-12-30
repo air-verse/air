@@ -2,30 +2,40 @@ package runner
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
 )
 
-// TODO: support more colors
-var colorMap = map[string]color.Attribute{
-	"red":     color.FgRed,
-	"green":   color.FgGreen,
-	"yellow":  color.FgYellow,
-	"blue":    color.FgBlue,
-	"magenta": color.FgMagenta,
-	"cyan":    color.FgCyan,
-	"white":   color.FgWhite,
-}
+var (
+	rawColor = "raw"
+	// TODO: support more colors
+	colorMap = map[string]color.Attribute{
+		"red":     color.FgRed,
+		"green":   color.FgGreen,
+		"yellow":  color.FgYellow,
+		"blue":    color.FgBlue,
+		"magenta": color.FgMagenta,
+		"cyan":    color.FgCyan,
+		"white":   color.FgWhite,
+	}
+)
 
 type logFunc func(string, ...interface{})
 
 type logger struct {
+	config  *config
 	colors  map[string]string
 	loggers map[string]logFunc
 }
 
 func newLogger(cfg *config) *logger {
+	if cfg == nil {
+		return nil
+	}
+
 	colors := cfg.colorInfo()
 	loggers := make(map[string]logFunc, len(colors))
 	for name, nameColor := range colors {
@@ -33,21 +43,32 @@ func newLogger(cfg *config) *logger {
 	}
 	loggers["default"] = defaultLogger()
 	return &logger{
+		config:  cfg,
 		colors:  colors,
 		loggers: loggers,
 	}
 }
 
-func newLogFunc(nameColor string, cfg cfgLog) logFunc {
+func newLogFunc(colorname string, cfg cfgLog) logFunc {
 	return func(msg string, v ...interface{}) {
-		if msg[len(msg)-1:] != "\n" {
-			msg = msg + "\n"
+		// There are some escape sequences to format color in terminal, so cannot
+		// just trim new line from right.
+		msg = strings.Replace(msg, "\n", "", -1)
+		msg = strings.TrimSpace(msg)
+		if len(msg) == 0 {
+			return
 		}
+		// TODO: filter msg by regex
+		msg = msg + "\n"
 		if cfg.AddTime {
-			t := time.Now().Format("15:04:05.000")
+			t := time.Now().Format("15:04:05")
 			msg = fmt.Sprintf("[%s] %s", t, msg)
 		}
-		color.New(getColor(nameColor)).Fprintf(color.Output, msg, v...)
+		if colorname == rawColor {
+			fmt.Fprintf(os.Stdout, msg, v...)
+		} else {
+			color.New(getColor(colorname)).Fprintf(color.Output, msg, v...)
+		}
 	}
 }
 
@@ -78,15 +99,18 @@ func (l *logger) app() logFunc {
 	return l.getLogger("app")
 }
 
+func rawLogger() logFunc {
+	return newLogFunc("raw", defaultConfig().Log)
+}
+
 func defaultLogger() logFunc {
-	return newLogFunc("white", cfgLog{AddTime: true})
+	return newLogFunc("white", defaultConfig().Log)
 }
 
 func (l *logger) getLogger(name string) logFunc {
 	v, ok := l.loggers[name]
 	if !ok {
-		dft, _ := l.loggers["default"]
-		return dft
+		return rawLogger()
 	}
 	return v
 }

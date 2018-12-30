@@ -1,24 +1,34 @@
-# conf for [Air](https://github.com/cosmtrek/air) in TOML format
+# Config file for [Air](https://github.com/cosmtrek/air) in TOML format
 
-# working directory
-root = "." # . or absolute path, please note that the directories following must be under root
-watch_dir = "" # optional! if no watch_dir, use root
+# Working directory
+# . or absolute path, please note that the directories following must be under root
+root = "." 
+# Optional! If `watch_dir` is empty, use `root`.
+watch_dir = ""
 tmp_dir = "tmp"
 
 [build]
-bin = "tmp/server"
-cmd = "go build -o ./tmp/server ./cmd/server"
-log = "server-errors.log" # this log file places in your tmp_dir
+# Just plain old shell command. You could use `make` as well.
+cmd = "go build -o ./tmp/main main.go"
+# Binary file yields from `cmd`.
+bin = "tmp/main"
+# This log file places in your tmp_dir.
+log = "air_errors.log"
+# Watch these filename extensions.
 include_ext = ["go", "tpl", "tmpl", "html"]
+# Ignore these filename extensions or directories.
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
-delay = 800 # ms
+# There's no necessary to trigger build each time file changes if it's too frequency.
+delay = 1000 # ms
 
 [log]
-time = true
+# Show log time
+time = false
 
 [color]
+# Customize each part's color. If no color found, use the raw app log.
 main = "magenta"
 watcher = "cyan"
 build = "yellow"
 runner = "green"
-app = "white"
+# app = "white"
