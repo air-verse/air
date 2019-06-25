@@ -90,6 +90,16 @@ func (e *Engine) isExcludeDir(path string) bool {
 	return false
 }
 
+func (e *Engine) isExcludeFile(path string) bool {
+	rp := e.config.rel(path)
+	for _, d := range e.config.Build.ExcludeFile {
+		if cleanPath(rp) == d {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) isIncludeExt(path string) bool {
 	ext := filepath.Ext(path)
 	for _, v := range e.config.Build.IncludeExt {

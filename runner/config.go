@@ -25,12 +25,13 @@ type config struct {
 }
 
 type cfgBuild struct {
-	Bin        string   `toml:"bin"`
-	Cmd        string   `toml:"cmd"`
-	Log        string   `toml:"log"`
-	IncludeExt []string `toml:"include_ext"`
-	ExcludeDir []string `toml:"exclude_dir"`
-	Delay      int      `toml:"delay"`
+	Bin         string   `toml:"bin"`
+	Cmd         string   `toml:"cmd"`
+	Log         string   `toml:"log"`
+	IncludeExt  []string `toml:"include_ext"`
+	ExcludeDir  []string `toml:"exclude_dir"`
+	ExcludeFile []string `toml:"exclude_file"`
+	Delay       int      `toml:"delay"`
 }
 
 type cfgLog struct {
@@ -74,12 +75,13 @@ func initConfig(path string) (*config, error) {
 
 func defaultConfig() config {
 	build := cfgBuild{
-		Bin:        "tmp/main",
-		Cmd:        "go build -o ./tmp/main main.go",
-		Log:        "build-errors.log",
-		IncludeExt: []string{"go", "tpl", "tmpl", "html"},
-		ExcludeDir: []string{"assets", "tmp", "vendor"},
-		Delay:      1000,
+		Bin:         "tmp/main",
+		Cmd:         "go build -o ./tmp/main main.go",
+		Log:         "build-errors.log",
+		IncludeExt:  []string{"go", "tpl", "tmpl", "html"},
+		ExcludeDir:  []string{"assets", "tmp", "vendor"},
+		ExcludeFile: []string{},
+		Delay:       1000,
 	}
 	if runtime.GOOS == "windows" {
 		build.Bin = `tmp\main.exe`
@@ -124,6 +126,9 @@ func (c *config) mergeDefaults(dft config) {
 	}
 	if len(c.Build.ExcludeDir) == 0 {
 		c.Build.ExcludeDir = dft.Build.ExcludeDir
+	}
+	if len(c.Build.ExcludeFile) == 0 {
+		c.Build.ExcludeFile = dft.Build.ExcludeFile
 	}
 	if c.Build.Delay == 0 {
 		c.Build.Delay = dft.Build.Delay
