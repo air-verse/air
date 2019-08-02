@@ -227,6 +227,8 @@ func (e *Engine) buildRun() {
 	if err != nil {
 		e.buildLog("failed to build, error: %s", err.Error())
 		e.writeBuildErrorLog(err.Error())
+                <-e.buildRunCh
+                return
 	}
 
 	select {
