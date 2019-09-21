@@ -5,7 +5,7 @@ GO := GO111MODULE=on go
 
 .PHONY: init
 init:
-	go get -u github.com/golang/lint/golint
+	go get -u golang.org/x/lint/golint
 	go get -u golang.org/x/tools/cmd/goimports
 	@echo "Install pre-commit hook"
 	@ln -s $(shell pwd)/hooks/pre-commit $(shell pwd)/.git/hooks/pre-commit || true
