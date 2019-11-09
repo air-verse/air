@@ -11,7 +11,7 @@ import (
 	"github.com/cosmtrek/air/runner"
 )
 
-const version = "1.10"
+const version = "1.11"
 
 var (
 	cfgPath   string
@@ -26,17 +26,12 @@ func init() {
 
 func main() {
 	fmt.Printf(`
-U  /"\  u       ___      U |  _"\ u
- \/ _ \/       |_"_|      \| |_) |/
- / ___ \        | |        |  _ <
-/_/   \_\     U/| |\u      |_| \_\
- \\    >>  .-,_|___|_,-.   //   \\_
-(__)  (__)  \_)-' '-(_/   (__)  (__)
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  Live reload for Go apps - v%s
+  __    _   ___  
+ / /\  | | | |_) 
+/_/--\ |_| |_| \_ // live reload for Go apps [v%s]
 
 `, version)
+
 	if debugMode {
 		fmt.Println("[debug] mode")
 	}

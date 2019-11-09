@@ -95,10 +95,6 @@ func (l *logger) watcher() logFunc {
 	return l.getLogger("watcher")
 }
 
-func (l *logger) app() logFunc {
-	return l.getLogger("app")
-}
-
 func rawLogger() logFunc {
 	return newLogFunc("raw", defaultConfig().Log)
 }
@@ -113,19 +109,4 @@ func (l *logger) getLogger(name string) logFunc {
 		return rawLogger()
 	}
 	return v
-}
-
-type appLogWriter struct {
-	l logFunc
-}
-
-func newAppLogWriter(l *logger) appLogWriter {
-	return appLogWriter{
-		l: l.app(),
-	}
-}
-
-func (w appLogWriter) Write(data []byte) (n int, err error) {
-	w.l(string(data))
-	return len(data), nil
 }

@@ -285,9 +285,10 @@ func (e *Engine) runBin() error {
 		e.binRunning = true
 	})
 
-	aw := newAppLogWriter(e.logger)
-	go io.Copy(aw, stderr)
-	go io.Copy(aw, stdout)
+	go func() {
+		io.Copy(os.Stdout, stdout)
+		io.Copy(os.Stderr, stderr)
+	}()
 
 	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
 		<-e.binStopCh

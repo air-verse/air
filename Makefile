@@ -29,7 +29,7 @@ build: check
 
 .PHONY: install
 install: check
-	@echo "Installing..."
+	@echo "Installing air..."
 	@$(GO) install -ldflags '$(LDFLAGS)' ./cmd/air
 
 .PHONY: release
@@ -40,4 +40,4 @@ release: check
 
 .PHONY: docker-image
 docker-image:
-	docker build -t cosmtrek/air:v1.10 -f ./Dockerfile .
+	docker build -t cosmtrek/air:v1.13 -f ./Dockerfile .

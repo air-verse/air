@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/kr/pty"
+	"github.com/creack/pty"
 )
 
 func killCmd(cmd *exec.Cmd) (int, error) {
@@ -17,10 +17,6 @@ func killCmd(cmd *exec.Cmd) (int, error) {
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
-	c.SysProcAttr = &syscall.SysProcAttr{
-		Setsid:  true,
-		Setctty: true,
-	}
 	f, err := pty.Start(c)
 	return c, f, f, err
 }

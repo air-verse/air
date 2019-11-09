@@ -26,7 +26,7 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 ## Installation
 
-### on macOS
+### macOS
 
 ```bash
 curl -fLo ~/.air \
@@ -34,7 +34,7 @@ curl -fLo ~/.air \
 chmod +x ~/.air
 ```
 
-### on Linux
+### Linux
 
 ```bash
 curl -fLo ~/.air \
@@ -42,7 +42,7 @@ curl -fLo ~/.air \
 chmod +x ~/.air
 ```
 
-### on Windows
+### Windows
 
 ```bash
 curl -fLo ~/.air.exe \
@@ -89,7 +89,7 @@ The simplest usage is run
 
 ```bash
 # firstly find `.air.conf` in current directory, if not found, use defaults
-air
+air -c .air.conf
 ```
 
 While I prefer the second way
@@ -101,7 +101,7 @@ touch .air.conf
 # 2. paste `air.conf.example` into this file, and **modify it** to satisfy your needs.
 
 # 3. run air with your config. If file name is `.air.conf`, just run `air`.
-air -c .air.conf
+air
 ```
 
 See the complete [air.conf.example](air.conf.example)

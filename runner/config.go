@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	toml "github.com/pelletier/go-toml"
+	"github.com/pelletier/go-toml"
 )
 
 const (
