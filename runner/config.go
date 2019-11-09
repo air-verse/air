@@ -25,8 +25,9 @@ type config struct {
 }
 
 type cfgBuild struct {
-	Bin        string   `toml:"bin"`
 	Cmd        string   `toml:"cmd"`
+	Bin        string   `toml:"bin"`
+	FullBin    string   `toml:"full_bin"`
 	Log        string   `toml:"log"`
 	IncludeExt []string `toml:"include_ext"`
 	ExcludeDir []string `toml:"exclude_dir"`
@@ -74,8 +75,8 @@ func initConfig(path string) (*config, error) {
 
 func defaultConfig() config {
 	build := cfgBuild{
-		Bin:        "tmp/main",
 		Cmd:        "go build -o ./tmp/main main.go",
+		Bin:        "./tmp/main",
 		Log:        "build-errors.log",
 		IncludeExt: []string{"go", "tpl", "tmpl", "html"},
 		ExcludeDir: []string{"assets", "tmp", "vendor"},
@@ -177,6 +178,10 @@ func (c *config) preprocess() error {
 		ed[i] = cleanPath(ed[i])
 	}
 	c.Build.ExcludeDir = ed
+	if len(c.Build.FullBin) > 0 {
+		c.Build.Bin = c.Build.FullBin
+		return err
+	}
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
@@ -189,7 +194,6 @@ func (c *config) colorInfo() map[string]string {
 		"build":   c.Color.Build,
 		"runner":  c.Color.Runner,
 		"watcher": c.Color.Watcher,
-		"app":     c.Color.App,
 	}
 }
 

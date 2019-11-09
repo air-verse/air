@@ -12,6 +12,8 @@ tmp_dir = "tmp"
 cmd = "go build -o ./tmp/main main.go"
 # Binary file yields from `cmd`.
 bin = "tmp/main"
+# Customize binary.
+full_bin = "APP_ENV=dev APP_USER=air ./tmp/main"
 # This log file places in your tmp_dir.
 log = "air_errors.log"
 # Watch these filename extensions.
