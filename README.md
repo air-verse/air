@@ -112,7 +112,7 @@ See the complete [air.conf.example](air.conf.example)
 
 ## Development
 
-Please note that it requires Go 1.11+ since I use `go mod` to manage dependencies.
+Please note that it requires Go 1.13+ since I use `go mod` to manage dependencies.
 
 ```bash
 # 1. fork this project
@@ -130,9 +130,11 @@ make ci
 make install
 ```
 
-## Contributing
+BTW: Pull requests are welcome~
 
-Pull requests are welcome~
+## Support
+
+<a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
 
 ## License
 
