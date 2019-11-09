@@ -342,6 +342,13 @@ func (e *Engine) cleanup() {
 	if err = e.watcher.Close(); err != nil {
 		e.mainLog("failed to close watcher, error: %s", err.Error())
 	}
+
+	if e.config.Misc.CleanOnExit {
+		e.mainLog("deleting %s", e.config.tmpPath())
+		if err = os.RemoveAll(e.config.tmpPath()); err != nil {
+			e.mainLog("failed to delete tmp dir, err: %+v", err)
+		}
+	}
 }
 
 // Stop the air

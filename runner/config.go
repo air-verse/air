@@ -22,6 +22,7 @@ type config struct {
 	Build    cfgBuild `toml:"build"`
 	Color    cfgColor `toml:"color"`
 	Log      cfgLog   `toml:"log"`
+	Misc     cfgMisc  `toml:"misc"`
 }
 
 type cfgBuild struct {
@@ -44,6 +45,10 @@ type cfgColor struct {
 	Build   string `toml:"build"`
 	Runner  string `toml:"runner"`
 	App     string `toml:"app"`
+}
+
+type cfgMisc struct {
+	CleanOnExit bool `toml:"clean_on_exit"`
 }
 
 func initConfig(path string) (*config, error) {
@@ -95,6 +100,9 @@ func defaultConfig() config {
 		Build:   "yellow",
 		Runner:  "green",
 	}
+	misc := cfgMisc{
+		CleanOnExit: false,
+	}
 	return config{
 		Root:     ".",
 		TmpDir:   "tmp",
@@ -102,6 +110,7 @@ func defaultConfig() config {
 		Build:    build,
 		Color:    color,
 		Log:      log,
+		Misc:     misc,
 	}
 }
 
