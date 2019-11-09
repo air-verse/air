@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. 
 
+## [1.11.1] 2019-11-10
+
+* Update third-party libraries.
+* Fix [#8](https://github.com/cosmtrek/air/issues/8) and [#17](https://github.com/cosmtrek/air/issues/17) that logs display incorrectly.
+* support customizing binary in config [#28](https://github.com/cosmtrek/air/issues/28).
+* Support deleting tmp dir on exit [20](https://github.com/cosmtrek/air/issues/20).
+
 ## [1.10] 2018-12-30
 
 * Fix some panics when unexpected things happened.

@@ -11,7 +11,7 @@ import (
 	"github.com/cosmtrek/air/runner"
 )
 
-const version = "1.11"
+const version = "1.11.1"
 
 var (
 	cfgPath   string
