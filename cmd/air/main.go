@@ -22,7 +22,7 @@ var (
 func init() {
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
-	flag.BoolVar(&showVersion, "v", false, "Version")
+	flag.BoolVar(&showVersion, "v", false, "show version")
 	flag.Parse()
 }
 
