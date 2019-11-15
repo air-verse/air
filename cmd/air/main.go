@@ -14,13 +14,15 @@ import (
 const version = "1.11.1"
 
 var (
-	cfgPath   string
-	debugMode bool
+	cfgPath     string
+	debugMode   bool
+	showVersion bool
 )
 
 func init() {
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
+	flag.BoolVar(&showVersion, "v", false, "show version")
 	flag.Parse()
 }
 
@@ -31,6 +33,10 @@ func main() {
 /_/--\ |_| |_| \_ // live reload for Go apps [v%s]
 
 `, version)
+
+	if showVersion {
+		return
+	}
 
 	if debugMode {
 		fmt.Println("[debug] mode")
