@@ -20,7 +20,7 @@ log = "air_errors.log"
 include_ext = ["go", "tpl", "tmpl", "html"]
 # Ignore these filename extensions or directories.
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
-# There's no necessary to trigger build each time file changes if it's too frequency.
+# It's not necessary to trigger build each time file changes if it's too frequent.
 delay = 1000 # ms
 
 [log]
