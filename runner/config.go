@@ -16,13 +16,12 @@ const (
 )
 
 type config struct {
-	Root     string   `toml:"root"`
-	WatchDir string   `toml:"watch_dir"`
-	TmpDir   string   `toml:"tmp_dir"`
-	Build    cfgBuild `toml:"build"`
-	Color    cfgColor `toml:"color"`
-	Log      cfgLog   `toml:"log"`
-	Misc     cfgMisc  `toml:"misc"`
+	Root   string   `toml:"root"`
+	TmpDir string   `toml:"tmp_dir"`
+	Build  cfgBuild `toml:"build"`
+	Color  cfgColor `toml:"color"`
+	Log    cfgLog   `toml:"log"`
+	Misc   cfgMisc  `toml:"misc"`
 }
 
 type cfgBuild struct {
@@ -32,6 +31,7 @@ type cfgBuild struct {
 	Log         string   `toml:"log"`
 	IncludeExt  []string `toml:"include_ext"`
 	ExcludeDir  []string `toml:"exclude_dir"`
+	IncludeDir  []string `toml:"include_dir"`
 	Delay       int      `toml:"delay"`
 	StopOnError bool     `toml:"stop_on_error"`
 }
@@ -106,13 +106,12 @@ func defaultConfig() config {
 		CleanOnExit: false,
 	}
 	return config{
-		Root:     ".",
-		TmpDir:   "tmp",
-		WatchDir: "",
-		Build:    build,
-		Color:    color,
-		Log:      log,
-		Misc:     misc,
+		Root:   ".",
+		TmpDir: "tmp",
+		Build:  build,
+		Color:  color,
+		Log:    log,
+		Misc:   misc,
 	}
 }
 
@@ -214,13 +213,6 @@ func dftConfPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(wd, dftConf), nil
-}
-
-func (c *config) watchDirRoot() string {
-	if c.WatchDir != "" {
-		return c.fullPath(c.WatchDir)
-	}
-	return c.Root
 }
 
 func (c *config) buildLogPath() string {

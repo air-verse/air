@@ -69,7 +69,7 @@ func (e *Engine) Run() {
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
-	if err = e.watching(e.config.watchDirRoot()); err != nil {
+	if err = e.watching(e.config.Root); err != nil {
 		os.Exit(1)
 	}
 
@@ -109,7 +109,15 @@ func (e *Engine) watching(root string) error {
 			e.watcherLog("!exclude %s", e.config.rel(path))
 			return filepath.SkipDir
 		}
-		return e.watchDir(path)
+		isIn, walkDir := e.checkIncludeDir(path)
+		if !walkDir {
+			e.watcherLog("!exclude %s", e.config.rel(path))
+			return filepath.SkipDir
+		}
+		if isIn {
+			return e.watchDir(path)
+		}
+		return nil
 	})
 }
 

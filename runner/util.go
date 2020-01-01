@@ -69,13 +69,38 @@ func cleanPath(path string) string {
 }
 
 func (e *Engine) isExcludeDir(path string) bool {
-	rp := e.config.rel(path)
+	cleanName := cleanPath(e.config.rel(path))
 	for _, d := range e.config.Build.ExcludeDir {
-		if cleanPath(rp) == d {
+		if cleanName == d {
 			return true
 		}
 	}
 	return false
+}
+
+// return isIncludeDir, walkDir
+func (e *Engine) checkIncludeDir(path string) (bool, bool) {
+	cleanName := cleanPath(e.config.rel(path))
+	iDir := e.config.Build.IncludeDir
+	if len(iDir) == 0 { // ignore empty
+		return true, true
+	}
+	if cleanName == "." {
+		return false, true
+	}
+	walkDir := false
+	for _, d := range iDir {
+		if d == cleanName {
+			return true, true
+		}
+		if strings.HasPrefix(cleanName, d) { // current dir is sub-directory of `d`
+			return true, true
+		}
+		if strings.HasPrefix(d, cleanName) { // `d` is sub-directory of current dir
+			walkDir = true
+		}
+	}
+	return false, walkDir
 }
 
 func (e *Engine) isIncludeExt(path string) bool {
