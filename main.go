@@ -11,8 +11,6 @@ import (
 	"github.com/cosmtrek/air/runner"
 )
 
-const version = "1.11.1"
-
 var (
 	cfgPath     string
 	debugMode   bool

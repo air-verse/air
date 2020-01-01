@@ -25,23 +25,23 @@ ci: init
 
 .PHONY: build
 build: check
-	$(GO) build -ldflags '$(LDFLAGS)' ./cmd/air
+	$(GO) build -ldflags '$(LDFLAGS)'
 
 .PHONY: install
 install: check
 	@echo "Installing air..."
-	@$(GO) install -ldflags '$(LDFLAGS)' ./cmd/air
+	@$(GO) install -ldflags '$(LDFLAGS)'
 
 .PHONY: release
 release: check
-	GOOS=darwin GOARCH=amd64 $(GO) build -ldflags '$(LDFLAGS)' -o bin/darwin/air ./cmd/air/
-	GOOS=linux GOARCH=amd64 $(GO) build -ldflags '$(LDFLAGS)' -o bin/linux/air ./cmd/air
-	GOOS=windows GOARCH=amd64 $(GO) build -ldflags '$(LDFLAGS)' -o bin/windows/air.exe ./cmd/air
+	GOOS=darwin GOARCH=amd64 $(GO) build -ldflags '$(LDFLAGS)' -o bin/darwin/air
+	GOOS=linux GOARCH=amd64 $(GO) build -ldflags '$(LDFLAGS)' -o bin/linux/air
+	GOOS=windows GOARCH=amd64 $(GO) build -ldflags '$(LDFLAGS)' -o bin/windows/air.exe
 
 .PHONY: docker-image
 docker-image:
-	docker build -t cosmtrek/air:v1.11.1 -f ./Dockerfile .
+	docker build -t cosmtrek/air:v1.12.0 -f ./Dockerfile .
 
 .PHONY: push-docker-image
 push-docker-image:
-	docker push cosmtrek/air:v1.11.1
+	docker push cosmtrek/air:v1.12.0

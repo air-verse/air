@@ -26,6 +26,14 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 ## Installation
 
+### Go
+
+The classic way to install
+
+```bash
+go get -u github.com/cosmtrek/air
+```
+
 ### macOS
 
 ```bash
