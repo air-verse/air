@@ -104,7 +104,7 @@ touch .air.conf
 air
 ```
 
-See the complete [air.conf.example](air.conf.example)
+See the complete [air_example.conf](air_example.conf)
 
 ### Debug
 

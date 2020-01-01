@@ -216,6 +216,9 @@ func (e *Engine) start() {
 
 func (e *Engine) buildRun() {
 	e.buildRunCh <- true
+	defer func() {
+		<-e.buildRunCh
+	}()
 
 	select {
 	case <-e.buildRunStopCh:
@@ -223,10 +226,12 @@ func (e *Engine) buildRun() {
 	default:
 	}
 	var err error
-	err = e.building()
-	if err != nil {
+	if err = e.building(); err != nil {
 		e.buildLog("failed to build, error: %s", err.Error())
 		e.writeBuildErrorLog(err.Error())
+		if e.config.Build.StopOnError {
+			return
+		}
 	}
 
 	select {
@@ -234,12 +239,9 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
-	err = e.runBin()
-	if err != nil {
+	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
 	}
-
-	<-e.buildRunCh
 }
 
 func (e *Engine) flushEvents() {

@@ -26,13 +26,14 @@ type config struct {
 }
 
 type cfgBuild struct {
-	Cmd        string   `toml:"cmd"`
-	Bin        string   `toml:"bin"`
-	FullBin    string   `toml:"full_bin"`
-	Log        string   `toml:"log"`
-	IncludeExt []string `toml:"include_ext"`
-	ExcludeDir []string `toml:"exclude_dir"`
-	Delay      int      `toml:"delay"`
+	Cmd         string   `toml:"cmd"`
+	Bin         string   `toml:"bin"`
+	FullBin     string   `toml:"full_bin"`
+	Log         string   `toml:"log"`
+	IncludeExt  []string `toml:"include_ext"`
+	ExcludeDir  []string `toml:"exclude_dir"`
+	Delay       int      `toml:"delay"`
+	StopOnError bool     `toml:"stop_on_error"`
 }
 
 type cfgLog struct {
@@ -80,12 +81,13 @@ func initConfig(path string) (*config, error) {
 
 func defaultConfig() config {
 	build := cfgBuild{
-		Cmd:        "go build -o ./tmp/main main.go",
-		Bin:        "./tmp/main",
-		Log:        "build-errors.log",
-		IncludeExt: []string{"go", "tpl", "tmpl", "html"},
-		ExcludeDir: []string{"assets", "tmp", "vendor"},
-		Delay:      1000,
+		Cmd:         "go build -o ./tmp/main main.go",
+		Bin:         "./tmp/main",
+		Log:         "build-errors.log",
+		IncludeExt:  []string{"go", "tpl", "tmpl", "html"},
+		ExcludeDir:  []string{"assets", "tmp", "vendor"},
+		Delay:       1000,
+		StopOnError: true,
 	}
 	if runtime.GOOS == "windows" {
 		build.Bin = `tmp\main.exe`
