@@ -37,24 +37,19 @@ go get -u github.com/cosmtrek/air
 ### macOS
 
 ```bash
-curl -fLo ~/.air \
-    https://raw.githubusercontent.com/cosmtrek/air/master/bin/darwin/air
-chmod +x ~/.air
+curl -fLo air https://git.io/darwin_air
 ```
 
 ### Linux
 
 ```bash
-curl -fLo ~/.air \
-    https://raw.githubusercontent.com/cosmtrek/air/master/bin/linux/air
-chmod +x ~/.air
+curl -fLo air https://git.io/linux_air
 ```
 
 ### Windows
 
 ```bash
-curl -fLo ~/.air.exe \
-    https://raw.githubusercontent.com/cosmtrek/air/master/bin/windows/air.exe
+curl -fLo air.exe https://git.io/windows_air
 ```
 
 P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
