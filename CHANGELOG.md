@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. 
 
+## [1.12.0] 2020-01-01
+
+* add stop_on_error [#38](https://github.com/cosmtrek/air/issues/38)
+* add exclude_file [#39](https://github.com/cosmtrek/air/issues/39)
+* add include_dir [#40](https://github.com/cosmtrek/air/issues/40)
+
 ## [1.11.1] 2019-11-10
 
 * Update third-party libraries.
