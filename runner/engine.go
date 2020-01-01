@@ -151,6 +151,9 @@ func (e *Engine) watchDir(path string) error {
 					e.watchNewDir(ev.Name, removeEvent(ev))
 					break
 				}
+				if e.isExcludeFile(ev.Name) {
+					break
+				}
 				if !e.isIncludeExt(ev.Name) {
 					break
 				}

@@ -113,6 +113,16 @@ func (e *Engine) isIncludeExt(path string) bool {
 	return false
 }
 
+func (e *Engine) isExcludeFile(path string) bool {
+	cleanName := cleanPath(e.config.rel(path))
+	for _, d := range e.config.Build.ExcludeFile {
+		if d == cleanName {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) writeBuildErrorLog(msg string) error {
 	var err error
 	f, err := os.OpenFile(e.config.buildLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)

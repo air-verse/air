@@ -32,6 +32,7 @@ type cfgBuild struct {
 	IncludeExt  []string `toml:"include_ext"`
 	ExcludeDir  []string `toml:"exclude_dir"`
 	IncludeDir  []string `toml:"include_dir"`
+	ExcludeFile []string `toml:"exclude_file"`
 	Delay       int      `toml:"delay"`
 	StopOnError bool     `toml:"stop_on_error"`
 }
