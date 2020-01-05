@@ -82,7 +82,7 @@ func initConfig(path string) (*config, error) {
 
 func defaultConfig() config {
 	build := cfgBuild{
-		Cmd:         "go build -o ./tmp/main main.go",
+		Cmd:         "go build -o ./tmp/main .",
 		Bin:         "./tmp/main",
 		Log:         "build-errors.log",
 		IncludeExt:  []string{"go", "tpl", "tmpl", "html"},
@@ -92,7 +92,7 @@ func defaultConfig() config {
 	}
 	if runtime.GOOS == "windows" {
 		build.Bin = `tmp\main.exe`
-		build.Cmd = "go build -o ./tmp/main.exe main.go"
+		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
 	log := cfgLog{
 		AddTime: false,
