@@ -63,9 +63,15 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 
 // Run run run
 func (e *Engine) Run() {
+	abs, err := filepath.Abs(e.config.Root)
+	if err != nil {
+		os.Exit(1)
+	}
+
+	e.config.Root = abs
+
 	e.mainDebug("CWD: %s", e.config.Root)
 
-	var err error
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
