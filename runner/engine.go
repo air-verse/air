@@ -13,6 +13,7 @@ import (
 
 // Engine ...
 type Engine struct {
+	cfgPath   string
 	config    *config
 	logger    *logger
 	watcher   *fsnotify.Watcher
@@ -46,6 +47,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		return nil, err
 	}
 	return &Engine{
+		cfgPath:        cfgPath,
 		config:         cfg,
 		logger:         logger,
 		watcher:        watcher,
@@ -63,19 +65,23 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 
 // Run run run
 func (e *Engine) Run() {
-	abs, err := filepath.Abs(e.config.Root)
-	if err != nil {
-		os.Exit(1)
-	}
+	if !filepath.IsAbs(e.config.Root) {
+		cfgPath := filepath.Dir(e.cfgPath)
+		e.mainDebug("Converting %s to absolute path based on %s", e.config.Root, cfgPath)
+		abs, err := filepath.Abs(filepath.Join(cfgPath, e.config.Root))
+		if err != nil {
+			os.Exit(1)
+		}
 
-	e.config.Root = abs
+		e.config.Root = abs
+	}
 
 	e.mainDebug("CWD: %s", e.config.Root)
 
-	if err = e.checkRunEnv(); err != nil {
+	if err := e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
-	if err = e.watching(e.config.Root); err != nil {
+	if err := e.watching(e.config.Root); err != nil {
 		os.Exit(1)
 	}
 
