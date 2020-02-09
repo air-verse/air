@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/imdario/mergo"
 	"github.com/pelletier/go-toml"
 )
 
@@ -53,14 +54,10 @@ type cfgMisc struct {
 	CleanOnExit bool `toml:"clean_on_exit"`
 }
 
-func initConfig(path string) (*config, error) {
-	var err error
-	var isDftPath bool
+func initConfig(path string) (cfg *config, err error) {
 	if path == "" {
-		isDftPath = true
 		// when path is blank, first find `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-		wd := os.Getenv(airWd)
-		if wd != "" {
+		if wd := os.Getenv(airWd); wd != "" {
 			path = filepath.Join(wd, dftConf)
 		} else {
 			path, err = dftConfPath()
@@ -68,14 +65,17 @@ func initConfig(path string) (*config, error) {
 				return nil, err
 			}
 		}
-	}
-	cfg, err := readConfigOrDefault(path)
-	if err != nil {
-		if !isDftPath {
+		cfg, _ = readConfigOrDefault(path)
+	} else {
+		cfg, err = readConfigOrDefault(path)
+		if err != nil {
 			return nil, err
 		}
 	}
-	cfg.mergeDefaults(defaultConfig())
+	err = mergo.Merge(cfg, defaultConfig())
+	if err != nil {
+		return nil, err
+	}
 	err = cfg.preprocess()
 	return cfg, err
 }
@@ -113,45 +113,6 @@ func defaultConfig() config {
 		Color:  color,
 		Log:    log,
 		Misc:   misc,
-	}
-}
-
-func (c *config) mergeDefaults(dft config) {
-	if c == nil {
-		return
-	}
-	// TODO: maybe better way to assign
-	// build
-	if c.Build.Bin == "" {
-		c.Build.Bin = dft.Build.Bin
-	}
-	if c.Build.Cmd == "" {
-		c.Build.Cmd = dft.Build.Cmd
-	}
-	if c.Build.Log == "" {
-		c.Build.Log = dft.Build.Log
-	}
-	if len(c.Build.IncludeExt) == 0 {
-		c.Build.IncludeExt = dft.Build.IncludeExt
-	}
-	if len(c.Build.ExcludeDir) == 0 {
-		c.Build.ExcludeDir = dft.Build.ExcludeDir
-	}
-	if c.Build.Delay == 0 {
-		c.Build.Delay = dft.Build.Delay
-	}
-	// color
-	if c.Color.Main == "" {
-		c.Color.Main = dft.Color.Main
-	}
-	if c.Color.Watcher == "" {
-		c.Color.Watcher = dft.Color.Watcher
-	}
-	if c.Color.Build == "" {
-		c.Color.Build = dft.Color.Build
-	}
-	if c.Color.Runner == "" {
-		c.Color.Runner = dft.Color.Runner
 	}
 }
 
