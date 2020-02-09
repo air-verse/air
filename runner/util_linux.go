@@ -11,7 +11,11 @@ import (
 func killCmd(cmd *exec.Cmd) (int, error) {
 	pid := cmd.Process.Pid
 	// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
-	err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	err := syscall.Kill(-pid, syscall.SIGKILL)
+
+	// Wait releases any resources associated with the Process.
+	_, _ = cmd.Process.Wait()
+
 	return pid, err
 }
 
