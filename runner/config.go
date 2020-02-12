@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,16 +27,17 @@ type config struct {
 }
 
 type cfgBuild struct {
-	Cmd         string   `toml:"cmd"`
-	Bin         string   `toml:"bin"`
-	FullBin     string   `toml:"full_bin"`
-	Log         string   `toml:"log"`
-	IncludeExt  []string `toml:"include_ext"`
-	ExcludeDir  []string `toml:"exclude_dir"`
-	IncludeDir  []string `toml:"include_dir"`
-	ExcludeFile []string `toml:"exclude_file"`
-	Delay       int      `toml:"delay"`
-	StopOnError bool     `toml:"stop_on_error"`
+	Cmd         string            `toml:"cmd"`
+	Bin         string            `toml:"bin"`
+	FullBin     string            `toml:"full_bin"`
+	Env         map[string]string `toml:"env"`
+	Log         string            `toml:"log"`
+	IncludeExt  []string          `toml:"include_ext"`
+	ExcludeDir  []string          `toml:"exclude_dir"`
+	IncludeDir  []string          `toml:"include_dir"`
+	ExcludeFile []string          `toml:"exclude_file"`
+	Delay       int               `toml:"delay"`
+	StopOnError bool              `toml:"stop_on_error"`
 }
 
 type cfgLog struct {
@@ -152,6 +154,13 @@ func (c *config) preprocess() error {
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
+		return err
+	} else if len(c.Build.Env) > 0 {
+		env := ""
+		for k, v := range c.Build.Env {
+			env = fmt.Sprintf("%s=%s %s", k, v, env)
+		}
+		c.Build.Bin = env + c.Build.Bin
 		return err
 	}
 	// Fix windows CMD processor
