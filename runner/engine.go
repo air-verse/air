@@ -250,6 +250,21 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
+
+	if e.config.Build.KillWait {
+		// Check if older cmd is killed
+		var binRunning = true
+		for binRunning {
+			e.withLock(func() {
+				binRunning = e.binRunning
+			})
+			if binRunning {
+				time.Sleep(500 * time.Millisecond)
+			}
+		}
+	}
+
+	// Run new cmd
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
 	}
@@ -324,12 +339,16 @@ func (e *Engine) runBin() error {
 		e.withLock(func() {
 			e.binRunning = false
 		})
-		cmdBinPath := cmdPath(e.config.binPath())
-		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-			return
-		}
-		if err = os.Remove(cmdBinPath); err != nil {
-			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+
+		if e.config.Build.KillWait == false {
+			// This is already a new bin, do not need to delete it
+			cmdBinPath := cmdPath(e.config.binPath())
+			if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
+				return
+			}
+			if err = os.Remove(cmdBinPath); err != nil {
+				e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+			}
 		}
 	}(cmd, stdout, stderr)
 	return nil

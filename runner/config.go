@@ -36,6 +36,7 @@ type cfgBuild struct {
 	ExcludeFile []string `toml:"exclude_file"`
 	Delay       int      `toml:"delay"`
 	StopOnError bool     `toml:"stop_on_error"`
+	KillWait    bool     `toml:"kill_wait"`
 }
 
 type cfgLog struct {
