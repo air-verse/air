@@ -139,6 +139,10 @@ BTW: Pull requests are welcome~
 
 <a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
 
+Huge thanks to the following supporters. I've always been remembering your kindness.
+
+* Peter Aba
+
 ## License
 
 [GNU General Public License v3.0](LICENSE)
