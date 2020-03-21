@@ -9,7 +9,6 @@ import (
 
 func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	pid = cmd.Process.Pid
-
 	// https://stackoverflow.com/a/44551450
 	kill := exec.Command("TASKKILL", "/T", "/F", "/PID", strconv.Itoa(pid))
 	return pid, kill.Run()

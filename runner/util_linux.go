@@ -17,8 +17,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		if err = syscall.Kill(-pid, syscall.SIGINT); err != nil {
 			return
 		}
-
-		time.Sleep(e.config.Build.KillDelay * time.Second)
+		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
 	}
 
 	// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
@@ -26,7 +25,6 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 	// Wait releases any resources associated with the Process.
 	_, _ = cmd.Process.Wait()
-
 	return
 }
 
