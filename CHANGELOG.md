@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. 
 
+## [1.12.1] 2020-03-21
+
+* add kill_delay [#49](https://github.com/cosmtrek/air/issues/29), credited to [wsnotify](https://github.com/wsnotify)
+* build on Go1.14
+
 ## [1.12.0] 2020-01-01
 
 * add stop_on_error [#38](https://github.com/cosmtrek/air/issues/38)
