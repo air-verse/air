@@ -26,16 +26,18 @@ type config struct {
 }
 
 type cfgBuild struct {
-	Cmd         string   `toml:"cmd"`
-	Bin         string   `toml:"bin"`
-	FullBin     string   `toml:"full_bin"`
-	Log         string   `toml:"log"`
-	IncludeExt  []string `toml:"include_ext"`
-	ExcludeDir  []string `toml:"exclude_dir"`
-	IncludeDir  []string `toml:"include_dir"`
-	ExcludeFile []string `toml:"exclude_file"`
-	Delay       int      `toml:"delay"`
-	StopOnError bool     `toml:"stop_on_error"`
+	Cmd           string        `toml:"cmd"`
+	Bin           string        `toml:"bin"`
+	FullBin       string        `toml:"full_bin"`
+	Log           string        `toml:"log"`
+	IncludeExt    []string      `toml:"include_ext"`
+	ExcludeDir    []string      `toml:"exclude_dir"`
+	IncludeDir    []string      `toml:"include_dir"`
+	ExcludeFile   []string      `toml:"exclude_file"`
+	Delay         int           `toml:"delay"`
+	StopOnError   bool          `toml:"stop_on_error"`
+	SendInterrupt bool          `toml:"send_interrupt"`
+	KillDelay     time.Duration `toml:"kill_delay"`
 }
 
 type cfgLog struct {
