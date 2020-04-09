@@ -40,8 +40,8 @@ release: check
 
 .PHONY: docker-image
 docker-image:
-	docker build -t cosmtrek/air:v1.12.0 -f ./Dockerfile .
+	docker build -t cosmtrek/air:v1.12.1 -f ./Dockerfile .
 
 .PHONY: push-docker-image
 push-docker-image:
-	docker push cosmtrek/air:v1.12.0
+	docker push cosmtrek/air:v1.12.1

@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/creack/pty v1.1.9
 	github.com/fatih/color v1.7.0
-	github.com/fsnotify/fsnotify v1.4.7
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/imdario/mergo v0.3.8
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
