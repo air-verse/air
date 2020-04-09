@@ -28,9 +28,9 @@ func main() {
 	fmt.Printf(`
   __    _   ___  
  / /\  | | | |_) 
-/_/--\ |_| |_| \_ // live reload for Go apps [v%s]
+/_/--\ |_| |_| \_ v%s // live reload for Go apps, with Go%s
 
-`, version)
+`, airVersion, goVersion)
 
 	if showVersion {
 		return

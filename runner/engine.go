@@ -327,7 +327,7 @@ func (e *Engine) runBin() error {
 		}()
 
 		var err error
-		pid, err := killCmd(cmd)
+		pid, err := e.killCmd(cmd)
 		if err != nil {
 			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
 			if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
