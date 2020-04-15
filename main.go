@@ -25,10 +25,10 @@ func init() {
 }
 
 func main() {
-	fmt.Printf(`
+	fmt.Printf(` hello FDHJAHFjs
   __    _   ___  
  / /\  | | | |_) 
-/_/--\ |_| |_| \_ v%s // live reload for Go apps, with Go%s
+/_/--\ |_| |_| \_ v%s // live reload for Go apps, with Go%s sdgfsgf s
 
 `, airVersion, goVersion)
 
