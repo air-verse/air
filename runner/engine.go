@@ -79,6 +79,9 @@ func (e *Engine) Run() {
 
 func (e *Engine) checkRunEnv() error {
 	p := e.config.tmpPath()
+	if p == "." {
+		e.warningLog("Your temp dir is '.', please notice, that it's gonna be wiped")
+	}
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		e.runnerLog("mkdir %s", p)
 		if err := os.Mkdir(p, 0755); err != nil {

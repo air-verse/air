@@ -56,6 +56,12 @@ func (e *Engine) watcherDebug(format string, v ...interface{}) {
 	}
 }
 
+func (e *Engine) warningLog(format string, v ...interface{}) {
+	e.logWithLock(func() {
+		e.logger.warning()(format, v...)
+	})
+}
+
 func (e *Engine) isTmpDir(path string) bool {
 	return path == e.config.tmpPath()
 }

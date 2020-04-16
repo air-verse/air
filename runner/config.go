@@ -50,6 +50,7 @@ type cfgColor struct {
 	Build   string `toml:"build"`
 	Runner  string `toml:"runner"`
 	App     string `toml:"app"`
+	Warning string `toml:"warning"`
 }
 
 type cfgMisc struct {
@@ -104,6 +105,7 @@ func defaultConfig() config {
 		Watcher: "cyan",
 		Build:   "yellow",
 		Runner:  "green",
+		Warning: "red",
 	}
 	misc := cfgMisc{
 		CleanOnExit: false,
@@ -168,6 +170,7 @@ func (c *config) colorInfo() map[string]string {
 		"build":   c.Color.Build,
 		"runner":  c.Color.Runner,
 		"watcher": c.Color.Watcher,
+		"warning": c.Color.Warning,
 	}
 }
 
