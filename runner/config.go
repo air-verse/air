@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/imdario/mergo"
@@ -151,6 +152,37 @@ func (c *config) preprocess() error {
 	for i := range ed {
 		ed[i] = cleanPath(ed[i])
 	}
+
+	// Fix the default configuration is not used in Windows
+	// Use the unix configuration on Windows
+	if runtime.GOOS == "windows" {
+
+		runName := "start"
+		extName := ".exe"
+		originBin := c.Build.Bin
+		if ! strings.HasSuffix(c.Build.Bin, extName) {
+
+			c.Build.Bin += extName
+		}
+
+		if 0 < len(c.Build.FullBin) {
+
+			if ! strings.HasSuffix(c.Build.FullBin, extName) {
+
+				c.Build.FullBin += extName
+			}
+			if ! strings.HasPrefix(c.Build.FullBin, runName) {
+				c.Build.FullBin = runName + " " + c.Build.FullBin
+			}
+		}
+
+		// bin=/tmp/main  cmd=go build -o ./tmp/main.exe main.go
+		if !strings.Contains(c.Build.Cmd, c.Build.Bin) && strings.Contains(c.Build.Cmd, originBin) {
+			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
+		}
+	}
+
+
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
