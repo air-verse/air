@@ -28,6 +28,7 @@ type config struct {
 
 type cfgBuild struct {
 	Cmd           string        `toml:"cmd"`
+	Shell         string        `toml:"shell"`
 	Bin           string        `toml:"bin"`
 	FullBin       string        `toml:"full_bin"`
 	Log           string        `toml:"log"`
@@ -86,6 +87,7 @@ func initConfig(path string) (cfg *config, err error) {
 func defaultConfig() config {
 	build := cfgBuild{
 		Cmd:         "go build -o ./tmp/main .",
+		Shell:       "sh",
 		Bin:         "./tmp/main",
 		Log:         "build-errors.log",
 		IncludeExt:  []string{"go", "tpl", "tmpl", "html"},
@@ -160,18 +162,18 @@ func (c *config) preprocess() error {
 		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
-		if ! strings.HasSuffix(c.Build.Bin, extName) {
+		if !strings.HasSuffix(c.Build.Bin, extName) {
 
 			c.Build.Bin += extName
 		}
 
 		if 0 < len(c.Build.FullBin) {
 
-			if ! strings.HasSuffix(c.Build.FullBin, extName) {
+			if !strings.HasSuffix(c.Build.FullBin, extName) {
 
 				c.Build.FullBin += extName
 			}
-			if ! strings.HasPrefix(c.Build.FullBin, runName) {
+			if !strings.HasPrefix(c.Build.FullBin, runName) {
 				c.Build.FullBin = runName + " " + c.Build.FullBin
 			}
 		}
@@ -181,7 +183,6 @@ func (c *config) preprocess() error {
 			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
 		}
 	}
-
 
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
