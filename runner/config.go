@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	dftConf = ".air.conf"
+	dftConf = ".air.toml"
 	airWd   = "air_wd"
 )
 
@@ -59,7 +59,7 @@ type cfgMisc struct {
 
 func initConfig(path string) (cfg *config, err error) {
 	if path == "" {
-		// when path is blank, first find `.air.conf` in `air_wd` and current working directory, if not found, use defaults
+		// when path is blank, first find `.air.toml` in `air_wd` and current working directory, if not found, use defaults
 		if wd := os.Getenv(airWd); wd != "" {
 			path = filepath.Join(wd, dftConf)
 		} else {
