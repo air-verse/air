@@ -93,23 +93,23 @@ cd /path/to/your_project
 The simplest usage is run
 
 ```bash
-# firstly find `.air.conf` in current directory, if not found, use defaults
-air -c .air.conf
+# firstly find `.air.toml` in current directory, if not found, use defaults
+air -c .air.toml
 ```
 
 While I prefer the second way
 
 ```bash
 # 1. create a new file
-touch .air.conf
+touch .air.toml
 
-# 2. paste `air.conf.example` into this file, and **modify it** to satisfy your needs.
+# 2. paste `air_example.toml` into this file, and **modify it** to satisfy your needs.
 
-# 3. run air with your config. If file name is `.air.conf`, just run `air`.
+# 3. run air with your config. If file name is `.air.toml`, just run `air`.
 air
 ```
 
-See the complete [air_example.conf](air_example.conf)
+See the complete [air_example.toml](air_example.toml)
 
 ### Debug
 
