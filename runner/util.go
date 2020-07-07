@@ -116,8 +116,13 @@ func (e *Engine) isIncludeExt(path string) bool {
 func (e *Engine) isExcludeFile(path string) bool {
 	cleanName := cleanPath(e.config.rel(path))
 	for _, d := range e.config.Build.ExcludeFile {
-		if d == cleanName {
-			return true
+		dir := filepath.Dir(cleanName)
+		pattern := filepath.Join(dir, d)
+		matched, err := filepath.Match(pattern, cleanName)
+		if err == nil {
+			if matched == true {
+				return true
+			}
 		}
 	}
 	return false
