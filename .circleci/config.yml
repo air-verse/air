@@ -1,9 +1,0 @@
-version: 2
-jobs:
-  build:
-    docker:
-      - image: circleci/golang:1.13
-    working_directory: /go/src/github.com/cosmtrek/air
-    steps:
-      - checkout
-      - run: make ci
