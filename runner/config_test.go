@@ -45,11 +45,11 @@ func TestBinCmdPath(t *testing.T) {
 
 	if runtime.GOOS == "windows" {
 
-		if ! strings.HasSuffix(c.Build.Bin, "exe") {
+		if !strings.HasSuffix(c.Build.Bin, "exe") {
 			t.Fail()
 		}
 
-		if ! strings.Contains(c.Build.Bin, "exe") {
+		if !strings.Contains(c.Build.Bin, "exe") {
 			t.Fail()
 		}
 	} else {

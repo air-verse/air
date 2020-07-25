@@ -160,18 +160,18 @@ func (c *config) preprocess() error {
 		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
-		if ! strings.HasSuffix(c.Build.Bin, extName) {
+		if !strings.HasSuffix(c.Build.Bin, extName) {
 
 			c.Build.Bin += extName
 		}
 
 		if 0 < len(c.Build.FullBin) {
 
-			if ! strings.HasSuffix(c.Build.FullBin, extName) {
+			if !strings.HasSuffix(c.Build.FullBin, extName) {
 
 				c.Build.FullBin += extName
 			}
-			if ! strings.HasPrefix(c.Build.FullBin, runName) {
+			if !strings.HasPrefix(c.Build.FullBin, runName) {
 				c.Build.FullBin = runName + " " + c.Build.FullBin
 			}
 		}
@@ -181,7 +181,6 @@ func (c *config) preprocess() error {
 			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
 		}
 	}
-
 
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
