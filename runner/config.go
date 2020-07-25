@@ -39,6 +39,7 @@ type cfgBuild struct {
 	StopOnError   bool          `toml:"stop_on_error"`
 	SendInterrupt bool          `toml:"send_interrupt"`
 	KillDelay     time.Duration `toml:"kill_delay"`
+	KillWait      bool          `toml:"kill_wait"`
 }
 
 type cfgLog struct {
