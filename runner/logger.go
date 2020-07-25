@@ -95,6 +95,10 @@ func (l *logger) watcher() logFunc {
 	return l.getLogger("watcher")
 }
 
+func (l *logger) warning() logFunc {
+	return l.getLogger("warning")
+}
+
 func rawLogger() logFunc {
 	return newLogFunc("raw", defaultConfig().Log)
 }
