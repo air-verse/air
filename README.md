@@ -36,23 +36,9 @@ The classic way to install
 go get -u github.com/cosmtrek/air
 ```
 
-### macOS
+### macOS, Linux, Windows
 
-```bash
-curl -fLo air https://git.io/darwin_air
-```
-
-### Linux
-
-```bash
-curl -fLo air https://git.io/linux_air
-```
-
-### Windows
-
-```bash
-curl -fLo air.exe https://git.io/windows_air
-```
+The binary is published on the [release page](https://github.com/cosmtrek/air/releases).
 
 P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
 
