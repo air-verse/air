@@ -104,6 +104,11 @@ func (e *Engine) checkIncludeDir(path string) (bool, bool) {
 }
 
 func (e *Engine) isIncludeExt(path string) bool {
+	for _, v := range e.config.Build.ExcludeExt {
+		if strings.HasSuffix(path, v) {
+			return false
+		}
+	}
 	ext := filepath.Ext(path)
 	for _, v := range e.config.Build.IncludeExt {
 		if ext == "."+strings.TrimSpace(v) {
