@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -94,6 +95,10 @@ func defaultPathConfig() (*config, error) {
 
 		cfg, err := readConfig(path)
 		if err == nil {
+			if name == dftConf {
+				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
+			}
+
 			return cfg, nil
 		}
 	}
