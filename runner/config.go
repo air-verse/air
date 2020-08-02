@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 )
 
 const (
+	dftTOML = ".air.toml"
 	dftConf = ".air.conf"
 	airWd   = "air_wd"
 )
@@ -59,16 +61,10 @@ type cfgMisc struct {
 
 func initConfig(path string) (cfg *config, err error) {
 	if path == "" {
-		// when path is blank, first find `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-		if wd := os.Getenv(airWd); wd != "" {
-			path = filepath.Join(wd, dftConf)
-		} else {
-			path, err = dftConfPath()
-			if err != nil {
-				return nil, err
-			}
+		cfg, err = defaultPathConfig()
+		if err != nil {
+			return nil, err
 		}
-		cfg, _ = readConfigOrDefault(path)
 	} else {
 		cfg, err = readConfigOrDefault(path)
 		if err != nil {
@@ -81,6 +77,34 @@ func initConfig(path string) (cfg *config, err error) {
 	}
 	err = cfg.preprocess()
 	return cfg, err
+}
+
+func defaultPathConfig() (*config, error) {
+	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
+	for _, name := range []string{dftTOML, dftConf} {
+		var path string
+		if wd := os.Getenv(airWd); wd != "" {
+			path = filepath.Join(wd, name)
+		} else {
+			wd, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			path = filepath.Join(wd, name)
+		}
+
+		cfg, err := readConfig(path)
+		if err == nil {
+			if name == dftConf {
+				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
+			}
+
+			return cfg, nil
+		}
+	}
+
+	dftCfg := defaultConfig()
+	return &dftCfg, nil
 }
 
 func defaultConfig() config {
@@ -119,16 +143,27 @@ func defaultConfig() config {
 	}
 }
 
+func readConfig(path string) (*config, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := new(config)
+	if err = toml.Unmarshal(data, cfg); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
 func readConfigOrDefault(path string) (*config, error) {
 	dftCfg := defaultConfig()
-	data, err := ioutil.ReadFile(path)
+	cfg, err := readConfig(path)
 	if err != nil {
 		return &dftCfg, err
 	}
-	cfg := new(config)
-	if err = toml.Unmarshal(data, cfg); err != nil {
-		return &dftCfg, err
-	}
+
 	return cfg, nil
 }
 
@@ -200,14 +235,6 @@ func (c *config) colorInfo() map[string]string {
 		"runner":  c.Color.Runner,
 		"watcher": c.Color.Watcher,
 	}
-}
-
-func dftConfPath() (string, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(wd, dftConf), nil
 }
 
 func (c *config) buildLogPath() string {
