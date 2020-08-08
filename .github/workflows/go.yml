@@ -26,7 +26,7 @@ jobs:
 
 
     - name: Run Unit tests.
-      run: go test  ./... -v -covermode=count -coverprofile=coverage.out
+      run: go test  ./... -v -covermode=count -coverprofile=coverage.txt
 
     - name: Upload Coverage report to CodeCov
       uses: codecov/codecov-action@v1.0.0
