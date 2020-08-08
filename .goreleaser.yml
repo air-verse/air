@@ -3,3 +3,5 @@ builds:
       - linux
       - windows
       - darwin
+archives:
+  - format: binary
