@@ -24,17 +24,15 @@ jobs:
     - name: Build
       run: go build -v .
 
-    - name: Test
-      run: go test -v ./...
 
-      - name: Run Unit tests.
-        run: go test  ./... -v -covermode=count -coverprofile=coverage.out
+    - name: Run Unit tests.
+      run: go test  ./... -v -covermode=count -coverprofile=coverage.out
 
-      - name: Upload Coverage report to CodeCov
-        uses: codecov/codecov-action@v1.0.0
-        with:
-          token: ${{secrets.CODECOV_TOKEN}}
-          file: ./coverage.txt
+    - name: Upload Coverage report to CodeCov
+      uses: codecov/codecov-action@v1.0.0
+      with:
+        token: ${{secrets.CODECOV_TOKEN}}
+        file: ./coverage.txt
 
   release:
     name: Release
