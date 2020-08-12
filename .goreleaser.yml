@@ -3,5 +3,6 @@ builds:
       - linux
       - windows
       - darwin
-archives:
-  - format: binary
+    ignore:
+      - goos: darwin
+        goarch: 386
