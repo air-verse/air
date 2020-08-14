@@ -6,3 +6,8 @@ builds:
     ignore:
       - goos: darwin
         goarch: 386
+archives:
+  - id: tar.gz
+    format: tar.gz
+  - id: binary
+    format: binary
