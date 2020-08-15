@@ -104,6 +104,14 @@ func TestDefaultPathConfig(t *testing.T) {
 	}
 }
 
+func TestReadConfByName(t *testing.T) {
+	_ = os.Unsetenv(airWd)
+	config, _ := readConfByName(dftTOML)
+	if config != nil {
+		t.Fatalf("expect config is nil,but get a not nil config")
+	}
+}
+
 func TestConfPreprocess(t *testing.T) {
 	_ = os.Setenv(airWd, "_testdata/toml")
 	df := defaultConfig()
@@ -115,5 +123,15 @@ func TestConfPreprocess(t *testing.T) {
 	binPath := df.Build.Bin
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
+	}
+}
+
+func TestReadConfigWithWrongPath(t *testing.T) {
+	c, err := readConfig("xxxx")
+	if err == nil {
+		t.Fatal("need throw a error")
+	}
+	if c != nil {
+		t.Fatal("expect is nil but got a conf")
 	}
 }

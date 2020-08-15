@@ -81,29 +81,32 @@ func initConfig(path string) (cfg *config, err error) {
 func defaultPathConfig() (*config, error) {
 	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
 	for _, name := range []string{dftTOML, dftConf} {
-		var path string
-		if wd := os.Getenv(airWd); wd != "" {
-			path = filepath.Join(wd, name)
-		} else {
-			wd, err := os.Getwd()
-			if err != nil {
-				return nil, err
-			}
-			path = filepath.Join(wd, name)
-		}
-
-		cfg, err := readConfig(path)
+		cfg, err := readConfByName(name)
 		if err == nil {
 			if name == dftConf {
 				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
 			}
-
 			return cfg, nil
 		}
 	}
 
 	dftCfg := defaultConfig()
 	return &dftCfg, nil
+}
+
+func readConfByName(name string) (*config, error) {
+	var path string
+	if wd := os.Getenv(airWd); wd != "" {
+		path = filepath.Join(wd, name)
+	} else {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		path = filepath.Join(wd, name)
+	}
+	cfg, err := readConfig(path)
+	return cfg, err
 }
 
 func defaultConfig() config {
