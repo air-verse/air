@@ -1,4 +1,4 @@
-name: Go
+name: build and test
 
 on:
   push:
@@ -6,12 +6,10 @@ on:
     branches: [ master ]
 
 jobs:
-
   build:
-    name: Build
+    name: build
     runs-on: ubuntu-latest
     steps:
-
     - name: Set up Go 1.14
       uses: actions/setup-go@v2
       with:
@@ -24,6 +22,11 @@ jobs:
     - name: Build
       run: go build -v .
 
+    - name: Lint
+      uses: golangci/golangci-lint-action@v1
+      with:
+        # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
+        version: v1.29
 
     - name: Run Unit tests.
       run: go test  ./... -v -covermode=count -coverprofile=coverage.txt
@@ -35,7 +38,7 @@ jobs:
         file: ./coverage.txt
 
   release:
-    name: Release
+    name: release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     needs:
@@ -45,8 +48,10 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+
       - name: Setup Go
         uses: actions/setup-go@v2
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:

@@ -3,5 +3,11 @@ builds:
       - linux
       - windows
       - darwin
+    ignore:
+      - goos: darwin
+        goarch: 386
 archives:
-  - format: binary
+  - id: tar.gz
+    format: tar.gz
+  - id: binary
+    format: binary

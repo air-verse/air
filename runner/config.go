@@ -217,10 +217,6 @@ func (c *config) buildDelay() time.Duration {
 	return time.Duration(c.Build.Delay) * time.Millisecond
 }
 
-func (c *config) fullPath(path string) string {
-	return filepath.Join(c.Root, path)
-}
-
 func (c *config) binPath() string {
 	return filepath.Join(c.Root, c.Build.Bin)
 }

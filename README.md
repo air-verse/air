@@ -38,7 +38,15 @@ go get -u github.com/cosmtrek/air
 
 ### macOS, Linux, Windows
 
-The binary is published on the [release page](https://github.com/cosmtrek/air/releases).
+```bash
+# binary will be $(go env GOPATH)/bin/air
+curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+
+# or install it into ./bin/
+curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s
+
+air -v
+```
 
 P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
 
