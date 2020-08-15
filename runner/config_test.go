@@ -91,7 +91,7 @@ func TestDefaultPathConfig(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv(airWd, tt.path)
+			_ = os.Setenv(airWd, tt.path)
 			c, err := defaultPathConfig()
 			if err != nil {
 				t.Fatalf("Should not be fail: %s.", err)
@@ -101,5 +101,19 @@ func TestDefaultPathConfig(t *testing.T) {
 				t.Fatalf("Root is %s, but want %s.", got, want)
 			}
 		})
+	}
+}
+
+func TestConfPreprocess(t *testing.T) {
+	_ = os.Setenv(airWd, "_testdata/toml")
+	df := defaultConfig()
+	err := df.preprocess()
+	if err != nil {
+		t.Fatalf("preprocess error %v", err)
+	}
+	suffix := "/_testdata/toml/tmp/main"
+	binPath := df.Build.Bin
+	if !strings.HasSuffix(binPath, suffix) {
+		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
 	}
 }
