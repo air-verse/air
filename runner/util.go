@@ -26,22 +26,10 @@ func (e *Engine) buildLog(format string, v ...interface{}) {
 	})
 }
 
-func (e *Engine) buildDebug(format string, v ...interface{}) {
-	if e.debugMode {
-		e.buildLog(format, v...)
-	}
-}
-
 func (e *Engine) runnerLog(format string, v ...interface{}) {
 	e.logWithLock(func() {
 		e.logger.runner()(format, v...)
 	})
-}
-
-func (e *Engine) runnerDebug(format string, v ...interface{}) {
-	if e.debugMode {
-		e.runnerLog(format, v...)
-	}
 }
 
 func (e *Engine) watcherLog(format string, v ...interface{}) {

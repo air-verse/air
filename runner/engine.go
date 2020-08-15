@@ -239,7 +239,7 @@ func (e *Engine) buildRun() {
 	var err error
 	if err = e.building(); err != nil {
 		e.buildLog("failed to build, error: %s", err.Error())
-		e.writeBuildErrorLog(err.Error())
+		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
 			return
 		}
@@ -277,8 +277,8 @@ func (e *Engine) building() error {
 		stdout.Close()
 		stderr.Close()
 	}()
-	io.Copy(os.Stdout, stdout)
-	io.Copy(os.Stderr, stderr)
+	_, _ = io.Copy(os.Stdout, stdout)
+	_, _ = io.Copy(os.Stderr, stderr)
 	// wait for building
 	err = cmd.Wait()
 	if err != nil {
@@ -299,8 +299,8 @@ func (e *Engine) runBin() error {
 	})
 
 	go func() {
-		io.Copy(os.Stdout, stdout)
-		io.Copy(os.Stderr, stderr)
+		_, _ = io.Copy(os.Stdout, stdout)
+		_, _ = io.Copy(os.Stderr, stderr)
 	}()
 
 	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
