@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/imdario/mergo"
@@ -82,29 +81,32 @@ func initConfig(path string) (cfg *config, err error) {
 func defaultPathConfig() (*config, error) {
 	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
 	for _, name := range []string{dftTOML, dftConf} {
-		var path string
-		if wd := os.Getenv(airWd); wd != "" {
-			path = filepath.Join(wd, name)
-		} else {
-			wd, err := os.Getwd()
-			if err != nil {
-				return nil, err
-			}
-			path = filepath.Join(wd, name)
-		}
-
-		cfg, err := readConfig(path)
+		cfg, err := readConfByName(name)
 		if err == nil {
 			if name == dftConf {
 				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
 			}
-
 			return cfg, nil
 		}
 	}
 
 	dftCfg := defaultConfig()
 	return &dftCfg, nil
+}
+
+func readConfByName(name string) (*config, error) {
+	var path string
+	if wd := os.Getenv(airWd); wd != "" {
+		path = filepath.Join(wd, name)
+	} else {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+		path = filepath.Join(wd, name)
+	}
+	cfg, err := readConfig(path)
+	return cfg, err
 }
 
 func defaultConfig() config {
@@ -117,7 +119,7 @@ func defaultConfig() config {
 		Delay:       1000,
 		StopOnError: true,
 	}
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
 		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
@@ -188,34 +190,7 @@ func (c *config) preprocess() error {
 		ed[i] = cleanPath(ed[i])
 	}
 
-	// Fix the default configuration is not used in Windows
-	// Use the unix configuration on Windows
-	if runtime.GOOS == "windows" {
-
-		runName := "start"
-		extName := ".exe"
-		originBin := c.Build.Bin
-		if !strings.HasSuffix(c.Build.Bin, extName) {
-
-			c.Build.Bin += extName
-		}
-
-		if 0 < len(c.Build.FullBin) {
-
-			if !strings.HasSuffix(c.Build.FullBin, extName) {
-
-				c.Build.FullBin += extName
-			}
-			if !strings.HasPrefix(c.Build.FullBin, runName) {
-				c.Build.FullBin = runName + " " + c.Build.FullBin
-			}
-		}
-
-		// bin=/tmp/main  cmd=go build -o ./tmp/main.exe main.go
-		if !strings.Contains(c.Build.Cmd, c.Build.Bin) && strings.Contains(c.Build.Cmd, originBin) {
-			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
-		}
-	}
+	adaptToVariousPlatforms(c)
 
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
