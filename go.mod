@@ -3,7 +3,7 @@ module github.com/cosmtrek/air
 go 1.13
 
 require (
-	github.com/creack/pty v1.1.9
+	github.com/creack/pty v1.1.10
 	github.com/fatih/color v1.7.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/imdario/mergo v0.3.8
