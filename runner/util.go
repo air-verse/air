@@ -182,7 +182,6 @@ func adaptToVariousPlatforms(c *config) {
 	// Use the unix configuration on Windows
 	if runtime.GOOS == PlatformWindows {
 
-		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
 		if !strings.HasSuffix(c.Build.Bin, extName) {
@@ -195,9 +194,6 @@ func adaptToVariousPlatforms(c *config) {
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
 
 				c.Build.FullBin += extName
-			}
-			if !strings.HasPrefix(c.Build.FullBin, runName) {
-				c.Build.FullBin = runName + " " + c.Build.FullBin
 			}
 		}
 
