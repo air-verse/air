@@ -1,10 +1,15 @@
 package runner
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -206,4 +211,44 @@ func adaptToVariousPlatforms(c *config) {
 			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
 		}
 	}
+}
+
+// fileChecksum returns a checksum for the given file's contents.
+func fileChecksum(filename string) (checksum string, err error) {
+	contents, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+
+	// If the file is empty, an editor might've been in the process of rewriting the file when we read it.
+	// This can happen often if editors are configured to run format after save.
+	// Instead of calculating a new checksum, we'll assume the file was unchanged, but return an error to force a rebuild anyway.
+	if len(contents) == 0 {
+		return "", errors.New("empty file, forcing rebuild without updating checksum")
+	}
+
+	h := sha256.New()
+	if _, err := h.Write(contents); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// checksumMap is a thread-safe map to store file checksums.
+type checksumMap struct {
+	l sync.Mutex
+	m map[string]string
+}
+
+// update updates the filename with the given checksum if different.
+func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool) {
+	a.l.Lock()
+	defer a.l.Unlock()
+	oldChecksum, ok := a.m[filename]
+	if !ok || oldChecksum != newChecksum {
+		a.m[filename] = newChecksum
+		return true
+	}
+	return false
 }

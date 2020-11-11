@@ -25,9 +25,10 @@ type Engine struct {
 	binStopCh      chan bool
 	exitCh         chan bool
 
-	mu         sync.RWMutex
-	binRunning bool
-	watchers   uint
+	mu            sync.RWMutex
+	binRunning    bool
+	watchers      uint
+	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
 }
@@ -45,7 +46,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{
+	e := Engine{
 		config:         cfg,
 		logger:         logger,
 		watcher:        watcher,
@@ -58,7 +59,13 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		exitCh:         make(chan bool),
 		binRunning:     false,
 		watchers:       0,
-	}, nil
+	}
+
+	if cfg.Build.ExcludeUnchanged {
+		e.fileChecksums = &checksumMap{m: make(map[string]string)}
+	}
+
+	return &e, nil
 }
 
 // Run run run
@@ -121,6 +128,35 @@ func (e *Engine) watching(root string) error {
 	})
 }
 
+// cacheFileChecksums calculates and stores checksums for each non-excluded file it finds from root.
+func (e *Engine) cacheFileChecksums(root string) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return err
+		}
+
+		if !info.Mode().IsRegular() {
+			if e.isTmpDir(path) || isHiddenDirectory(path) || e.isExcludeDir(path) {
+				e.watcherDebug("!exclude checksum %s", e.config.rel(path))
+				return filepath.SkipDir
+			}
+		}
+
+		if e.isExcludeFile(path) || !e.isIncludeExt(path) {
+			e.watcherDebug("!exclude checksum %s", e.config.rel(path))
+			return nil
+		}
+
+		// update the checksum cache for the current file
+		_ = e.isModified(path)
+
+		return nil
+	})
+}
+
 func (e *Engine) watchDir(path string) error {
 	if err := e.watcher.Add(path); err != nil {
 		e.watcherLog("failed to watching %s, error: %s", path, err.Error())
@@ -137,6 +173,13 @@ func (e *Engine) watchDir(path string) error {
 				e.watchers--
 			})
 		}()
+
+		if e.config.Build.ExcludeUnchanged {
+			err := e.cacheFileChecksums(path)
+			if err != nil {
+				e.watcherLog("error building checksum cache: %v", err)
+			}
+		}
 
 		for {
 			select {
@@ -188,6 +231,21 @@ func (e *Engine) watchNewDir(dir string, removeDir bool) {
 	}(dir)
 }
 
+func (e *Engine) isModified(filename string) bool {
+	newChecksum, err := fileChecksum(filename)
+	if err != nil {
+		e.watcherDebug("can't determine if file was changed: %v - assuming it did without updating cache", err)
+		return true
+	}
+
+	if e.fileChecksums.updateFileChecksum(filename, newChecksum) {
+		e.watcherDebug("stored checksum for %s: %s", e.config.rel(filename), newChecksum)
+		return true
+	}
+
+	return false
+}
+
 // Endless loop and never return
 func (e *Engine) start() {
 	firstRunCh := make(chan bool, 1)
@@ -204,6 +262,12 @@ func (e *Engine) start() {
 			e.flushEvents()
 			if !e.isIncludeExt(filename) {
 				continue
+			}
+			if e.config.Build.ExcludeUnchanged {
+				if !e.isModified(filename) {
+					e.mainLog("skipping %s because contents unchanged", e.config.rel(filename))
+					continue
+				}
 			}
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
