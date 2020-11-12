@@ -20,6 +20,8 @@ exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
 include_dir = []
 # Exclude files.
 exclude_file = []
+# Exclude unchanged files.
+exclude_unchanged = true
 # This log file places in your tmp_dir.
 log = "air.log"
 # It's not necessary to trigger build each time file changes if it's too frequent.
