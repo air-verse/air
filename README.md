@@ -4,8 +4,6 @@
 
 ![air](docs/air.png)
 
-:fire::fire::fire: [JOB HIRING](https://github.com/cosmtrek/air/issues/59)
-
 ## Motivation
 
 When I get started with developing websites in Go and [gin](https://github.com/gin-gonic/gin) framework, it's a pity
@@ -138,6 +136,8 @@ BTW: Pull requests are welcome~
 Huge thanks to the following supporters. I've always been remembering your kindness.
 
 * Peter Aba
+* Apostolis Anastasiou
+* keita koga
 
 ## License
 
