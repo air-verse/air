@@ -6,6 +6,8 @@ builds:
     ignore:
       - goos: darwin
         goarch: 386
+    ldflags:
+      - -X main.airVersion={{.Version}} -X main.goVersion={{.Env.GOVERSION}}
 archives:
   - id: tar.gz
     format: tar.gz
