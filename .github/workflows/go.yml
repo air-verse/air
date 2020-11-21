@@ -55,6 +55,8 @@ jobs:
           go-version: 1.15
 
       - name: set GOVERSION
+        env:
+            ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
         run: echo "::set-env name=GOVERSION::$(go version | sed -r 's/go version go(.*)\ .*/\1/')"
 
       - name: Run GoReleaser
