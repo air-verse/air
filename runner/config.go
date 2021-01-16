@@ -31,6 +31,7 @@ type cfgBuild struct {
 	Cmd              string        `toml:"cmd"`
 	Bin              string        `toml:"bin"`
 	FullBin          string        `toml:"full_bin"`
+	ArgsBin          []string      `toml:"args_bin"`
 	Log              string        `toml:"log"`
 	IncludeExt       []string      `toml:"include_ext"`
 	ExcludeDir       []string      `toml:"exclude_dir"`

@@ -10,6 +10,8 @@ tmp_dir = "tmp"
 cmd = "go build -o ./tmp/main ."
 # Binary file yields from `cmd`.
 bin = "tmp/main"
+# Argument binary.
+args_bin = []
 # Customize binary.
 full_bin = "APP_ENV=dev APP_USER=air ./tmp/main"
 # Watch these filename extensions.

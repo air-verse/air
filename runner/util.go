@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -201,14 +202,23 @@ func adaptToVariousPlatforms(c *config) {
 
 				c.Build.FullBin += extName
 			}
+
 			if !strings.HasPrefix(c.Build.FullBin, runName) {
 				c.Build.FullBin = runName + " /b " + c.Build.FullBin
+			}
+
+			for _, arg := range c.Build.ArgsBin {
+				c.Build.FullBin += fmt.Sprintf(" %s", arg)
 			}
 		}
 
 		// bin=/tmp/main  cmd=go build -o ./tmp/main.exe main.go
 		if !strings.Contains(c.Build.Cmd, c.Build.Bin) && strings.Contains(c.Build.Cmd, originBin) {
 			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
+		}
+
+		for _, arg := range c.Build.ArgsBin {
+			c.Build.Bin += fmt.Sprintf(" %s", arg)
 		}
 	}
 }
