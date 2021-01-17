@@ -3,6 +3,7 @@ package runner
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -122,5 +123,32 @@ func TestChecksumMap(t *testing.T) {
 
 	if !m.updateFileChecksum("bar.txt", "123456") {
 		t.Errorf("expected no entry for bar.txt, but had one")
+	}
+}
+
+func TestAddArgs(t *testing.T) {
+	cfg := config{
+		Build: cfgBuild{
+			Bin: "/tmp/main",
+			ArgsBin: []string{
+				"server",
+			},
+		},
+	}
+
+	cmd := addArgs(cfg.Build.Bin, cfg.Build.ArgsBin)
+	if !strings.HasSuffix(cmd, "server") {
+		t.Errorf("expected contain entry for server")
+	}
+
+	cfg.Build.ArgsBin = append(cfg.Build.ArgsBin, "--help")
+	cmd = addArgs(cfg.Build.Bin, cfg.Build.ArgsBin)
+	if !strings.HasSuffix(cmd, " --help") {
+		t.Errorf("expected contain entry for --help")
+	}
+
+	split := strings.Split(cmd, " ")
+	if len(split) != 3 {
+		t.Errorf("expacted '%d' but got '%d' ", 3, len(split))
 	}
 }

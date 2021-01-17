@@ -183,6 +183,14 @@ func cmdPath(path string) string {
 	return strings.Split(path, " ")[0]
 }
 
+func addArgs(bin string, args []string) string {
+	for _, arg := range args {
+		bin += fmt.Sprintf(" %s", arg)
+	}
+
+	return bin
+}
+
 func adaptToVariousPlatforms(c *config) {
 	// Fix the default configuration is not used in Windows
 	// Use the unix configuration on Windows
@@ -207,9 +215,7 @@ func adaptToVariousPlatforms(c *config) {
 				c.Build.FullBin = runName + " /b " + c.Build.FullBin
 			}
 
-			for _, arg := range c.Build.ArgsBin {
-				c.Build.FullBin += fmt.Sprintf(" %s", arg)
-			}
+			c.Build.FullBin = addArgs(c.Build.FullBin, c.Build.ArgsBin)
 		}
 
 		// bin=/tmp/main  cmd=go build -o ./tmp/main.exe main.go
@@ -217,9 +223,7 @@ func adaptToVariousPlatforms(c *config) {
 			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
 		}
 
-		for _, arg := range c.Build.ArgsBin {
-			c.Build.Bin += fmt.Sprintf(" %s", arg)
-		}
+		c.Build.Bin = addArgs(c.Build.Bin, c.Build.ArgsBin)
 	}
 }
 
