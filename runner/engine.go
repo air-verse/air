@@ -150,9 +150,15 @@ func (e *Engine) cacheFileChecksums(root string) error {
 				if err != nil {
 					return err
 				}
-				err = e.watchDir(link)
+				linkInfo, err := os.Stat(link)
 				if err != nil {
 					return err
+				}
+				if linkInfo.IsDir() {
+					err = e.watchDir(link)
+					if err != nil {
+						return err
+					}
 				}
 				return nil
 			}
