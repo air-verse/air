@@ -28,10 +28,8 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 ### Go
 
-The classic way to install
-
 ```bash
-go get -u github.com/cosmtrek/air
+go install github.com/cosmtrek/air@v1.15.1
 ```
 
 ### macOS, Linux, Windows
