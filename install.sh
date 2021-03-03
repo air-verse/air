@@ -63,6 +63,7 @@ execute() {
 get_binaries() {
   case "$PLATFORM" in
     darwin/amd64) BINARIES="air" ;;
+    darwin/arm64) BINARIES="air" ;;
     linux/386) BINARIES="air" ;;
     linux/amd64) BINARIES="air" ;;
     windows/386) BINARIES="air" ;;
