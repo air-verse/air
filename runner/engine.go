@@ -369,13 +369,11 @@ func (e *Engine) runBin() error {
 
 	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
 		<-e.binStopCh
-		e.mainDebug("trying to kill cmd %+v", cmd.Args)
+		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
 			stderr.Close()
 		}()
-
-		var err error
 		pid, err := e.killCmd(cmd)
 		if err != nil {
 			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
