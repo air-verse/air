@@ -61,4 +61,5 @@ func main() {
 	}()
 
 	r.Run()
+	<-r.ExitChan()
 }
