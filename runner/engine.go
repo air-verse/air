@@ -304,6 +304,7 @@ func (e *Engine) buildRun() {
 	}
 	var err error
 	if err = e.building(); err != nil {
+		close(e.canExit)
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -373,7 +374,7 @@ func (e *Engine) runBin() error {
 		defer func() {
 			select {
 			case <-e.exitCh:
-				e.canExit <- true
+				close(e.canExit)
 			default:
 			}
 		}()
