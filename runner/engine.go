@@ -370,7 +370,13 @@ func (e *Engine) runBin() error {
 	}()
 
 	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
-		defer close(e.canExit)
+		defer func() {
+			select {
+			case <-e.exitCh:
+				e.canExit <- true
+			default:
+			}
+		}()
 		<-e.binStopCh
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
@@ -427,14 +433,11 @@ func (e *Engine) cleanup() {
 			e.mainLog("failed to delete tmp dir, err: %+v", err)
 		}
 	}
+
+	<-e.canExit
 }
 
 // Stop the air
 func (e *Engine) Stop() {
-	e.exitCh <- true
-}
-
-// ExitChan returns the 'canExit' channel
-func (e *Engine) ExitChan() chan bool {
-	return e.canExit
+	close(e.exitCh)
 }
