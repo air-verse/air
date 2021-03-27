@@ -56,7 +56,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
 		buildRunStopCh: make(chan bool, 1),
-		canExit:        make(chan bool),
+		canExit:        make(chan bool, 1),
 		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
 		binRunning:     false,
@@ -300,11 +300,12 @@ func (e *Engine) buildRun() {
 	select {
 	case <-e.buildRunStopCh:
 		return
+	case <-e.canExit:
 	default:
 	}
 	var err error
 	if err = e.building(); err != nil {
-		close(e.canExit)
+		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
