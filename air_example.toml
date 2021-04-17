@@ -20,6 +20,8 @@ exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
 include_dir = []
 # Exclude files.
 exclude_file = []
+# Exclude specific regular expressions.
+exclude_regex = []
 # Exclude unchanged files.
 exclude_unchanged = true
 # This log file places in your tmp_dir.

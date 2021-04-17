@@ -107,10 +107,24 @@ func (e *Engine) isIncludeExt(path string) bool {
 	return false
 }
 
+func (e *Engine) isExcludeRegex(path string) (bool, error) {
+	regexes, err := e.config.Build.RegexCompiled()
+	if err != nil {
+		return false, err
+	}
+	for _, re := range regexes {
+		if re.Match([]byte(path)) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (e *Engine) isExcludeFile(path string) bool {
 	cleanName := cleanPath(e.config.rel(path))
 	for _, d := range e.config.Build.ExcludeFile {
-		if d == cleanName {
+		matched, err := filepath.Match(d, cleanName)
+		if err == nil && matched == true {
 			return true
 		}
 	}

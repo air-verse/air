@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"time"
 
@@ -36,11 +37,27 @@ type cfgBuild struct {
 	ExcludeDir       []string      `toml:"exclude_dir"`
 	IncludeDir       []string      `toml:"include_dir"`
 	ExcludeFile      []string      `toml:"exclude_file"`
+	ExcludeRegex     []string      `toml:"exclude_regex"`
 	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
 	Delay            int           `toml:"delay"`
 	StopOnError      bool          `toml:"stop_on_error"`
 	SendInterrupt    bool          `toml:"send_interrupt"`
 	KillDelay        time.Duration `toml:"kill_delay"`
+	regexCompiled    []*regexp.Regexp
+}
+
+func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
+	if len(c.ExcludeRegex) > 0 && len(c.regexCompiled) == 0 {
+		c.regexCompiled = make([]*regexp.Regexp, 0, len(c.ExcludeRegex))
+		for _, s := range c.ExcludeRegex {
+			re, err := regexp.Compile(s)
+			if err != nil {
+				return nil, err
+			}
+			c.regexCompiled = append(c.regexCompiled, re)
+		}
+	}
+	return c.regexCompiled, nil
 }
 
 type cfgLog struct {
