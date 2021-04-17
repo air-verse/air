@@ -124,7 +124,7 @@ func (e *Engine) isExcludeFile(path string) bool {
 	cleanName := cleanPath(e.config.rel(path))
 	for _, d := range e.config.Build.ExcludeFile {
 		matched, err := filepath.Match(d, cleanName)
-		if err == nil && matched == true {
+		if err == nil && matched {
 			return true
 		}
 	}
