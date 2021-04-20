@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
@@ -17,7 +18,18 @@ var (
 	showVersion bool
 )
 
+func helpMessage() {
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n\n", os.Args[0])
+	fmt.Printf("If no command is provided %s will start the runner with the provided flags\n\n", os.Args[0])
+	fmt.Println("Commands:")
+	fmt.Println("  init	creates a .air.toml file with default settings to the current directory\n")
+
+	fmt.Println("Flags:")
+	flag.PrintDefaults()
+}
+
 func init() {
+	flag.Usage = helpMessage
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
