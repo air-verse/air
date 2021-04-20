@@ -70,7 +70,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 
 // Run run run
 func (e *Engine) Run() {
-	if len(os.Args) > 0 && os.Args[1] == "init" {
+	if len(os.Args) > 1 && os.Args[1] == "init" {
 		writeConfig()
 		return
 	}
