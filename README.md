@@ -89,19 +89,19 @@ The simplest usage is run
 air -c .air.toml
 ```
 
-While I prefer the second way
+You can initialize the `.air.toml` configuration file to the current directory with the default settings running the following command.
 
 ```bash
-# 1. create a new file
-touch .air.toml
+air init
+```
 
-# 2. paste `air_example.toml` into this file, and **modify it** to satisfy your needs.
+After this you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
 
-# 3. run air with your config. If file name is `.air.toml`, just run `air`.
+```bash
 air
 ```
 
-See the complete [air_example.toml](air_example.toml)
+For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
 
 ### Debug
 
