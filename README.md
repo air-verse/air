@@ -29,7 +29,7 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 ### Go
 
 ```bash
-go install github.com/cosmtrek/air@v1.15.1
+go install github.com/cosmtrek/air@v1.27.0
 ```
 
 ### macOS, Linux, Windows
