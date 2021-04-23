@@ -143,6 +143,25 @@ func (e *Engine) cacheFileChecksums(root string) error {
 				e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 				return filepath.SkipDir
 			}
+
+			// Follow symbolic link
+			if e.config.Build.FollowSymlink && (info.Mode()&os.ModeSymlink) > 0 {
+				link, err := filepath.EvalSymlinks(path)
+				if err != nil {
+					return err
+				}
+				linkInfo, err := os.Stat(link)
+				if err != nil {
+					return err
+				}
+				if linkInfo.IsDir() {
+					err = e.watchDir(link)
+					if err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 		}
 
 		if e.isExcludeFile(path) || !e.isIncludeExt(path) {

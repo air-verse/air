@@ -24,6 +24,8 @@ exclude_file = []
 exclude_regex = []
 # Exclude unchanged files.
 exclude_unchanged = true
+# Follow symlink for directories
+follow_symlink = true
 # This log file places in your tmp_dir.
 log = "air.log"
 # It's not necessary to trigger build each time file changes if it's too frequent.
