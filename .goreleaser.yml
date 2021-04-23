@@ -7,7 +7,8 @@ builds:
       - goos: darwin
         goarch: 386
     ldflags:
-      - -X main.airVersion={{.Version}} -X main.goVersion={{.Env.GOVERSION}}
+      - -s -w -X "main.airVersion={{.Version}}"
+      - -s -w -X "main.goVersion={{.Env.GOVERSION}}"
 archives:
   - id: tar.gz
     format: tar.gz
