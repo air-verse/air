@@ -80,7 +80,7 @@ func initConfig(path string) (cfg *config, err error) {
 	return cfg, err
 }
 
-func writeConfig() {
+func writeDefaultConfig() {
 	confFiles := []string{dftTOML, dftConf}
 
 	for _, fname := range confFiles {
