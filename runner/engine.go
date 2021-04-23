@@ -150,6 +150,15 @@ func (e *Engine) cacheFileChecksums(root string) error {
 			return nil
 		}
 
+		excludeRegex, err := e.isExcludeRegex(path)
+		if err != nil {
+			return err
+		}
+		if excludeRegex {
+			e.watcherDebug("!exclude checksum %s", e.config.rel(path))
+			return nil
+		}
+
 		// update the checksum cache for the current file
 		_ = e.isModified(path)
 
@@ -195,6 +204,10 @@ func (e *Engine) watchDir(path string) error {
 					break
 				}
 				if e.isExcludeFile(ev.Name) {
+					break
+				}
+				excludeRegex, _ := e.isExcludeRegex(ev.Name)
+				if excludeRegex {
 					break
 				}
 				if !e.isIncludeExt(ev.Name) {

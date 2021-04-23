@@ -50,3 +50,35 @@ func TestWatching(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 }
+
+func TestRegexes(t *testing.T) {
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine.config.Build.ExcludeRegex = []string{"foo.html$", "bar"}
+
+	result, err := engine.isExcludeRegex("./test/foo.html")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if result != true {
+		t.Errorf("expected '%t' but got '%t'", true, result)
+	}
+
+	result, err = engine.isExcludeRegex("./test/bar/index.html")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if result != true {
+		t.Errorf("expected '%t' but got '%t'", true, result)
+	}
+
+	result, err = engine.isExcludeRegex("./test/unrelated.html")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if result {
+		t.Errorf("expected '%t' but got '%t'", false, result)
+	}
+}
