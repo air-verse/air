@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -95,6 +96,41 @@ func initConfig(path string) (cfg *config, err error) {
 	}
 	err = cfg.preprocess()
 	return cfg, err
+}
+
+func writeDefaultConfig() {
+	confFiles := []string{dftTOML, dftConf}
+
+	for _, fname := range confFiles {
+		fstat, err := os.Stat(fname)
+		if err != nil && !os.IsNotExist(err) {
+			log.Fatal("failed to check for existing configuration")
+			return
+		}
+		if err == nil && fstat != nil {
+			log.Fatal("configuration already exists")
+			return
+		}
+	}
+
+	file, err := os.Create(dftTOML)
+	if err != nil {
+		log.Fatalf("failed to create a new confiuration: %+v", err)
+	}
+	defer file.Close()
+
+	config := defaultConfig()
+	configFile, err := toml.Marshal(config)
+	if err != nil {
+		log.Fatalf("failed to marshal the default configuration: %+v", err)
+	}
+
+	_, err = file.Write(configFile)
+	if err != nil {
+		log.Fatalf("failed to write to %s: %+v", dftTOML, err)
+	}
+
+	fmt.Printf("%s file created to the current directory with the default settings\n", dftTOML)
 }
 
 func defaultPathConfig() (*config, error) {
