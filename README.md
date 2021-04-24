@@ -26,13 +26,7 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 ## Installation
 
-### Go
-
-```bash
-go install github.com/cosmtrek/air@v1.27.1
-```
-
-### macOS, Linux, Windows
+### Prefer install.sh
 
 ```bash
 # binary will be $(go env GOPATH)/bin/air
@@ -46,7 +40,7 @@ air -v
 
 P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
 
-### Docker way
+### Docker
 
 Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
