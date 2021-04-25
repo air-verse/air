@@ -15,7 +15,6 @@ var (
 	cfgPath     string
 	debugMode   bool
 	showVersion bool
-	runArgs     []string
 )
 
 func helpMessage() {
@@ -34,7 +33,6 @@ func init() {
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
 	flag.Parse()
-	runArgs = flag.Args()
 }
 
 func main() {
@@ -57,7 +55,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	var err error
-	r, err := runner.NewEngine(cfgPath, debugMode, runArgs)
+	r, err := runner.NewEngine(cfgPath, debugMode)
 	if err != nil {
 		log.Fatal(err)
 		return
