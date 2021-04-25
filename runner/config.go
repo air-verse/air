@@ -268,6 +268,7 @@ func (c *config) preprocess() error {
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
+	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()
 	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
 
