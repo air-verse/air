@@ -121,6 +121,21 @@ make install
 
 BTW: Pull requests are welcome~
 
+### Release new version
+
+```
+# 1. checkout to master
+git checkout master
+
+# 2. add the version that needs to be released
+git tag v1.xx.x
+
+# 3. push to remote
+git push origin v1.xx.x
+
+the ci will processing and will release new version,wait about 5 min you can fetch the new version.
+```
+
 ## Sponsor
 
 <a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
