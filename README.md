@@ -95,9 +95,21 @@ air
 
 For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
 
+
 ### Debug
 
 `air -d` prints all logs.
+
+
+## Q&A
+
+### "command not found: air" or "No such file or directory"
+
+```zsh
+export GOPATH=$HOME/xxxxx
+export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+```
 
 ## Development
 
