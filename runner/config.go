@@ -167,13 +167,14 @@ func readConfByName(name string) (*config, error) {
 
 func defaultConfig() config {
 	build := cfgBuild{
-		Cmd:         "go build -o ./tmp/main .",
-		Bin:         "./tmp/main",
-		Log:         "build-errors.log",
-		IncludeExt:  []string{"go", "tpl", "tmpl", "html"},
-		ExcludeDir:  []string{"assets", "tmp", "vendor", "testdata"},
-		Delay:       1000,
-		StopOnError: true,
+		Cmd:          "go build -o ./tmp/main .",
+		Bin:          "./tmp/main",
+		Log:          "build-errors.log",
+		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
+		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
+		ExcludeRegex: []string{"_test.go"},
+		Delay:        1000,
+		StopOnError:  true,
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
