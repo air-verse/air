@@ -18,7 +18,7 @@ func getWindowsConfig() config {
 		Bin:         "./tmp/main",
 		Log:         "build-errors.log",
 		IncludeExt:  []string{"go", "tpl", "tmpl", "html"},
-		ExcludeDir:  []string{"assets", "tmp", "vendor"},
+		ExcludeDir:  []string{"assets", "tmp", "vendor", "testdata"},
 		Delay:       1000,
 		StopOnError: true,
 	}
@@ -28,9 +28,10 @@ func getWindowsConfig() config {
 	}
 
 	return config{
-		Root:   ".",
-		TmpDir: "tmp",
-		Build:  build,
+		Root:        ".",
+		TmpDir:      "tmp",
+		TestDataDir: "testdata",
+		Build:       build,
 	}
 }
 

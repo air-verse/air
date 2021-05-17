@@ -54,6 +54,10 @@ func (e *Engine) isTmpDir(path string) bool {
 	return path == e.config.tmpPath()
 }
 
+func (e *Engine) isTestDataDir(path string) bool {
+	return path == e.config.TestDataPath()
+}
+
 func isHiddenDirectory(path string) bool {
 	return len(path) > 1 && strings.HasPrefix(filepath.Base(path), ".")
 }
