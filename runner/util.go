@@ -216,7 +216,7 @@ func adaptToVariousPlatforms(c *config) {
 				c.Build.FullBin += extName
 			}
 			if !strings.HasPrefix(c.Build.FullBin, runName) {
-				c.Build.FullBin = runName + " /b " + c.Build.FullBin
+				c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
 			}
 		}
 

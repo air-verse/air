@@ -22,6 +22,7 @@ type Engine struct {
 	watcherStopCh  chan bool
 	buildRunCh     chan bool
 	buildRunStopCh chan bool
+	canExit        chan bool
 	binStopCh      chan bool
 	exitCh         chan bool
 
@@ -55,6 +56,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
 		buildRunStopCh: make(chan bool, 1),
+		canExit:        make(chan bool, 1),
 		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
 		binRunning:     false,
@@ -335,10 +337,12 @@ func (e *Engine) buildRun() {
 	select {
 	case <-e.buildRunStopCh:
 		return
+	case <-e.canExit:
 	default:
 	}
 	var err error
 	if err = e.building(); err != nil {
+		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -405,14 +409,19 @@ func (e *Engine) runBin() error {
 	}()
 
 	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
+		defer func() {
+			select {
+			case <-e.exitCh:
+				close(e.canExit)
+			default:
+			}
+		}()
 		<-e.binStopCh
-		e.mainDebug("trying to kill cmd %+v", cmd.Args)
+		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
 			stderr.Close()
 		}()
-
-		var err error
 		pid, err := e.killCmd(cmd)
 		if err != nil {
 			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
@@ -463,9 +472,11 @@ func (e *Engine) cleanup() {
 			e.mainLog("failed to delete tmp dir, err: %+v", err)
 		}
 	}
+
+	<-e.canExit
 }
 
 // Stop the air
 func (e *Engine) Stop() {
-	e.exitCh <- true
+	close(e.exitCh)
 }
