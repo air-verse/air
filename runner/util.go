@@ -273,10 +273,10 @@ type TomlInfo struct {
 	Value     *string
 }
 
-func setValue2Struct(v reflect.Value, fieldName string, value string) *reflect.Value {
+func setValue2Struct(v reflect.Value, fieldName string, value string) {
 	index := strings.Index(fieldName, ".")
 	if index == -1 && len(fieldName) == 0 {
-		return nil
+		return
 	}
 	fields := strings.Split(fieldName, ".")
 	var addressableVal reflect.Value
@@ -290,14 +290,11 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) *reflect.V
 		field := addressableVal.FieldByName(fieldName)
 		field.SetString(value)
 	} else if len(fields) == 0 {
-		return nil
 	} else {
 		field := addressableVal.FieldByName(fields[0])
 		s2 := fieldName[index+1:]
-		value := setValue2Struct(field, s2, value)
-		field.Set(*value)
+		setValue2Struct(field, s2, value)
 	}
-	return &v
 }
 
 // CreateStructureFieldTagMap ...
@@ -307,7 +304,6 @@ func CreateStructureFieldTagMap(stut interface{}) map[string]TomlInfo {
 	setTage2Map("", t, m, "")
 	return m
 }
-
 
 func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath string) {
 	for i := 0; i < t.NumField(); i++ {

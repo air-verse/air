@@ -246,24 +246,14 @@ func TestGetStructureFieldTagMap(t *testing.T) {
 func TestSetStructValue(t *testing.T) {
 	c := config{}
 	v := reflect.ValueOf(&c)
-	c1 := setValue2Struct(v, "TmpDir", "asdasd")
-	c2 := (c1.Interface()).(*config)
-	assert.Equal(t, "asdasd", c2.TmpDir)
+	setValue2Struct(v, "TmpDir", "asdasd")
+	assert.Equal(t, "asdasd", c.TmpDir)
 }
 
 func TestNestStructValue(t *testing.T) {
 	c := config{}
 	v := reflect.ValueOf(&c)
-	c1 := setValue2Struct(v, "Build.Cmd", "asdasd")
-	c2 := (c1.Interface()).(*config)
-	assert.Equal(t, "asdasd", c2.Build.Cmd)
+	setValue2Struct(v, "Build.Cmd", "asdasd")
+	assert.Equal(t, "asdasd", c.Build.Cmd)
 }
 
-func TestStruct(t *testing.T) {
-	c := &config{}
-	v := reflect.ValueOf(c)
-	config := setValue2Struct(v, "", "asdasd")
-	if config != nil {
-		t.Fatal()
-	}
-}

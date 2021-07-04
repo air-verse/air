@@ -319,12 +319,8 @@ func (c *config) rel(path string) string {
 func (c *config) WithArgs(args map[string]TomlInfo) {
 	for _, value := range args {
 		if value.Value != nil && *value.Value != "" {
-			fmt.Printf("%v",*value.Value)
-
 			v := reflect.ValueOf(c)
-			rfv := setValue2Struct(v, value.fieldPath, *value.Value)
-			newConfig := (rfv.Interface()).(*config)
-			*c = *newConfig
+			setValue2Struct(v, value.fieldPath, *value.Value)
 		}
 	}
 }

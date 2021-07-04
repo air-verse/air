@@ -53,9 +53,6 @@ func main() {
 	if debugMode {
 		fmt.Println("[debug] mode")
 	}
-	for k, a := range cmdArgs {
-		fmt.Printf("%v %v \n", k, *a.Value)
-	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
