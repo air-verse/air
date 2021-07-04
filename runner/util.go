@@ -290,6 +290,7 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 		field := addressableVal.FieldByName(fieldName)
 		field.SetString(value)
 	} else if len(fields) == 0 {
+		return
 	} else {
 		field := addressableVal.FieldByName(fields[0])
 		s2 := fieldName[index+1:]
