@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -264,4 +265,38 @@ func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool)
 		return true
 	}
 	return false
+}
+
+type TomlInfo struct {
+	field reflect.StructField
+	Value *string
+}
+
+// CreateStructureFieldTagMap ...
+func CreateStructureFieldTagMap(stut interface{}) map[string]TomlInfo {
+	m := make(map[string]TomlInfo)
+	t := reflect.TypeOf(stut)
+	setTage2Map("", t, m)
+	return m
+}
+
+func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		tomlVal := field.Tag.Get("toml")
+		switch field.Type.Kind() {
+		case reflect.Struct:
+			s := root + tomlVal + "."
+			setTage2Map(s, field.Type, m)
+		default:
+			if tomlVal == "" {
+				continue
+			}
+			s := root + tomlVal
+			var v *string
+			str := ""
+			v = &str
+			m[s] = TomlInfo{field: field, Value: v}
+		}
+	}
 }

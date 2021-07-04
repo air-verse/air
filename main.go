@@ -15,6 +15,7 @@ var (
 	cfgPath     string
 	debugMode   bool
 	showVersion bool
+	cmdArgs     map[string]runner.TomlInfo
 	runArgs     []string
 )
 
@@ -33,6 +34,7 @@ func init() {
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
+	cmdArgs = runner.CreateArgsFlags()
 	flag.Parse()
 }
 
@@ -51,7 +53,9 @@ func main() {
 	if debugMode {
 		fmt.Println("[debug] mode")
 	}
-
+	for k, a := range cmdArgs {
+		fmt.Printf("%v %v \n", k, *a.Value)
+	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 

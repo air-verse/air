@@ -230,3 +230,8 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 		}
 	}
 }
+
+func TestGetStructureFieldTagMap(t *testing.T) {
+	c := config{}
+	CreateStructureFieldTagMap(c)
+}
