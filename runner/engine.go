@@ -67,7 +67,7 @@ func NewEngineWithConfig(cfg *config, debugMode bool) (*Engine, error) {
 // NewEngine ...
 func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 	var err error
-	cfg, err := initConfig(cfgPath)
+	cfg, err := InitConfig(cfgPath)
 	if err != nil {
 		return nil, err
 	}

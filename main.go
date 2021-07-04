@@ -60,7 +60,13 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	var err error
-	r, err := runner.NewEngine(cfgPath, debugMode)
+	cfg, err := runner.InitConfig(cfgPath)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+	cfg.WithArgs(cmdArgs)
+	r, err := runner.NewEngineWithConfig(cfg, debugMode)
 	if err != nil {
 		log.Fatal(err)
 		return

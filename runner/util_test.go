@@ -2,16 +2,20 @@ package runner
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -233,5 +237,33 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 
 func TestGetStructureFieldTagMap(t *testing.T) {
 	c := config{}
-	CreateStructureFieldTagMap(c)
+	tagMap := CreateStructureFieldTagMap(c)
+	for _, i2 := range tagMap {
+		fmt.Printf("%v\n", i2.fieldPath)
+	}
+}
+
+func TestSetStructValue(t *testing.T) {
+	c := config{}
+	v := reflect.ValueOf(&c)
+	c1 := setValue2Struct(v, "TmpDir", "asdasd")
+	c2 := (c1.Interface()).(*config)
+	assert.Equal(t, "asdasd", c2.TmpDir)
+}
+
+func TestNestStructValue(t *testing.T) {
+	c := config{}
+	v := reflect.ValueOf(&c)
+	c1 := setValue2Struct(v, "Build.Cmd", "asdasd")
+	c2 := (c1.Interface()).(*config)
+	assert.Equal(t, "asdasd", c2.Build.Cmd)
+}
+
+func TestStruct(t *testing.T) {
+	c := &config{}
+	v := reflect.ValueOf(c)
+	config := setValue2Struct(v, "", "asdasd")
+	if config != nil {
+		t.Fatal()
+	}
 }

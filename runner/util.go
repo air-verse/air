@@ -268,35 +268,65 @@ func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool)
 }
 
 type TomlInfo struct {
-	field reflect.StructField
-	Value *string
+	fieldPath string
+	field     reflect.StructField
+	Value     *string
+}
+
+func setValue2Struct(v reflect.Value, fieldName string, value string) *reflect.Value {
+	index := strings.Index(fieldName, ".")
+	if index == -1 && len(fieldName) == 0 {
+		return nil
+	}
+	fields := strings.Split(fieldName, ".")
+	var addressableVal reflect.Value
+	switch v.Type().String() {
+	case "*runner.config":
+		addressableVal = v.Elem()
+	default:
+		addressableVal = v
+	}
+	if len(fields) == 1 {
+		field := addressableVal.FieldByName(fieldName)
+		field.SetString(value)
+	} else if len(fields) == 0 {
+		return nil
+	} else {
+		field := addressableVal.FieldByName(fields[0])
+		s2 := fieldName[index+1:]
+		value := setValue2Struct(field, s2, value)
+		field.Set(*value)
+	}
+	return &v
 }
 
 // CreateStructureFieldTagMap ...
 func CreateStructureFieldTagMap(stut interface{}) map[string]TomlInfo {
 	m := make(map[string]TomlInfo)
 	t := reflect.TypeOf(stut)
-	setTage2Map("", t, m)
+	setTage2Map("", t, m, "")
 	return m
 }
 
-func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo) {
+
+func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath string) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		tomlVal := field.Tag.Get("toml")
 		switch field.Type.Kind() {
 		case reflect.Struct:
-			s := root + tomlVal + "."
-			setTage2Map(s, field.Type, m)
+			path := fieldPath + field.Name + "."
+			setTage2Map(root+tomlVal+".", field.Type, m, path)
 		default:
 			if tomlVal == "" {
 				continue
 			}
-			s := root + tomlVal
+			tomlPath := root + tomlVal
+			path := fieldPath + field.Name
 			var v *string
 			str := ""
 			v = &str
-			m[s] = TomlInfo{field: field, Value: v}
+			m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path}
 		}
 	}
 }

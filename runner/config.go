@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"time"
@@ -85,7 +86,7 @@ type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
 }
 
-func initConfig(path string) (cfg *config, err error) {
+func InitConfig(path string) (cfg *config, err error) {
 	if path == "" {
 		cfg, err = defaultPathConfig()
 		if err != nil {
@@ -313,4 +314,17 @@ func (c *config) rel(path string) string {
 		return ""
 	}
 	return s
+}
+
+func (c *config) WithArgs(args map[string]TomlInfo) {
+	for _, value := range args {
+		if value.Value != nil && *value.Value != "" {
+			fmt.Printf("%v",*value.Value)
+
+			v := reflect.ValueOf(c)
+			rfv := setValue2Struct(v, value.fieldPath, *value.Value)
+			newConfig := (rfv.Interface()).(*config)
+			*c = *newConfig
+		}
+	}
 }
