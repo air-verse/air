@@ -8,4 +8,5 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/imdario/mergo v0.3.12
 	github.com/pelletier/go-toml v1.8.1
+	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015 // indirect
 )

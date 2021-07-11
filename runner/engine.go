@@ -114,6 +114,11 @@ func (e *Engine) watching(root string) error {
 			e.watcherLog("!exclude %s", e.config.rel(path))
 			return filepath.SkipDir
 		}
+		// exclude testdata dir
+		if e.isTestDataDir(path) {
+			e.watcherLog("!exclude %s", e.config.rel(path))
+			return filepath.SkipDir
+		}
 		// exclude hidden directories like .git, .idea, etc.
 		if isHiddenDirectory(path) {
 			return filepath.SkipDir
@@ -146,7 +151,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 		}
 
 		if !info.Mode().IsRegular() {
-			if e.isTmpDir(path) || isHiddenDirectory(path) || e.isExcludeDir(path) {
+			if e.isTmpDir(path) || e.isTestDataDir(path) || isHiddenDirectory(path) || e.isExcludeDir(path) {
 				e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 				return filepath.SkipDir
 			}
@@ -251,6 +256,9 @@ func (e *Engine) watchDir(path string) error {
 
 func (e *Engine) watchNewDir(dir string, removeDir bool) {
 	if e.isTmpDir(dir) {
+		return
+	}
+	if e.isTestDataDir(dir) {
 		return
 	}
 	if isHiddenDirectory(dir) || e.isExcludeDir(dir) {

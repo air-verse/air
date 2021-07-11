@@ -14,13 +14,14 @@ const (
 
 func getWindowsConfig() config {
 	build := cfgBuild{
-		Cmd:         "go build -o ./tmp/main .",
-		Bin:         "./tmp/main",
-		Log:         "build-errors.log",
-		IncludeExt:  []string{"go", "tpl", "tmpl", "html"},
-		ExcludeDir:  []string{"assets", "tmp", "vendor"},
-		Delay:       1000,
-		StopOnError: true,
+		Cmd:          "go build -o ./tmp/main .",
+		Bin:          "./tmp/main",
+		Log:          "build-errors.log",
+		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
+		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
+		ExcludeRegex: []string{"_test.go"},
+		Delay:        1000,
+		StopOnError:  true,
 	}
 	if runtime.GOOS == "windows" {
 		build.Bin = bin
@@ -28,9 +29,10 @@ func getWindowsConfig() config {
 	}
 
 	return config{
-		Root:   ".",
-		TmpDir: "tmp",
-		Build:  build,
+		Root:        ".",
+		TmpDir:      "tmp",
+		TestDataDir: "testdata",
+		Build:       build,
 	}
 }
 
