@@ -305,8 +305,6 @@ func (e *Engine) start() {
 		case <-e.exitCh:
 			return
 		case filename = <-e.eventCh:
-			time.Sleep(e.config.buildDelay())
-			e.flushEvents()
 			if !e.isIncludeExt(filename) {
 				continue
 			}
@@ -316,6 +314,8 @@ func (e *Engine) start() {
 					continue
 				}
 			}
+			time.Sleep(e.config.buildDelay())
+			e.flushEvents()
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
