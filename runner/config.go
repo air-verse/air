@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/imdario/mergo"
@@ -261,6 +262,9 @@ func (c *config) preprocess() error {
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+
+	// Replace space with \ to fix No such file error or directory
+	c.Build.Bin = strings.ReplaceAll(c.Build.Bin, " ", "\\ ")
 	return err
 }
 
@@ -282,7 +286,8 @@ func (c *config) buildDelay() time.Duration {
 }
 
 func (c *config) binPath() string {
-	return filepath.Join(c.Root, c.Build.Bin)
+	p := filepath.Join(c.Root, c.Build.Bin)
+	return strings.ReplaceAll(p, " ", "\\ ")
 }
 
 func (c *config) tmpPath() string {
