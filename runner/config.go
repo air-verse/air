@@ -171,7 +171,7 @@ func defaultConfig() config {
 		Bin:          "./tmp/main",
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
-		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
+		ExcludeDir:   []string{"assets", "tmp", "vendor", "node_modules", "testdata"},
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        1000,
 		StopOnError:  true,
