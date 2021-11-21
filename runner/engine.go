@@ -144,10 +144,10 @@ func (e *Engine) watching(root string) error {
 func (e *Engine) cacheFileChecksums(root string) error {
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
 			return err
+		}
+		if info.IsDir() {
+			return filepath.SkipDir
 		}
 
 		if !info.Mode().IsRegular() {
