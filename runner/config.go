@@ -21,13 +21,14 @@ const (
 )
 
 type config struct {
-	Root        string   `toml:"root"`
-	TmpDir      string   `toml:"tmp_dir"`
-	TestDataDir string   `toml:"testdata_dir"`
-	Build       cfgBuild `toml:"build"`
-	Color       cfgColor `toml:"color"`
-	Log         cfgLog   `toml:"log"`
-	Misc        cfgMisc  `toml:"misc"`
+	Root        string    `toml:"root"`
+	TmpDir      string    `toml:"tmp_dir"`
+	TestDataDir string    `toml:"testdata_dir"`
+	Build       cfgBuild  `toml:"build"`
+	Color       cfgColor  `toml:"color"`
+	Log         cfgLog    `toml:"log"`
+	Misc        cfgMisc   `toml:"misc"`
+	Screen      cfgScreen `toml:"screen"`
 }
 
 type cfgBuild struct {
@@ -77,6 +78,10 @@ type cfgColor struct {
 
 type cfgMisc struct {
 	CleanOnExit bool `toml:"clean_on_exit"`
+}
+
+type cfgScreen struct {
+	ClearOnRebuild bool `toml:"clear_on_rebuild"`
 }
 
 func initConfig(path string) (cfg *config, err error) {
