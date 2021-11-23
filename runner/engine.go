@@ -393,16 +393,16 @@ func (e *Engine) flushEvents() {
 func (e *Engine) building() error {
 	var err error
 	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+	cmd, stdin, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		stdout.Close()
 		stderr.Close()
+		stdin.Close()
 	}()
-	_, _ = io.Copy(os.Stdout, stdout)
-	_, _ = io.Copy(os.Stderr, stderr)
+
 	// wait for building
 	err = cmd.Wait()
 	if err != nil {
@@ -414,7 +414,7 @@ func (e *Engine) building() error {
 func (e *Engine) runBin() error {
 	var err error
 	e.runnerLog("running...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Bin)
+	cmd, stdin, stdout, stderr, err := e.startCmd(e.config.Build.Bin)
 	if err != nil {
 		return err
 	}
@@ -422,12 +422,7 @@ func (e *Engine) runBin() error {
 		e.binRunning = true
 	})
 
-	go func() {
-		_, _ = io.Copy(os.Stdout, stdout)
-		_, _ = io.Copy(os.Stderr, stderr)
-	}()
-
-	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
+	go func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser) {
 		defer func() {
 			select {
 			case <-e.exitCh:
@@ -440,6 +435,7 @@ func (e *Engine) runBin() error {
 		defer func() {
 			stdout.Close()
 			stderr.Close()
+			stdin.Close()
 		}()
 		pid, err := e.killCmd(cmd)
 		if err != nil {
@@ -460,7 +456,7 @@ func (e *Engine) runBin() error {
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
-	}(cmd, stdout, stderr)
+	}(cmd, stdin, stdout, stderr)
 	return nil
 }
 
