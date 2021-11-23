@@ -95,6 +95,23 @@ air
 
 For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
 
+### Docker-compose
+
+```
+services:
+  my-project-with-air:
+    image: cosmtrek/air
+    # working_dir value has to be the same of mapped volume
+    working_dir: /project-package
+    ports:
+      - <any>:<any>
+    environment:
+      - ENV_A=${ENV_A}
+      - ENV_B=${ENV_B}
+      - ENV_C=${ENV_C}
+    volumes:
+      - ./project-relative-path/:/project-package/
+```
 
 ### Debug
 
