@@ -430,7 +430,12 @@ func (e *Engine) runBin() error {
 			default:
 			}
 		}()
+
 		<-e.binStopCh
+		e.withLock(func() {
+			e.binRunning = false
+		})
+
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
@@ -446,9 +451,6 @@ func (e *Engine) runBin() error {
 		} else {
 			e.mainDebug("cmd killed, pid: %d", pid)
 		}
-		e.withLock(func() {
-			e.binRunning = false
-		})
 		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
 		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
 			return
