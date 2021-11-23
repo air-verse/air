@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -319,17 +320,24 @@ func (e *Engine) start() {
 					continue
 				}
 			}
+			// clean on rebuild https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
+			if e.config.Screen.ClearOnRebuild {
+				fmt.Println("\033[2J")
+			}
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
 			break
 		}
 
+		// already build and run now
 		select {
 		case <-e.buildRunCh:
 			e.buildRunStopCh <- true
 		default:
 		}
+
+		// if current app is running, stop it
 		e.withLock(func() {
 			if e.binRunning {
 				e.binStopCh <- true
