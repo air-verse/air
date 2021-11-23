@@ -2,11 +2,10 @@ package runner
 
 import (
 	"io"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
-
-	"github.com/creack/pty"
 )
 
 func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
