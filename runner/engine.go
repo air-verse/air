@@ -202,7 +202,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 
 func (e *Engine) watchDir(path string) error {
 	if err := e.watcher.Add(path); err != nil {
-		e.watcherLog("failed to watching %s, error: %s", path, err.Error())
+		e.watcherLog("failed to watch %s, error: %s", path, err.Error())
 		return err
 	}
 	e.watcherLog("watching %s", e.config.rel(path))
