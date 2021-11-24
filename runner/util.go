@@ -270,3 +270,12 @@ func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool)
 	}
 	return false
 }
+
+// trying to force kill a process by it's pid.
+func killByPid(pid int) error {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	return proc.Kill()
+}

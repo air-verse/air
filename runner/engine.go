@@ -424,6 +424,7 @@ func (e *Engine) runBin() error {
 	e.withLock(func() {
 		e.binRunning = true
 	})
+	e.mainDebug("running process pid %v", cmd.Process.Pid)
 
 	go func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser) {
 		defer func() {
@@ -472,6 +473,7 @@ func (e *Engine) cleanup() {
 			e.binStopCh <- true
 		}
 	})
+	e.mainDebug("wating for	close watchers..")
 
 	e.withLock(func() {
 		for i := 0; i < int(e.watchers); i++ {
@@ -479,10 +481,13 @@ func (e *Engine) cleanup() {
 		}
 	})
 
+	e.mainDebug("waiting for buildRun...")
 	var err error
 	if err = e.watcher.Close(); err != nil {
 		e.mainLog("failed to close watcher, error: %s", err.Error())
 	}
+
+	e.mainDebug("waiting for clean ...")
 
 	if e.config.Misc.CleanOnExit {
 		e.mainLog("deleting %s", e.config.tmpPath())
@@ -490,6 +495,8 @@ func (e *Engine) cleanup() {
 			e.mainLog("failed to delete tmp dir, err: %+v", err)
 		}
 	}
+
+	e.mainDebug("waiting for exit...")
 
 	<-e.canExit
 }
