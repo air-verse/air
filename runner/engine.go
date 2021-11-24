@@ -309,8 +309,6 @@ func (e *Engine) start() {
 		case <-e.exitCh:
 			return
 		case filename = <-e.eventCh:
-			time.Sleep(e.config.buildDelay())
-			e.flushEvents()
 			if !e.isIncludeExt(filename) {
 				continue
 			}
@@ -320,10 +318,15 @@ func (e *Engine) start() {
 					continue
 				}
 			}
+
+			time.Sleep(e.config.buildDelay())
+			e.flushEvents()
+
 			// clean on rebuild https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
 			if e.config.Screen.ClearOnRebuild {
 				fmt.Println("\033[2J")
 			}
+
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
