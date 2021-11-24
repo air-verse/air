@@ -66,6 +66,7 @@ get_binaries() {
     darwin/arm64) BINARIES="air" ;;
     linux/386) BINARIES="air" ;;
     linux/amd64) BINARIES="air" ;;
+    linux/arm64) BINARIES="air" ;;
     windows/386) BINARIES="air" ;;
     windows/amd64) BINARIES="air" ;;
     *)

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -144,6 +145,9 @@ func (e *Engine) watching(root string) error {
 func (e *Engine) cacheFileChecksums(root string) error {
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			if info == nil {
+				return err
+			}
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
@@ -199,7 +203,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 
 func (e *Engine) watchDir(path string) error {
 	if err := e.watcher.Add(path); err != nil {
-		e.watcherLog("failed to watching %s, error: %s", path, err.Error())
+		e.watcherLog("failed to watch %s, error: %s", path, err.Error())
 		return err
 	}
 	e.watcherLog("watching %s", e.config.rel(path))
@@ -314,19 +318,29 @@ func (e *Engine) start() {
 					continue
 				}
 			}
+
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
+
+			// clean on rebuild https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
+			if e.config.Screen.ClearOnRebuild {
+				fmt.Println("\033[2J")
+			}
+
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
 			break
 		}
 
+		// already build and run now
 		select {
 		case <-e.buildRunCh:
 			e.buildRunStopCh <- true
 		default:
 		}
+
+		// if current app is running, stop it
 		e.withLock(func() {
 			if e.binRunning {
 				e.binStopCh <- true
@@ -382,16 +396,16 @@ func (e *Engine) flushEvents() {
 func (e *Engine) building() error {
 	var err error
 	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+	cmd, stdin, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		stdout.Close()
 		stderr.Close()
+		stdin.Close()
 	}()
-	_, _ = io.Copy(os.Stdout, stdout)
-	_, _ = io.Copy(os.Stderr, stderr)
+
 	// wait for building
 	err = cmd.Wait()
 	if err != nil {
@@ -403,7 +417,7 @@ func (e *Engine) building() error {
 func (e *Engine) runBin() error {
 	var err error
 	e.runnerLog("running...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Bin)
+	cmd, stdin, stdout, stderr, err := e.startCmd(e.config.Build.Bin)
 	if err != nil {
 		return err
 	}
@@ -411,12 +425,7 @@ func (e *Engine) runBin() error {
 		e.binRunning = true
 	})
 
-	go func() {
-		_, _ = io.Copy(os.Stdout, stdout)
-		_, _ = io.Copy(os.Stderr, stderr)
-	}()
-
-	go func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
+	go func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser) {
 		defer func() {
 			select {
 			case <-e.exitCh:
@@ -429,6 +438,7 @@ func (e *Engine) runBin() error {
 		defer func() {
 			stdout.Close()
 			stderr.Close()
+			stdin.Close()
 		}()
 		pid, err := e.killCmd(cmd)
 		if err != nil {
@@ -449,7 +459,7 @@ func (e *Engine) runBin() error {
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
-	}(cmd, stdout, stderr)
+	}(cmd, stdin, stdout, stderr)
 	return nil
 }
 
