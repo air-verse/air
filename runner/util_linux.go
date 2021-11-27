@@ -19,9 +19,15 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
 	}
 
-	err = killByPid(pid)
+	// https://groups.google.com/g/golang-nuts/c/XoQ3RhFBJl8
+	// only use (p *Process) Kill() will just kill the process, but it won't also the child process in linux
+	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {
-		return pid, err
+		return pgid, err
+	}
+	e.mainDebug("got pgid %v", pgid)
+	if err = syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+		return pgid, err
 	}
 	// Wait releases any resources associated with the Process.
 	_, err = cmd.Process.Wait()
@@ -34,6 +40,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
+	c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, nil, err
