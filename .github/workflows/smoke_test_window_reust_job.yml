@@ -26,7 +26,7 @@ jobs:
         working-directory: ./smoke_test/check_rebuild
         run: | 
           nohup air > nohup.out &
-          sleep 15
+          sleep 25
           echo "" >> main.go
           sleep 5
           cat nohup.out
