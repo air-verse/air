@@ -82,3 +82,6 @@ func TestRegexes(t *testing.T) {
 		t.Errorf("expected '%t' but got '%t'", false, result)
 	}
 }
+
+func TestWatching2(t *testing.T) {
+}
