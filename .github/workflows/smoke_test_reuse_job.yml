@@ -1,0 +1,37 @@
+name: Reusable smoke_test
+
+on:
+  workflow_call:
+    inputs:
+      run_on:
+        required: true
+        type: string
+
+jobs:
+  smoke_test:
+    name: smoke_test
+    runs-on: ${{ inputs.run_on }}
+    steps:
+      - name: check out code
+        uses: actions/checkout@v2
+      - name: setup Go 1.16
+        id: go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.16
+      - name: install
+        run: make install
+      - name: check rebuild
+        id: check_rebuild
+        working-directory: ./smoke_test/check_rebuild
+        run: | 
+          nohup air > nohup.out 2> nohup.err < /dev/null &
+          sleep 15
+          echo "" >> main.go
+          sleep 5
+          cat  nohup.out
+          grep "running" nohup.out | wc -l | if [ "$(cat -)" -eq "2" ]; then echo "::set-output name=value::PASS"; else echo "::set-output name=value::FAIL"; fi
+      - uses: nick-invision/assert-action@v1
+        with:
+          expected: "PASS"
+          actual: ${{ steps.check_rebuild.outputs.value }}
