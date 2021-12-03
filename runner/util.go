@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -233,7 +232,7 @@ func adaptToVariousPlatforms(c *config) {
 
 // fileChecksum returns a checksum for the given file's contents.
 func fileChecksum(filename string) (checksum string, err error) {
-	contents, err := ioutil.ReadFile(filename)
+	contents, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
 	}
