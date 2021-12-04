@@ -208,11 +208,7 @@ func adaptToVariousPlatforms(c *config) {
 		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
-		if !strings.HasSuffix(c.Build.Bin, extName) {
-
-			c.Build.Bin += extName
-		}
-
+		
 		if 0 < len(c.Build.FullBin) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
