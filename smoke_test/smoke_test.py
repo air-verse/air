@@ -10,9 +10,11 @@ chlid.expect
 
 a = chlid.expect("running", timeout=300)
 if a == 0:
+     print("first run successed")
      with open("main.go", "a") as f:
         f.write("\n\n")
 else:
+    print("::set-output name=value::FAIL")
     exit(0)
 
 a = chlid.expect("running", timeout=300)
