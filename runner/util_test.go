@@ -124,3 +124,16 @@ func TestChecksumMap(t *testing.T) {
 		t.Errorf("expected no entry for bar.txt, but had one")
 	}
 }
+
+
+func TestAdaptToVariousPlatforms(t *testing.T){
+	config := &config{
+		Build: cfgBuild{
+			Bin: "tmp\\main.exe  -dev",
+		},
+	}
+	adaptToVariousPlatforms(config) 
+	if config.Build.Bin != "tmp\\main.exe  -dev"{
+		t.Errorf("expected '%s' but got '%s'",  "tmp\\main.exe  -dev", config.Build.Bin)
+	}
+}
