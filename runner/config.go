@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -209,7 +208,7 @@ func defaultConfig() config {
 }
 
 func readConfig(path string) (*config, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
