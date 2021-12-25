@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"syscall"
 	"time"
 )
 
@@ -13,7 +12,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 	if e.config.Build.SendInterrupt {
 		// Sending a signal to make it clear to the process that it is time to turn off
-		if err = syscall.Kill(-pid, syscall.SIGINT); err != nil {
+		if err = interruptPid(pid); err != nil {
 			e.mainDebug("trying to send signal failed %v", err)
 			return
 		}
