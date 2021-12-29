@@ -22,10 +22,11 @@ jobs:
       - name: run Unit tests.
         run: go test  ./... -v -covermode=count -coverprofile=coverage.txt
       - name: upload Coverage report to CodeCov
-        uses: codecov/codecov-action@v1.0.0
+        uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.txt
+          verbose: true
 
   push_to_docker_latest:
     name: push master code to docker latest image
