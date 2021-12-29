@@ -16,7 +16,7 @@ jobs:
       - name: setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.16
+          go-version: ^1.17
       - name: set GOVERSION
         run: echo "GOVERSION=$(go version | sed -r 's/go version go(.*)\ .*/\1/')" >> $GITHUB_ENV
       - name: set AirVersion
