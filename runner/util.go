@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -207,7 +208,7 @@ func adaptToVariousPlatforms(c *config) {
 		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
-		
+
 		if 0 < len(c.Build.FullBin) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
@@ -273,4 +274,13 @@ func killByPid(pid int) error {
 		return err
 	}
 	return proc.Kill()
+}
+
+// trying to send interrupt signal to a process by it's pid.
+func interruptPid(pid int) error {
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	return proc.Signal(syscall.SIGINT)
 }
