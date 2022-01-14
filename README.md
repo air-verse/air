@@ -130,7 +130,7 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 
 ## Development
 
-Please note that it requires Go 1.13+ since I use `go mod` to manage dependencies.
+Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
 
 ```bash
 # 1. fork this project
