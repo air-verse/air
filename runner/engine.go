@@ -503,5 +503,6 @@ func (e *Engine) cleanup() {
 
 // Stop the air
 func (e *Engine) Stop() {
+	fmt.Printf("stop")
 	close(e.exitCh)
 }

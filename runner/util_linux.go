@@ -55,7 +55,6 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.WriteCloser, io.ReadCloser,
 	}
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
-	c.Stdin = os.Stdin
 
 	err = c.Start()
 	if err != nil {
