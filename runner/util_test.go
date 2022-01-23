@@ -1,8 +1,15 @@
 package runner
 
 import (
+	"io/ioutil"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -124,15 +131,77 @@ func TestChecksumMap(t *testing.T) {
 	}
 }
 
-
-func TestAdaptToVariousPlatforms(t *testing.T){
+func TestAdaptToVariousPlatforms(t *testing.T) {
 	config := &config{
 		Build: cfgBuild{
 			Bin: "tmp\\main.exe  -dev",
 		},
 	}
-	adaptToVariousPlatforms(config) 
-	if config.Build.Bin != "tmp\\main.exe  -dev"{
-		t.Errorf("expected '%s' but got '%s'",  "tmp\\main.exe  -dev", config.Build.Bin)
+	adaptToVariousPlatforms(config)
+	if config.Build.Bin != "tmp\\main.exe  -dev" {
+		t.Errorf("expected '%s' but got '%s'", "tmp\\main.exe  -dev", config.Build.Bin)
+	}
+}
+
+func Test_killCmd_SendInterrupt_false(t *testing.T) {
+	_, b, _, _ := runtime.Caller(0)
+
+	// Root folder of this project
+	dir := filepath.Dir(b)
+	err := os.Chdir(dir)
+	if err != nil {
+		t.Fatalf("couldn't change directory: %v", err)
+	}
+
+	// clean file before test
+	os.Remove("pid")
+	defer os.Remove("pid")
+	e := Engine{
+		config: &config{
+			Build: cfgBuild{
+				SendInterrupt: false,
+			},
+		},
+	}
+	startChan := make(chan struct {
+		pid int
+		cmd *exec.Cmd
+	})
+	go func() {
+		cmd, _, _, _, err := e.startCmd("sh _testdata/run-many-processes.sh")
+		if err != nil {
+			t.Errorf("failed to start command: %v", err)
+			return
+		}
+		pid := cmd.Process.Pid
+		t.Logf("process pid is %v", pid)
+		startChan <- struct {
+			pid int
+			cmd *exec.Cmd
+		}{pid: pid, cmd: cmd}
+		_ = cmd.Wait()
+	}()
+	resp := <-startChan
+	t.Logf("process started. checking pid %v", resp.pid)
+	time.Sleep(5 * time.Second)
+	pid, err := e.killCmd(resp.cmd)
+	if err != nil {
+		t.Fatalf("failed to kill command: %v", err)
+	}
+	t.Logf("%v was been killed", pid)
+	// check processes were being killed
+	// read pids from file
+	bytesRead, _ := ioutil.ReadFile("pid")
+	lines := strings.Split(string(bytesRead), "\n")
+	for _, line := range lines {
+		_, err := strconv.Atoi(line)
+		if err != nil {
+			t.Logf("failed to covert str to int %v", err)
+			continue
+		}
+		_, err = exec.Command("ps", "-p", line, "-o", "comm= ").Output()
+		if err == nil {
+			t.Fatalf("process should be killed %v", line)
+		}
 	}
 }

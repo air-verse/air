@@ -29,11 +29,6 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	if err = syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
 		return pgid, err
 	}
-	// Wait releases any resources associated with the Process.
-	_, err = cmd.Process.Wait()
-	if err != nil {
-		return pid, err
-	}
 	e.mainDebug("killed process pid %d successed", pid)
 	return
 }

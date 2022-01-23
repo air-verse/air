@@ -6,10 +6,13 @@ require (
         github.com/fatih/color v1.10.0
         github.com/fsnotify/fsnotify v1.4.9
         github.com/imdario/mergo v0.3.12
-        github.com/mitchellh/go-ps v1.0.0
         github.com/pelletier/go-toml v1.8.1
-        github.com/pkg/errors v0.9.1
         golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+)
+
+require (
+        github.com/mitchellh/go-ps v1.0.0
+        github.com/pkg/errors v0.9.1
 )
 
 require (
