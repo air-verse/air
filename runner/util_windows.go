@@ -23,6 +23,9 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.WriteCloser, io.ReadCloser,
 	}
 
 	c := exec.Command("cmd", "/c", cmd)
+	c.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, nil, err
