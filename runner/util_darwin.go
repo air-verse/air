@@ -21,12 +21,6 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 			return
 		}
 		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
-
-		// Wait releases any resources associated with the Process.
-		_, err = cmd.Process.Wait()
-		if err != nil {
-			return pid, errors.Wrapf(err, "failed to wait for process %d", pid)
-		}
 	}
 
 	// find process and kill it
@@ -37,6 +31,12 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	err = syscall.Kill(-proc.Pid(), syscall.SIGKILL)
 	if err != nil {
 		return pid, errors.Wrapf(err, "failed to kill process %d", pid)
+	}
+
+	// Wait releases any resources associated with the Process.
+	_, err = cmd.Process.Wait()
+	if err != nil {
+		return pid, errors.Wrapf(err, "failed to wait for process %d", pid)
 	}
 
 	e.mainDebug("killed process pid %d successed", pid)
