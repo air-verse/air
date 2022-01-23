@@ -185,7 +185,7 @@ func Test_killCmd(t *testing.T) {
 	}()
 	resp := <-startChan
 	t.Logf("process started. checking pid %v", resp.pid)
-	time.Sleep(time.Second)
+	time.Sleep(2 * time.Second)
 	pid, err := e.killCmd(resp.cmd)
 	if err != nil {
 		t.Fatalf("failed to kill command: %v", err)
