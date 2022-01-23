@@ -160,7 +160,7 @@ func Test_killCmd(t *testing.T) {
 	e := Engine{
 		config: &config{
 			Build: cfgBuild{
-				SendInterrupt: true,
+				SendInterrupt: false,
 			},
 		},
 	}
