@@ -28,6 +28,8 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 			return pid, errors.Wrapf(err, "failed to wait for process %d", pid)
 		}
 	}
+
+	// find process and kill it
 	proc, err := ps.FindProcess(pid)
 	if err != nil {
 		return pid, errors.Wrapf(err, "failed to find process %d", pid)
