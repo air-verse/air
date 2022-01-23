@@ -21,6 +21,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 			return
 		}
 		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
+
 		// Wait releases any resources associated with the Process.
 		_, err = cmd.Process.Wait()
 		if err != nil {
