@@ -22,18 +22,18 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		}
 		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
 	}
-	proc,err := ps.FindProcess(pid)
-	if err != nil{
-		return pid, errors.Wrap(err, "")
+	proc, err := ps.FindProcess(pid)
+	if err != nil {
+		return pid, errors.Wrapf(err, "failed to find process %d", pid)
 	}
 	err = syscall.Kill(-proc.Pid(), syscall.SIGKILL)
 	if err != nil {
-		return pid, err
+		return pid, errors.Wrapf(err, "failed to kill process %d", pid)
 	}
 	// Wait releases any resources associated with the Process.
 	_, err = cmd.Process.Wait()
 	if err != nil {
-		return pid, err
+		return pid, errors.Wrapf(err, "failed to wait for process %d", pid)
 	}
 
 	e.mainDebug("killed process pid %d successed", pid)

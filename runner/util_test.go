@@ -188,7 +188,7 @@ func Test_killCmd(t *testing.T) {
 	time.Sleep(time.Second)
 	pid, err := e.killCmd(resp.cmd)
 	if err != nil {
-		t.Fatalf("failed to start command: %v", err)
+		t.Fatalf("failed to kill command: %v", err)
 	}
 	t.Logf("%v was been killed", pid)
 	// check processes were being killed
