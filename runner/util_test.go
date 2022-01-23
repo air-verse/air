@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/mitchellh/go-ps"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -196,14 +194,15 @@ func Test_killCmd(t *testing.T) {
 	bytesRead, _ := ioutil.ReadFile("pid")
 	lines := strings.Split(string(bytesRead), "\n")
 	for _, line := range lines {
-		pid, err := strconv.Atoi(line)
+		_, err := strconv.Atoi(line)
 		if err != nil {
 			t.Logf("failed to covert str to int %v", err)
 			continue
 		}
-		process, err := ps.FindProcess(pid)
-		if process != nil {
-			t.Fatalf("process should be killed %v", process)
+		out, err := exec.Command("ps", "-p", line, "-o", "comm= ").Output()
+		if err == nil {
+			t.Fatalf("process should be killed %v", line)
 		}
+		print(out)
 	}
 }
