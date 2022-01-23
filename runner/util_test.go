@@ -8,9 +8,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
+
+	"github.com/mitchellh/go-ps"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -200,10 +201,9 @@ func Test_killCmd(t *testing.T) {
 			t.Logf("failed to covert str to int %v", err)
 			continue
 		}
-		killErr := syscall.Kill(pid, syscall.Signal(0))
-		procExists := killErr == nil
-		if procExists {
-			t.Fatalf("process should be killed")
+		process, err := ps.FindProcess(pid)
+		if process != nil {
+			t.Fatalf("process should be killed %v", pid)
 		}
 	}
 }
