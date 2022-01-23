@@ -203,7 +203,7 @@ func Test_killCmd(t *testing.T) {
 		}
 		process, err := ps.FindProcess(pid)
 		if process != nil {
-			t.Fatalf("process should be killed %v", pid)
+			t.Fatalf("process should be killed %v", process)
 		}
 	}
 }
