@@ -33,12 +33,6 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		return pid, errors.Wrapf(err, "failed to kill process %d", pid)
 	}
 
-	// Wait releases any resources associated with the Process.
-	_, err = cmd.Process.Wait()
-	if err != nil {
-		return pid, errors.Wrapf(err, "failed to wait for process %d", pid)
-	}
-
 	e.mainDebug("killed process pid %d successed", pid)
 	return pid, nil
 }
