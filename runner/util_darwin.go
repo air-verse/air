@@ -23,7 +23,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
 	}
 
-	// find process and kill it
+	// find process by pid and kill it and its children by group id
 	proc, err := ps.FindProcess(pid)
 	if err != nil {
 		return pid, errors.Wrapf(err, "failed to find process %d", pid)
