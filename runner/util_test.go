@@ -143,7 +143,7 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 	}
 }
 
-func Test_killCmd(t *testing.T) {
+func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	_, b, _, _ := runtime.Caller(0)
 
 	// Root folder of this project
@@ -199,10 +199,9 @@ func Test_killCmd(t *testing.T) {
 			t.Logf("failed to covert str to int %v", err)
 			continue
 		}
-		out, err := exec.Command("ps", "-p", line, "-o", "comm= ").Output()
+		_, err = exec.Command("ps", "-p", line, "-o", "comm= ").Output()
 		if err == nil {
 			t.Fatalf("process should be killed %v", line)
 		}
-		print(out)
 	}
 }
