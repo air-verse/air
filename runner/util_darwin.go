@@ -7,7 +7,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mitchellh/go-ps"
 	"github.com/pkg/errors"
 )
 
@@ -22,15 +21,13 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		}
 		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
 	}
-
-	// find process by pid and kill it and its children by group id
-	proc, err := ps.FindProcess(pid)
+	pgid, err := syscall.Getpgid(cmd.Process.Pid)
+	if err != nil {
+		return pgid, err
+	}
+	err = syscall.Kill(-pgid, syscall.SIGKILL)
 	if err != nil {
 		return pid, errors.Wrapf(err, "failed to find process %d", pid)
-	}
-	err = syscall.Kill(-proc.Pid(), syscall.SIGKILL)
-	if err != nil {
-		return pid, errors.Wrapf(err, "failed to kill process %d", pid)
 	}
 
 	e.mainDebug("killed process pid %d successed", pid)
