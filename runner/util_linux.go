@@ -26,7 +26,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		return pgid, err
 	}
 	e.mainDebug("got pgid %v", pgid)
-	if err = syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
+	if err = syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
 		return pgid, err
 	}
 	e.mainDebug("killed process pid %d successed", pid)
