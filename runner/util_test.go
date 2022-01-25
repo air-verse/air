@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -8,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -140,6 +142,27 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 	adaptToVariousPlatforms(config)
 	if config.Build.Bin != "tmp\\main.exe  -dev" {
 		t.Errorf("expected '%s' but got '%s'", "tmp\\main.exe  -dev", config.Build.Bin)
+	}
+}
+
+func Test_killCmd_no_process(t *testing.T) {
+	e := Engine{
+		config: &config{
+			Build: cfgBuild{
+				SendInterrupt: false,
+			},
+		},
+	}
+	_, err := e.killCmd(&exec.Cmd{
+		Process: &os.Process{
+			Pid: 9999,
+		},
+	})
+	if err == nil {
+		t.Errorf("expected error but got none")
+	}
+	if !errors.Is(err, syscall.ESRCH) {
+		t.Errorf("expected '%s' but got '%s'", syscall.ESRCH, errors.Unwrap(err))
 	}
 }
 
