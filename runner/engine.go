@@ -375,6 +375,8 @@ func (e *Engine) buildRun() {
 	select {
 	case <-e.buildRunStopCh:
 		return
+	case <-e.exitCh:
+		return
 	default:
 	}
 	if err = e.runBin(); err != nil {
