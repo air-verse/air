@@ -376,6 +376,7 @@ func (e *Engine) buildRun() {
 	case <-e.buildRunStopCh:
 		return
 	case <-e.exitCh:
+		close(e.canExit)
 		return
 	default:
 	}
