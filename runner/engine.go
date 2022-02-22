@@ -24,7 +24,7 @@ type Engine struct {
 	buildRunCh     chan bool
 	buildRunStopCh chan bool
 	canExit        chan bool
-	binStopChMap   map[int]chan bool
+	binStopCh      chan bool
 	exitCh         chan bool
 
 	mu            sync.RWMutex
@@ -57,7 +57,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		buildRunCh:     make(chan bool, 1),
 		buildRunStopCh: make(chan bool, 1),
 		canExit:        make(chan bool, 1),
-		binStopChMap:   make(map[int]chan bool),
+		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
 		watchers:       0,
 	}
@@ -94,7 +94,7 @@ func (e *Engine) checkRunEnv() error {
 	p := e.config.tmpPath()
 	if _, err := os.Stat(p); os.IsNotExist(err) {
 		e.runnerLog("mkdir %s", p)
-		if err := os.Mkdir(p, 0755); err != nil {
+		if err := os.Mkdir(p, 0o755); err != nil {
 			e.runnerLog("failed to mkdir, error: %s", err.Error())
 			return err
 		}
@@ -340,10 +340,8 @@ func (e *Engine) start() {
 
 		// if current app is running, stop it
 		e.withLock(func() {
-			for _, v := range e.binStopChMap {
-				v <- true
-			}
-			e.binStopChMap = make(map[int]chan bool)
+			close(e.binStopCh)
+			e.binStopCh = make(chan bool)
 		})
 		go e.buildRun()
 	}
@@ -424,7 +422,7 @@ func (e *Engine) runBin() error {
 		return err
 	}
 
-	killFunc := func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser, binStopChan chan bool) {
+	killFunc := func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser) {
 		defer func() {
 			select {
 			case <-e.exitCh:
@@ -432,7 +430,8 @@ func (e *Engine) runBin() error {
 			default:
 			}
 		}()
-		<-binStopChan
+		// when invoke close() it will return
+		<-e.binStopCh
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
@@ -457,12 +456,9 @@ func (e *Engine) runBin() error {
 		}
 	}
 	e.withLock(func() {
-		for _, v := range e.binStopChMap {
-			v <- true
-		}
-		e.binStopChMap = make(map[int]chan bool)
-		e.binStopChMap[cmd.Process.Pid] = make(chan bool)
-		go killFunc(cmd, stdin, stdout, stderr, e.binStopChMap[cmd.Process.Pid])
+		close(e.binStopCh)
+		e.binStopCh = make(chan bool)
+		go killFunc(cmd, stdin, stdout, stderr)
 	})
 	e.mainDebug("running process pid %v", cmd.Process.Pid)
 	return nil
@@ -473,10 +469,8 @@ func (e *Engine) cleanup() {
 	defer e.mainLog("see you again~")
 
 	e.withLock(func() {
-		for _, v := range e.binStopChMap {
-			v <- true
-		}
-		e.binStopChMap = make(map[int]chan bool)
+		close(e.binStopCh)
+		e.binStopCh = make(chan bool)
 	})
 	e.mainDebug("wating for	close watchers..")
 
