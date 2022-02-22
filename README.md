@@ -40,6 +40,14 @@ air -v
 
 P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
 
+### Via `go install`
+
+With go 1.16 or higher:
+
+```bash
+go install github.com/cosmtrek/air@latest
+```
+
 ### Docker
 
 Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
