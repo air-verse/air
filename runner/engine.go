@@ -24,11 +24,10 @@ type Engine struct {
 	buildRunCh     chan bool
 	buildRunStopCh chan bool
 	canExit        chan bool
-	binStopCh      chan bool
+	binStopChMap   map[int]chan bool
 	exitCh         chan bool
 
 	mu            sync.RWMutex
-	binRunning    bool
 	watchers      uint
 	fileChecksums *checksumMap
 
@@ -58,9 +57,8 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		buildRunCh:     make(chan bool, 1),
 		buildRunStopCh: make(chan bool, 1),
 		canExit:        make(chan bool, 1),
-		binStopCh:      make(chan bool),
+		binStopChMap:   make(map[int]chan bool),
 		exitCh:         make(chan bool),
-		binRunning:     false,
 		watchers:       0,
 	}
 
@@ -342,9 +340,10 @@ func (e *Engine) start() {
 
 		// if current app is running, stop it
 		e.withLock(func() {
-			if e.binRunning {
-				e.binStopCh <- true
+			for _, v := range e.binStopChMap {
+				v <- true
 			}
+			e.binStopChMap = make(map[int]chan bool)
 		})
 		go e.buildRun()
 	}
@@ -424,12 +423,8 @@ func (e *Engine) runBin() error {
 	if err != nil {
 		return err
 	}
-	e.withLock(func() {
-		e.binRunning = true
-	})
-	e.mainDebug("running process pid %v", cmd.Process.Pid)
 
-	go func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser) {
+	killFunc := func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser, binStopChan chan bool) {
 		defer func() {
 			select {
 			case <-e.exitCh:
@@ -437,7 +432,7 @@ func (e *Engine) runBin() error {
 			default:
 			}
 		}()
-		<-e.binStopCh
+		<-binStopChan
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
@@ -453,9 +448,6 @@ func (e *Engine) runBin() error {
 		} else {
 			e.mainDebug("cmd killed, pid: %d", pid)
 		}
-		e.withLock(func() {
-			e.binRunning = false
-		})
 		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
 		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
 			return
@@ -463,7 +455,16 @@ func (e *Engine) runBin() error {
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
-	}(cmd, stdin, stdout, stderr)
+	}
+	e.withLock(func() {
+		for _, v := range e.binStopChMap {
+			v <- true
+		}
+		e.binStopChMap = make(map[int]chan bool)
+		e.binStopChMap[cmd.Process.Pid] = make(chan bool)
+		go killFunc(cmd, stdin, stdout, stderr, e.binStopChMap[cmd.Process.Pid])
+	})
+	e.mainDebug("running process pid %v", cmd.Process.Pid)
 	return nil
 }
 
@@ -472,9 +473,10 @@ func (e *Engine) cleanup() {
 	defer e.mainLog("see you again~")
 
 	e.withLock(func() {
-		if e.binRunning {
-			e.binStopCh <- true
+		for _, v := range e.binStopChMap {
+			v <- true
 		}
+		e.binStopChMap = make(map[int]chan bool)
 	})
 	e.mainDebug("wating for	close watchers..")
 
