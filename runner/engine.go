@@ -423,16 +423,8 @@ func (e *Engine) runBin() error {
 	if err != nil {
 		return err
 	}
-	e.withLock(func() {
-		for _, v := range e.binStopChMap {
-			v <- true
-		}
-		e.binStopChMap = make(map[int]chan bool)
-		e.binStopChMap[cmd.Process.Pid] = make(chan bool)
-	})
-	e.mainDebug("running process pid %v", cmd.Process.Pid)
 
-	go func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser) {
+	killFunc := func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser, binStopChan chan bool) {
 		defer func() {
 			select {
 			case <-e.exitCh:
@@ -440,7 +432,7 @@ func (e *Engine) runBin() error {
 			default:
 			}
 		}()
-		<-e.binStopChMap[cmd.Process.Pid]
+		<-binStopChan
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
@@ -463,7 +455,16 @@ func (e *Engine) runBin() error {
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
-	}(cmd, stdin, stdout, stderr)
+	}
+	e.withLock(func() {
+		for _, v := range e.binStopChMap {
+			v <- true
+		}
+		e.binStopChMap = make(map[int]chan bool)
+		e.binStopChMap[cmd.Process.Pid] = make(chan bool)
+		go killFunc(cmd, stdin, stdout, stderr, e.binStopChMap[cmd.Process.Pid])
+	})
+	e.mainDebug("running process pid %v", cmd.Process.Pid)
 	return nil
 }
 

@@ -82,3 +82,24 @@ func TestRegexes(t *testing.T) {
 		t.Errorf("expected '%t' but got '%t'", false, result)
 	}
 }
+
+func TestRunBin(t *testing.T) {
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	err = engine.runBin()
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+}
+
+func TestBuildRun(t *testing.T) {
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	engine.buildRun()
+}
