@@ -2,11 +2,11 @@ package runner
 
 import (
 	"io"
-	"os"
 	"os/exec"
 	"syscall"
 	"time"
 
+	"github.com/creack/pty"
 	"github.com/pkg/errors"
 )
 
@@ -35,35 +35,13 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		return pid, err
 	}
 
-	e.mainDebug("killed process pid %d successed", pid)
+	e.mainDebug("killed process pid %d successed", pgid)
+
 	return pid, nil
 }
 
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
+func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
-	c.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-	}
-
-	stderr, err := c.StderrPipe()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	stdout, err := c.StdoutPipe()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	stdin, err := c.StdinPipe()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-
-	err = c.Start()
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	return c, stdin, stdout, stderr, nil
+	f, err := pty.Start(c)
+	return c, f, f, err
 }
