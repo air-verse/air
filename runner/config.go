@@ -265,9 +265,6 @@ func (c *config) preprocess() error {
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
-	if runtime.GOOS != PlatformWindows {
-		c.Build.Bin = fmt.Sprintf("%q", c.Build.Bin)
-	}
 	return err
 }
 
