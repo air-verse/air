@@ -40,7 +40,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 }
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
-	c := exec.Command("/bin/sh", cmd)
+	c := exec.Command("/bin/sh", "-c", cmd)
 	c.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
