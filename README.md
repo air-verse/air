@@ -1,4 +1,4 @@
-# Air [![Go](https://github.com/cosmtrek/air/workflows/Go/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+# Air [![Go](https://github.com/cosmtrek/air/workflows/Go/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=cosmtrek/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
 :cloud: Live reload for Go apps
 
@@ -18,11 +18,11 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
-* Colorful log output
-* Customize build or binary command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+- Colorful log output
+- Customize build or binary command
+- Support excluding subdirectories
+- Allow watching new directories after Air started
+- Better building process
 
 ## Installation
 
@@ -111,8 +111,8 @@ You can pass arguments for running the built binary by adding them after the air
 # Will run ./tmp/main bench
 air bench
 
-# Will run ./tmp/main --port 8080
-air --port 8080
+# Will run ./tmp/main server --port 8080
+air server --port 8080
 ```
 
 You can separate the arguments passed for the air command and the built binary with `--` argument.
@@ -146,7 +146,6 @@ services:
 ### Debug
 
 `air -d` prints all logs.
-
 
 ## Q&A
 
@@ -201,9 +200,9 @@ the ci will processing and will release new version,wait about 5 min you can fet
 
 Huge thanks to the following supporters. I've always been remembering your kindness.
 
-* Peter Aba
-* Apostolis Anastasiou
-* keita koga
+- Peter Aba
+- Apostolis Anastasiou
+- keita koga
 
 ## License
 
