@@ -18,6 +18,7 @@ type Engine struct {
 	logger    *logger
 	watcher   *fsnotify.Watcher
 	debugMode bool
+	runArgs   []string
 
 	eventCh        chan string
 	watcherStopCh  chan bool
@@ -35,7 +36,7 @@ type Engine struct {
 }
 
 // NewEngine ...
-func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
+func NewEngine(cfgPath string, debugMode bool, runArgs []string) (*Engine, error) {
 	var err error
 	cfg, err := initConfig(cfgPath)
 	if err != nil {
@@ -52,6 +53,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
+		runArgs:        runArgs,
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
