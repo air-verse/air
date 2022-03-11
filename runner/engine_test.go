@@ -8,7 +8,7 @@ import (
 
 func TestNewEngine(t *testing.T) {
 	_ = os.Unsetenv(airWd)
-	engine, err := NewEngine("", true, []string{})
+	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -25,7 +25,7 @@ func TestNewEngine(t *testing.T) {
 
 func TestCheckRunEnv(t *testing.T) {
 	_ = os.Unsetenv(airWd)
-	engine, err := NewEngine("", true, []string{})
+	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -36,7 +36,7 @@ func TestCheckRunEnv(t *testing.T) {
 }
 
 func TestWatching(t *testing.T) {
-	engine, err := NewEngine("", true, []string{})
+	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -52,7 +52,7 @@ func TestWatching(t *testing.T) {
 }
 
 func TestRegexes(t *testing.T) {
-	engine, err := NewEngine("", true, []string{})
+	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -84,7 +84,7 @@ func TestRegexes(t *testing.T) {
 }
 
 func TestRunBin(t *testing.T) {
-	engine, err := NewEngine("", true, []string{})
+	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -96,7 +96,7 @@ func TestRunBin(t *testing.T) {
 }
 
 func TestBuildRun(t *testing.T) {
-	engine, err := NewEngine("", true, []string{})
+	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
