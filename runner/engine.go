@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ type Engine struct {
 	logger    *logger
 	watcher   *fsnotify.Watcher
 	debugMode bool
+	runArgs   []string
 
 	eventCh        chan string
 	watcherStopCh  chan bool
@@ -52,6 +54,7 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
+		runArgs:        cfg.Build.ArgsBin,
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
@@ -417,7 +420,9 @@ func (e *Engine) building() error {
 func (e *Engine) runBin() error {
 	var err error
 	e.runnerLog("running...")
-	cmd, stdin, stdout, stderr, err := e.startCmd(e.config.Build.Bin)
+
+	command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
+	cmd, stdin, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}

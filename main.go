@@ -15,6 +15,7 @@ var (
 	cfgPath     string
 	debugMode   bool
 	showVersion bool
+	runArgs     []string
 )
 
 func helpMessage() {

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -34,6 +35,7 @@ type cfgBuild struct {
 	Cmd              string        `toml:"cmd"`
 	Bin              string        `toml:"bin"`
 	FullBin          string        `toml:"full_bin"`
+	ArgsBin          []string      `toml:"args_bin"`
 	Log              string        `toml:"log"`
 	IncludeExt       []string      `toml:"include_ext"`
 	ExcludeDir       []string      `toml:"exclude_dir"`
@@ -265,6 +267,11 @@ func (c *config) preprocess() error {
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+
+	// Join runtime arguments with the configuration arguments
+	runtimeArgs := flag.Args()
+	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
+
 	return err
 }
 
