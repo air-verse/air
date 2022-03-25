@@ -36,6 +36,8 @@ stop_on_error = true
 send_interrupt = false
 # Delay after sending Interrupt signal
 kill_delay = 500 # ms
+# Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
+args_bin = ["hello", "world"]
 
 [log]
 # Show log time
