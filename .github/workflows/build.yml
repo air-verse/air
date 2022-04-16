@@ -12,11 +12,11 @@ jobs:
     steps:
       - name: check out code
         uses: actions/checkout@v2
-      - name: setup Go 1.17
+      - name: setup Go 1.18
         id: go
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.17
+          go-version: ^1.18
       - name: build
         run: make build
       - name: run Unit tests.
