@@ -12,6 +12,10 @@ require (
 )
 
 require github.com/creack/pty v1.1.11
+require (
+	github.com/pkg/errors v0.9.1
+	golang.org/x/term v0.0.0-20220411215600-e5f449aeb171
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

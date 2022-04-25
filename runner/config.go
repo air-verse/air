@@ -50,6 +50,7 @@ type cfgBuild struct {
 	StopOnError      bool          `toml:"stop_on_error"`
 	SendInterrupt    bool          `toml:"send_interrupt"`
 	KillDelay        time.Duration `toml:"kill_delay"`
+	TermUIApp        bool          `toml:"term_ui_app"`
 	regexCompiled    []*regexp.Regexp
 }
 
