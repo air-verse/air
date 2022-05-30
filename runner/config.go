@@ -66,7 +66,9 @@ func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 }
 
 type cfgLog struct {
-	AddTime bool `toml:"time"`
+	AddTime           bool `toml:"time"`
+	WriteStdOutOnFile bool `toml:"write_stdout_on_file"`
+	WriteStdErrOnFile bool `toml:"write_stderr_on_file"`
 }
 
 type cfgColor struct {
@@ -187,7 +189,9 @@ func defaultConfig() config {
 		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
 	log := cfgLog{
-		AddTime: false,
+		AddTime:           false,
+		WriteStdOutOnFile: false,
+		WriteStdErrOnFile: false,
 	}
 	color := cfgColor{
 		Main:    "magenta",

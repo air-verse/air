@@ -61,6 +61,21 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.WriteCloser, io.ReadCloser,
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 
+	if e.config.Log.WriteStdOutOnFile {
+		f, err := os.OpenFile("stdout.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		c.Stdout = io.MultiWriter(os.Stdout, f)
+	}
+	if e.config.Log.WriteStdErrOnFile {
+		f, err := os.OpenFile("stderr.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		c.Stderr = io.MultiWriter(os.Stderr, f)
+	}
+
 	err = c.Start()
 	if err != nil {
 		return nil, nil, nil, nil, err
