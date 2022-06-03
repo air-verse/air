@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -197,6 +198,12 @@ func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration)
 func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	// fix https://github.com/cosmtrek/air/issues/278
 	// generate a random port
+	data := []byte("[build]\n  kill_delay = \"2s\"")
+	c := config{}
+	if err := toml.Unmarshal(data, &c); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -211,7 +218,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	engine.config.Build.KillDelay = time.Second * 2
+	engine.config.Build.KillDelay = c.Build.KillDelay
 	engine.config.Build.Delay = 2000
 	engine.config.Build.SendInterrupt = true
 	engine.config.preprocess()
