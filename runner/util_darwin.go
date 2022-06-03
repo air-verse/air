@@ -20,24 +20,16 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	if e.config.Build.SendInterrupt {
 		// Sending a signal to make it clear to the process that it is time to turn off
 		if err = syscall.Kill(-pgid, syscall.SIGINT); err != nil {
-			e.mainDebug("trying to send signal failed %v", err)
 			return
 		}
 		time.Sleep(e.config.Build.KillDelay * time.Millisecond)
 	}
+	// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
 	err = syscall.Kill(-pgid, syscall.SIGKILL)
-	if err != nil {
-		return pid, errors.Wrapf(err, "failed to kill process by pgid %v", pgid)
-	}
 	// Wait releases any resources associated with the Process.
-	_, err = cmd.Process.Wait()
-	if err != nil {
-		return pid, err
-	}
-
+	_, _ = cmd.Process.Wait()
 	e.mainDebug("killed process pid %d successed", pgid)
-
-	return pid, nil
+	return pgid, nil
 }
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
