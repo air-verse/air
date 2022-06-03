@@ -227,11 +227,11 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	if err := waitingPortReady(port, time.Second*5); err != nil {
+	if err := waitingPortReady(t, port, time.Second*5); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	sigs <- syscall.SIGINT
-	err = waitingPortConnectionRefused(port, time.Second*10)
+	err = waitingPortConnectionRefused(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
