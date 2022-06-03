@@ -191,7 +191,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 		cmd *exec.Cmd
 	})
 	go func() {
-		cmd, _, _, _, err := e.startCmd("sh _testdata/run-many-processes.sh")
+		cmd, _, _, err := e.startCmd("sh _testdata/run-many-processes.sh")
 		if err != nil {
 			t.Errorf("failed to start command: %v", err)
 			return
@@ -202,11 +202,13 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 			pid int
 			cmd *exec.Cmd
 		}{pid: pid, cmd: cmd}
-		_ = cmd.Wait()
+		cmd.Wait()
+		t.Logf("wait finished")
 	}()
 	resp := <-startChan
 	t.Logf("process started. checking pid %v", resp.pid)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
+	t.Logf("%v", resp.cmd.Process.Pid)
 	pid, err := e.killCmd(resp.cmd)
 	if err != nil {
 		t.Fatalf("failed to kill command: %v", err)

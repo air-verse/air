@@ -20,6 +20,7 @@ type Engine struct {
 	watcher   *fsnotify.Watcher
 	debugMode bool
 	runArgs   []string
+	running   bool
 
 	eventCh        chan string
 	watcherStopCh  chan bool
@@ -300,6 +301,7 @@ func (e *Engine) isModified(filename string) bool {
 
 // Endless loop and never return
 func (e *Engine) start() {
+	e.running = true
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
 
@@ -308,6 +310,7 @@ func (e *Engine) start() {
 
 		select {
 		case <-e.exitCh:
+			e.mainDebug("exit in start")
 			return
 		case filename = <-e.eventCh:
 			if !e.isIncludeExt(filename) {
@@ -364,7 +367,7 @@ func (e *Engine) buildRun() {
 	}
 	var err error
 	if err = e.building(); err != nil {
-		e.canExit <- true
+		close(e.canExit)
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -376,6 +379,7 @@ func (e *Engine) buildRun() {
 	case <-e.buildRunStopCh:
 		return
 	case <-e.exitCh:
+		e.mainDebug("exit in buildRun")
 		close(e.canExit)
 		return
 	default:
@@ -399,16 +403,16 @@ func (e *Engine) flushEvents() {
 func (e *Engine) building() error {
 	var err error
 	e.buildLog("building...")
-	cmd, stdin, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		stdout.Close()
 		stderr.Close()
-		stdin.Close()
 	}()
-
+	_, _ = io.Copy(os.Stdout, stdout)
+	_, _ = io.Copy(os.Stderr, stderr)
 	// wait for building
 	err = cmd.Wait()
 	if err != nil {
@@ -422,15 +426,20 @@ func (e *Engine) runBin() error {
 	e.runnerLog("running...")
 
 	command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-	cmd, stdin, stdout, stderr, err := e.startCmd(command)
+	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}
+	go func() {
+		_, _ = io.Copy(os.Stdout, stdout)
+		_, _ = io.Copy(os.Stderr, stderr)
+	}()
 
-	killFunc := func(cmd *exec.Cmd, stdin io.WriteCloser, stdout io.ReadCloser, stderr io.ReadCloser) {
+	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
 		defer func() {
 			select {
 			case <-e.exitCh:
+				e.mainDebug("exit in killFunc")
 				close(e.canExit)
 			default:
 			}
@@ -441,7 +450,6 @@ func (e *Engine) runBin() error {
 		defer func() {
 			stdout.Close()
 			stderr.Close()
-			stdin.Close()
 		}()
 		pid, err := e.killCmd(cmd)
 		if err != nil {
@@ -463,7 +471,7 @@ func (e *Engine) runBin() error {
 	e.withLock(func() {
 		close(e.binStopCh)
 		e.binStopCh = make(chan bool)
-		go killFunc(cmd, stdin, stdout, stderr)
+		go killFunc(cmd, stdout, stderr)
 	})
 	e.mainDebug("running process pid %v", cmd.Process.Pid)
 	return nil
@@ -503,6 +511,8 @@ func (e *Engine) cleanup() {
 	e.mainDebug("waiting for exit...")
 
 	<-e.canExit
+	e.running = false
+	e.mainDebug("exited")
 }
 
 // Stop the air
