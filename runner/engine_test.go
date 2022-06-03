@@ -235,6 +235,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	time.Sleep(time.Second * 3)
 	assert.False(t, engine.running)
 }
 

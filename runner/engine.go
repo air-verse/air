@@ -310,6 +310,7 @@ func (e *Engine) start() {
 
 		select {
 		case <-e.exitCh:
+			e.mainDebug("exit in start")
 			return
 		case filename = <-e.eventCh:
 			if !e.isIncludeExt(filename) {
@@ -378,6 +379,7 @@ func (e *Engine) buildRun() {
 	case <-e.buildRunStopCh:
 		return
 	case <-e.exitCh:
+		e.mainDebug("exit in buildRun")
 		close(e.canExit)
 		return
 	default:
@@ -437,6 +439,7 @@ func (e *Engine) runBin() error {
 		defer func() {
 			select {
 			case <-e.exitCh:
+				e.mainDebug("exit in killFunc")
 				close(e.canExit)
 			default:
 			}
