@@ -1,9 +1,14 @@
 package runner
 
 import (
+	"fmt"
+	"net"
 	"os"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewEngine(t *testing.T) {
@@ -95,11 +100,98 @@ func TestRunBin(t *testing.T) {
 	}
 }
 
-func TestBuildRun(t *testing.T) {
+func GetPort() (int, func()) {
+	l, err := net.Listen("tcp", ":0")
+	port := l.Addr().(*net.TCPAddr).Port
+	if err != nil {
+		panic(err)
+	}
+	return port, func() {
+		_ = l.Close()
+	}
+}
+
+func TestRun(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
-	engine.buildRun()
+	go func() {
+		engine.Run()
+	}()
+	time.Sleep(time.Second * 2)
+	assert.True(t, checkPortHaveBeenUsed(port))
+	t.Logf("try to stop")
+	engine.Stop()
+	time.Sleep(time.Second * 1)
+	assert.False(t, checkPortHaveBeenUsed(port))
+	t.Logf("stoped")
+}
+
+func checkPortHaveBeenUsed(port int) bool {
+	conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+func initTestEnv(t *testing.T, port int) string {
+	tempDir := t.TempDir()
+	t.Logf("tempDir: %s", tempDir)
+	// generate golang code to tempdir
+	err := generateGoCode(tempDir, port)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	return tempDir
+}
+
+// generateGoCode generates golang code to tempdir
+func generateGoCode(dir string, port int) error {
+
+	code := fmt.Sprintf(`package main
+
+import (
+	"log"
+	"net/http"
+)
+
+func main() {
+	log.Fatal(http.ListenAndServe(":%v", nil))
+}
+`, port)
+	file, err := os.Create(dir + "/main.go")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(code)
+
+	// generate go mod file
+	mod := `module air.sample.com
+
+go 1.17
+`
+	file, err = os.Create(dir + "/go.mod")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(mod)
+	if err != nil {
+		return err
+	}
+	return nil
 }
