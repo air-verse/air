@@ -11,7 +11,7 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos:latest ]
     name: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: check out code
         uses: actions/checkout@v2
