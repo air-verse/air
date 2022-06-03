@@ -155,7 +155,6 @@ func TestRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(2 * time.Second)
 	err = waitingPortConnectionRefused(port, time.Second*10)
 	if err != nil {
 		t.Fatalf("timeout: %s.", err)
