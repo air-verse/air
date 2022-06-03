@@ -1,10 +1,13 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -153,7 +156,7 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	time.Sleep(2 * time.Second)
-	err = waitingPortConnectionRefused(port, time.Second*5)
+	err = waitingPortConnectionRefused(port, time.Second*10)
 	if err != nil {
 		t.Fatalf("timeout: %s.", err)
 	}
@@ -171,21 +174,59 @@ func TestRebuild(t *testing.T) {
 
 func waitingPortConnectionRefused(port int, timeout time.Duration) error {
 	t := time.NewTimer(timeout)
+	ticker := time.NewTicker(time.Millisecond * 100)
+	defer ticker.Stop()
 	defer t.Stop()
 	for {
 		select {
 		case <-t.C:
 			return fmt.Errorf("timeout")
-		default:
-			conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-			if err != nil {
-				time.Sleep(time.Millisecond * 100)
-				continue
-			} else {
-				_ = conn.Close()
+		case <-ticker.C:
+			print(".")
+			_, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+			if errors.Is(err, syscall.ECONNREFUSED) {
 				return nil
 			}
+			time.Sleep(time.Millisecond * 100)
 		}
+	}
+}
+
+func TestCtrlCWhenREngineIsRunning(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	go func() {
+		engine.Run()
+		t.Logf("engine stopped")
+	}()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		engine.Stop()
+		t.Logf("engine stopped")
+	}()
+	if err := waitingPortReady(port, time.Second*5); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	sigs <- syscall.SIGINT
+	time.Sleep(time.Second * 1)
+	err = waitingPortConnectionRefused(port, time.Second*10)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
 	}
 }
 
