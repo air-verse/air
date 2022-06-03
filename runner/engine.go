@@ -20,6 +20,7 @@ type Engine struct {
 	watcher   *fsnotify.Watcher
 	debugMode bool
 	runArgs   []string
+	running   bool
 
 	eventCh        chan string
 	watcherStopCh  chan bool
@@ -300,6 +301,7 @@ func (e *Engine) isModified(filename string) bool {
 
 // Endless loop and never return
 func (e *Engine) start() {
+	e.running = true
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
 
@@ -364,7 +366,7 @@ func (e *Engine) buildRun() {
 	}
 	var err error
 	if err = e.building(); err != nil {
-		e.canExit <- true
+		close(e.canExit)
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -506,6 +508,8 @@ func (e *Engine) cleanup() {
 	e.mainDebug("waiting for exit...")
 
 	<-e.canExit
+	e.running = false
+	e.mainDebug("exited")
 }
 
 // Stop the air
