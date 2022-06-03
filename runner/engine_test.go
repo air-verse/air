@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewEngine(t *testing.T) {
@@ -98,7 +100,7 @@ func TestRunBin(t *testing.T) {
 	}
 }
 
-func createListener() (int, func()) {
+func GetPort() (int, func()) {
 	l, err := net.Listen("tcp", ":0")
 	port := l.Addr().(*net.TCPAddr).Port
 	if err != nil {
@@ -111,7 +113,7 @@ func createListener() (int, func()) {
 
 func TestRun(t *testing.T) {
 	// generate a random port
-	port, f := createListener()
+	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
 
@@ -129,10 +131,22 @@ func TestRun(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Second * 2)
+	assert.True(t, checkPortHaveBeenUsed(port))
 	t.Logf("try to stop")
 	engine.Stop()
+	time.Sleep(time.Second * 1)
+	assert.False(t, checkPortHaveBeenUsed(port))
 	t.Logf("stoped")
+}
+
+func checkPortHaveBeenUsed(port int) bool {
+	conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 func initTestEnv(t *testing.T, port int) string {
