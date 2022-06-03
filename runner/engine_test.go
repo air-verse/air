@@ -404,7 +404,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Second * 3)
 	t.Logf("engine stopped")
 	assert.True(t, checkPortConnectionRefused(port))
 }

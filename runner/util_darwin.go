@@ -10,7 +10,6 @@ import (
 )
 
 func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
-	e.mainLog("killing process %d", cmd.Process.Pid)
 	pid = cmd.Process.Pid
 
 	if e.config.Build.SendInterrupt {
