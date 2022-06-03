@@ -111,6 +111,103 @@ func GetPort() (int, func()) {
 	}
 }
 
+func TestRebuild(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	go func() {
+		engine.Run()
+		t.Logf("engine stopped")
+	}()
+	err = waitingPortReady(port, time.Second*5)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	t.Logf("port is ready")
+
+	// start rebuld
+
+	t.Logf("start change main.go")
+	// change file of main.go
+	// just append a new empty line to main.go
+	time.Sleep(time.Second * 2)
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	defer file.Close()
+	_, err = file.WriteString("\n")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	time.Sleep(2 * time.Second)
+	err = waitingPortConnectionRefused(port, time.Second*5)
+	if err != nil {
+		t.Fatalf("timeout: %s.", err)
+	}
+	t.Logf("connection refused")
+	time.Sleep(time.Second * 2)
+	err = waitingPortReady(port, time.Second*10)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	t.Logf("port is ready")
+	// stop engine
+	engine.Stop()
+	t.Logf("engine stopped")
+}
+
+func waitingPortConnectionRefused(port int, timeout time.Duration) error {
+	t := time.NewTimer(timeout)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			return fmt.Errorf("timeout")
+		default:
+			conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+			if err != nil {
+				time.Sleep(time.Millisecond * 100)
+				continue
+			} else {
+				_ = conn.Close()
+				return nil
+			}
+		}
+	}
+}
+
+// waitingPortReady waits until the port is ready to be used.
+func waitingPortReady(port int, timeout time.Duration) error {
+	timeoutChan := time.After(timeout)
+	ticker := time.NewTicker(time.Millisecond * 100)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timeoutChan:
+			return fmt.Errorf("timeout")
+		case <-ticker.C:
+			conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+			if err == nil {
+				_ = conn.Close()
+				return nil
+			}
+		}
+	}
+}
+
 func TestRun(t *testing.T) {
 	// generate a random port
 	port, f := GetPort()
