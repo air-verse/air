@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -194,6 +195,57 @@ func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration)
 	}
 }
 
+func TestCtrlCWhenHaveKillDelay(t *testing.T) {
+	// fix https://github.com/cosmtrek/air/issues/278
+	// generate a random port
+	data := []byte("[build]\n  kill_delay = \"2s\"")
+	c := config{}
+	if err := toml.Unmarshal(data, &c); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine.config.Build.KillDelay = c.Build.KillDelay
+	engine.config.Build.Delay = 2000
+	engine.config.Build.SendInterrupt = true
+	engine.config.preprocess()
+
+	go func() {
+		engine.Run()
+		t.Logf("engine stopped")
+	}()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		engine.Stop()
+		t.Logf("engine stopped")
+	}()
+	if err := waitingPortReady(t, port, time.Second*5); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	sigs <- syscall.SIGINT
+	err = waitingPortConnectionRefused(t, port, time.Second*10)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	time.Sleep(time.Second * 3)
+	assert.False(t, engine.running)
+}
+
 func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	// generate a random port
 	port, f := GetPort()
@@ -230,6 +282,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	assert.False(t, engine.running)
 }
 
 // waitingPortReady waits until the port is ready to be used.
