@@ -1,9 +1,12 @@
 package runner
 
 import (
+	"fmt"
+	"net"
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewEngine(t *testing.T) {
@@ -95,11 +98,86 @@ func TestRunBin(t *testing.T) {
 	}
 }
 
-func TestBuildRun(t *testing.T) {
+func createListener() (int, func()) {
+	l, err := net.Listen("tcp", ":0")
+	port := l.Addr().(*net.TCPAddr).Port
+	if err != nil {
+		panic(err)
+	}
+	return port, func() {
+		_ = l.Close()
+	}
+}
+
+func TestRun(t *testing.T) {
+	// generate a random port
+	port, f := createListener()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
-	engine.buildRun()
+	go func() {
+		engine.Run()
+	}()
+	time.Sleep(time.Second * 1)
+	t.Logf("try to stop")
+	engine.Stop()
+	t.Logf("stoped")
+}
+
+func initTestEnv(t *testing.T, port int) string {
+	tempDir := t.TempDir()
+	t.Logf("tempDir: %s", tempDir)
+	// generate golang code to tempdir
+	err := generateGoCode(tempDir, port)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	return tempDir
+}
+
+// generateGoCode generates golang code to tempdir
+func generateGoCode(dir string, port int) error {
+
+	code := fmt.Sprintf(`package main
+
+import (
+	"log"
+	"net/http"
+)
+
+func main() {
+	log.Fatal(http.ListenAndServe(":%v", nil))
+}
+`, port)
+	file, err := os.Create(dir + "/main.go")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(code)
+
+	// generate go mod file
+	mod := `module air.sample.com
+
+go 1.17
+`
+	file, err = os.Create(dir + "/go.mod")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(mod)
+	if err != nil {
+		return err
+	}
+	return nil
 }
