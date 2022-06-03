@@ -368,11 +368,11 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	engine.config.Build.Cmd = "go build -gcflags='all=-N -l' -o ./tmp/main ."
 	engine.config.Build.Bin = ""
 	engine.config.Build.FullBin = "dlv exec --accept-multiclient --log --headless --continue --listen :2345 --api-version 2 ./tmp/main"
-	engine.config.preprocess()
+	_ = engine.config.preprocess()
 	go func() {
 		engine.Run()
 	}()
-	if err := waitingPortReady(t, port, time.Second*10); err != nil {
+	if err := waitingPortReady(t, port, time.Second*20); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
@@ -397,7 +397,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	}
 	t.Logf("connection refused")
 	time.Sleep(time.Second * 2)
-	err = waitingPortReady(t, port, time.Second*10)
+	err = waitingPortReady(t, port, time.Second*20)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
