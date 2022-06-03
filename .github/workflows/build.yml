@@ -7,8 +7,11 @@ on:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     name: build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: check out code
         uses: actions/checkout@v2
@@ -20,7 +23,7 @@ jobs:
       - name: build
         run: make build
       - name: run Unit tests.
-        run: go test  ./... -v -covermode=count -coverprofile=coverage.txt
+        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test  ./... -v -covermode=count -coverprofile=coverage.txt
       - name: upload Coverage report to CodeCov
         uses: codecov/codecov-action@v2
         with:

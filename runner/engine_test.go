@@ -134,7 +134,7 @@ func TestRebuild(t *testing.T) {
 		engine.Run()
 		t.Logf("engine stopped")
 	}()
-	err = waitingPortReady(port, time.Second*5)
+	err = waitingPortReady(t, port, time.Second*5)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -155,30 +155,33 @@ func TestRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	err = waitingPortConnectionRefused(port, time.Second*10)
+	err = waitingPortConnectionRefused(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("timeout: %s.", err)
 	}
 	t.Logf("connection refused")
 	time.Sleep(time.Second * 2)
-	err = waitingPortReady(port, time.Second*10)
+	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
+	time.Sleep(time.Second * 1)
 	t.Logf("engine stopped")
+	assert.True(t, checkPortConnectionRefused(port))
 }
 
-func waitingPortConnectionRefused(port int, timeout time.Duration) error {
-	t := time.NewTimer(timeout)
+func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration) error {
+	t.Logf("waiting port %d connection refused", port)
+	timer := time.NewTimer(timeout)
 	ticker := time.NewTicker(time.Millisecond * 100)
 	defer ticker.Stop()
-	defer t.Stop()
+	defer timer.Stop()
 	for {
 		select {
-		case <-t.C:
+		case <-timer.C:
 			return fmt.Errorf("timeout")
 		case <-ticker.C:
 			print(".")
@@ -218,19 +221,20 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	if err := waitingPortReady(port, time.Second*5); err != nil {
+	if err := waitingPortReady(t, port, time.Second*5); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	sigs <- syscall.SIGINT
 	time.Sleep(time.Second * 1)
-	err = waitingPortConnectionRefused(port, time.Second*10)
+	err = waitingPortConnectionRefused(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 }
 
 // waitingPortReady waits until the port is ready to be used.
-func waitingPortReady(port int, timeout time.Duration) error {
+func waitingPortReady(t *testing.T, port int, timeout time.Duration) error {
+	t.Logf("waiting port %d ready", port)
 	timeoutChan := time.After(timeout)
 	ticker := time.NewTicker(time.Millisecond * 100)
 	defer ticker.Stop()
@@ -275,6 +279,19 @@ func TestRun(t *testing.T) {
 	time.Sleep(time.Second * 1)
 	assert.False(t, checkPortHaveBeenUsed(port))
 	t.Logf("stoped")
+}
+
+func checkPortConnectionRefused(port int) bool {
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+	defer func() {
+		if conn != nil {
+			_ = conn.Close()
+		}
+	}()
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return true
+	}
+	return false
 }
 
 func checkPortHaveBeenUsed(port int) bool {
@@ -331,4 +348,63 @@ go 1.17
 		return err
 	}
 	return nil
+}
+
+func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine.config.Build.Cmd = "go build -gcflags='all=-N -l' -o ./tmp/main ."
+	engine.config.Build.Bin = ""
+	engine.config.Build.FullBin = "dlv exec --accept-multiclient --log --headless --continue --listen :2345 --api-version 2 ./tmp/main"
+	_ = engine.config.preprocess()
+	go func() {
+		engine.Run()
+	}()
+	if err := waitingPortReady(t, port, time.Second*20); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	t.Logf("start change main.go")
+	// change file of main.go
+	// just append a new empty line to main.go
+	time.Sleep(time.Second * 2)
+	go func() {
+		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+		defer file.Close()
+		_, err = file.WriteString("\n")
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+	}()
+	err = waitingPortConnectionRefused(t, port, time.Second*10)
+	if err != nil {
+		t.Fatalf("timeout: %s.", err)
+	}
+	t.Logf("connection refused")
+	time.Sleep(time.Second * 2)
+	err = waitingPortReady(t, port, time.Second*20)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	t.Logf("port is ready")
+	// stop engine
+	engine.Stop()
+	time.Sleep(time.Second * 3)
+	t.Logf("engine stopped")
+	assert.True(t, checkPortConnectionRefused(port))
 }
