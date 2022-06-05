@@ -51,6 +51,6 @@ jobs:
         with:
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: borosr/air:latest
+          tags: cosmtrek/air:latest
       - name: show image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
