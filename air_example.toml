@@ -12,6 +12,16 @@ cmd = "go build -o ./tmp/main ."
 bin = "tmp/main"
 # Customize binary, can setup environment variables when run your app.
 full_bin = "APP_ENV=dev APP_USER=air ./tmp/main"
+# Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
+args_bin = ["hello", "world"]
+# Bin for different os, when you define this field, it will be used instead of bin.
+#[bin_os]
+#  linux= "tmp/main"
+#  darwin= "tmp/main"
+#  windows= "tmp/main"
+
+
+
 # Watch these filename extensions.
 include_ext = ["go", "tpl", "tmpl", "html"]
 # Ignore these filename extensions or directories.
@@ -36,8 +46,6 @@ stop_on_error = true
 send_interrupt = false
 # Delay after sending Interrupt signal
 kill_delay = 500 # ms
-# Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
-args_bin = ["hello", "world"]
 
 [log]
 # Show log time
