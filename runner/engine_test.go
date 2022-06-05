@@ -461,3 +461,29 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("engine stopped")
 	assert.True(t, checkPortConnectionRefused(port))
 }
+
+func TestWriteDefaultConfig(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	writeDefaultConfig()
+	// check the file is exist
+	if _, err := os.Stat(dftTOML); err != nil {
+		t.Fatal(err)
+	}
+
+	// check the file content is right
+	actual, err := readConfig(dftTOML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := defaultConfig()
+
+	assert.Equal(t, expect, *actual)
+}
