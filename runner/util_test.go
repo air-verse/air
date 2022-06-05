@@ -146,6 +146,11 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 }
 
 func Test_killCmd_no_process(t *testing.T) {
+	// skip windows
+	if runtime.GOOS == "windows" {
+		t.Skip("windows")
+		return
+	}
 	e := Engine{
 		config: &config{
 			Build: cfgBuild{
