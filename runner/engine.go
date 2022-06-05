@@ -63,11 +63,8 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 		canExit:        make(chan bool, 1),
 		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
+		fileChecksums:  &checksumMap{m: make(map[string]string)},
 		watchers:       0,
-	}
-
-	if cfg.Build.ExcludeUnchanged {
-		e.fileChecksums = &checksumMap{m: make(map[string]string)}
 	}
 
 	return &e, nil
