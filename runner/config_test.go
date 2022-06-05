@@ -127,3 +127,13 @@ func TestConfPreprocess(t *testing.T) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
 	}
 }
+
+func TestReadConfigWithWrongPath(t *testing.T) {
+	c, err := readConfig("xxxx")
+	if err == nil {
+		t.Fatal("need throw a error")
+	}
+	if c != nil {
+		t.Fatal("expect is nil but got a conf")
+	}
+}
