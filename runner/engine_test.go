@@ -128,6 +128,7 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	engine, err := NewEngine("", true)
+	engine.config.Build.ExcludeUnchanged = true
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
