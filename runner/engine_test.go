@@ -122,6 +122,7 @@ func TestRebuild(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer os.RemoveAll(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -210,6 +211,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer os.RemoveAll(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -254,6 +256,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer os.RemoveAll(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -313,6 +316,7 @@ func TestRun(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer os.RemoveAll(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -359,9 +363,6 @@ func checkPortHaveBeenUsed(port int) bool {
 
 func initTestEnv(t *testing.T, port int) string {
 	tempDir := t.TempDir()
-	t.Cleanup(func() {
-		os.RemoveAll(tempDir)
-	})
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateGoCode(tempDir, port)
@@ -413,6 +414,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	f()
 	t.Logf("port: %d", port)
 	tmpDir := initTestEnv(t, port)
+	defer os.RemoveAll(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -472,6 +474,7 @@ func TestWriteDefaultConfig(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer os.RemoveAll(tmpDir)
 	// change dir to tmpDir
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
