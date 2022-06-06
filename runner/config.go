@@ -21,6 +21,7 @@ const (
 	airWd   = "air_wd"
 )
 
+// Config is the main configuration structure for Air.
 type Config struct {
 	Root        string    `toml:"root"`
 	TmpDir      string    `toml:"tmp_dir"`
@@ -86,6 +87,7 @@ type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
 }
 
+// InitConfig initializes the configuration.
 func InitConfig(path string) (cfg *Config, err error) {
 	if path == "" {
 		cfg, err = defaultPathConfig()
@@ -304,7 +306,7 @@ func (c *Config) tmpPath() string {
 	return filepath.Join(c.Root, c.TmpDir)
 }
 
-func (c *Config) TestDataPath() string {
+func (c *Config) testDataPath() string {
 	return filepath.Join(c.Root, c.TestDataDir)
 }
 
@@ -316,6 +318,7 @@ func (c *Config) rel(path string) string {
 	return s
 }
 
+// WithArgs returns a new config with the given arguments added to the configuration.
 func (c *Config) WithArgs(args map[string]TomlInfo) {
 	for _, value := range args {
 		if value.Value != nil && *value.Value != "" {

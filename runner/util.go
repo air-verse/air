@@ -57,7 +57,7 @@ func (e *Engine) isTmpDir(path string) bool {
 }
 
 func (e *Engine) isTestDataDir(path string) bool {
-	return path == e.config.TestDataPath()
+	return path == e.config.testDataPath()
 }
 
 func isHiddenDirectory(path string) bool {
