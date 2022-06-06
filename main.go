@@ -30,12 +30,16 @@ func helpMessage() {
 }
 
 func init() {
+	parseFlag(os.Args[1:])
+}
+
+func parseFlag(args []string) {
 	flag.Usage = helpMessage
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
 	cmdArgs = runner.CreateArgsFlags()
-	flag.Parse()
+	flag.CommandLine.Parse(args)
 }
 
 func main() {
