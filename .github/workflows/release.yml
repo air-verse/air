@@ -47,6 +47,6 @@ jobs:
         with:
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: borosr/air:${{ env.VERSION }}
+          tags: cosmtrek/air:${{ env.VERSION }}
       - name: show docker image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
