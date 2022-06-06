@@ -3,6 +3,7 @@ package runner
 import (
 	"flag"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -100,6 +101,8 @@ func TestConfigRuntimeArgs(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			os.Chdir(dir)
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := CreateArgsFlags(flag)
 			flag.Parse(tc.args)
