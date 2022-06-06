@@ -15,7 +15,7 @@ import (
 
 // Engine ...
 type Engine struct {
-	config    *config
+	config    *Config
 	logger    *logger
 	watcher   *fsnotify.Watcher
 	debugMode bool
@@ -37,14 +37,8 @@ type Engine struct {
 	ll sync.Mutex // lock for logger
 }
 
-// NewEngine ...
-func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
-	var err error
-	cfg, err := initConfig(cfgPath)
-	if err != nil {
-		return nil, err
-	}
-
+// NewEngineWithConfig ...
+func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	logger := newLogger(cfg)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -68,6 +62,16 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 	}
 
 	return &e, nil
+}
+
+// NewEngine ...
+func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
+	var err error
+	cfg, err := InitConfig(cfgPath)
+	if err != nil {
+		return nil, err
+	}
+	return NewEngineWithConfig(cfg, debugMode)
 }
 
 // Run run run

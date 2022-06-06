@@ -2,16 +2,20 @@ package runner
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -134,7 +138,7 @@ func TestChecksumMap(t *testing.T) {
 }
 
 func TestAdaptToVariousPlatforms(t *testing.T) {
-	config := &config{
+	config := &Config{
 		Build: cfgBuild{
 			Bin: "tmp\\main.exe  -dev",
 		},
@@ -147,7 +151,7 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 
 func Test_killCmd_no_process(t *testing.T) {
 	e := Engine{
-		config: &config{
+		config: &Config{
 			Build: cfgBuild{
 				SendInterrupt: false,
 			},
@@ -180,7 +184,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	os.Remove("pid")
 	defer os.Remove("pid")
 	e := Engine{
-		config: &config{
+		config: &Config{
 			Build: cfgBuild{
 				SendInterrupt: false,
 			},
@@ -229,4 +233,26 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 			t.Fatalf("process should be killed %v", line)
 		}
 	}
+}
+
+func TestGetStructureFieldTagMap(t *testing.T) {
+	c := Config{}
+	tagMap := flatConfig(c)
+	for _, i2 := range tagMap {
+		fmt.Printf("%v\n", i2.fieldPath)
+	}
+}
+
+func TestSetStructValue(t *testing.T) {
+	c := Config{}
+	v := reflect.ValueOf(&c)
+	setValue2Struct(v, "TmpDir", "asdasd")
+	assert.Equal(t, "asdasd", c.TmpDir)
+}
+
+func TestNestStructValue(t *testing.T) {
+	c := Config{}
+	v := reflect.ValueOf(&c)
+	setValue2Struct(v, "Build.Cmd", "asdasd")
+	assert.Equal(t, "asdasd", c.Build.Cmd)
 }

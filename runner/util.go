@@ -4,9 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -54,7 +57,7 @@ func (e *Engine) isTmpDir(path string) bool {
 }
 
 func (e *Engine) isTestDataDir(path string) bool {
-	return path == e.config.TestDataPath()
+	return path == e.config.testDataPath()
 }
 
 func isHiddenDirectory(path string) bool {
@@ -199,7 +202,7 @@ func cmdPath(path string) string {
 	return strings.Split(path, " ")[0]
 }
 
-func adaptToVariousPlatforms(c *config) {
+func adaptToVariousPlatforms(c *Config) {
 	// Fix the default configuration is not used in Windows
 	// Use the unix configuration on Windows
 	if runtime.GOOS == PlatformWindows {
@@ -207,7 +210,7 @@ func adaptToVariousPlatforms(c *config) {
 		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
-		
+
 		if 0 < len(c.Build.FullBin) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
@@ -264,4 +267,87 @@ func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool)
 		return true
 	}
 	return false
+}
+
+// TomlInfo is a struct for toml config file
+type TomlInfo struct {
+	fieldPath string
+	field     reflect.StructField
+	Value     *string
+}
+
+func setValue2Struct(v reflect.Value, fieldName string, value string) {
+	index := strings.Index(fieldName, ".")
+	if index == -1 && len(fieldName) == 0 {
+		return
+	}
+	fields := strings.Split(fieldName, ".")
+	var addressableVal reflect.Value
+	switch v.Type().String() {
+	case "*runner.Config":
+		addressableVal = v.Elem()
+	default:
+		addressableVal = v
+	}
+	if len(fields) == 1 {
+		// string slice int switch case
+		field := addressableVal.FieldByName(fieldName)
+		switch field.Kind() {
+		case reflect.String:
+			field.SetString(value)
+		case reflect.Slice:
+			if field.Len() == 0 {
+				field.Set(reflect.Append(field, reflect.ValueOf(value)))
+			}
+		case reflect.Int64:
+			i, _ := strconv.ParseInt(value, 10, 64)
+			field.SetInt(i)
+		case reflect.Int:
+			i, _ := strconv.Atoi(value)
+			field.SetInt(int64(i))
+		case reflect.Bool:
+			b, _ := strconv.ParseBool(value)
+			field.SetBool(b)
+		case reflect.Ptr:
+			field.SetString(value)
+		default:
+			log.Fatalf("unsupported type %s", v.FieldByName(fields[0]).Kind())
+		}
+	} else if len(fields) == 0 {
+		return
+	} else {
+		field := addressableVal.FieldByName(fields[0])
+		s2 := fieldName[index+1:]
+		setValue2Struct(field, s2, value)
+	}
+}
+
+// flatConfig ...
+func flatConfig(stut interface{}) map[string]TomlInfo {
+	m := make(map[string]TomlInfo)
+	t := reflect.TypeOf(stut)
+	setTage2Map("", t, m, "")
+	return m
+}
+
+func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath string) {
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		tomlVal := field.Tag.Get("toml")
+		switch field.Type.Kind() {
+		case reflect.Struct:
+			path := fieldPath + field.Name + "."
+			setTage2Map(root+tomlVal+".", field.Type, m, path)
+		default:
+			if tomlVal == "" {
+				continue
+			}
+			tomlPath := root + tomlVal
+			path := fieldPath + field.Name
+			var v *string
+			str := ""
+			v = &str
+			m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path}
+		}
+	}
 }
