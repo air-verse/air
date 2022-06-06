@@ -4,10 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -287,8 +289,26 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 		addressableVal = v
 	}
 	if len(fields) == 1 {
+		// string slice int switch case
 		field := addressableVal.FieldByName(fieldName)
-		field.SetString(value)
+		switch field.Kind() {
+		case reflect.String:
+			field.SetString(value)
+		case reflect.Slice:
+			if field.Len() == 0 {
+				field.Set(reflect.Append(field, reflect.ValueOf(value)))
+			}
+		case reflect.Int:
+			i, _ := strconv.Atoi(value)
+			field.SetInt(int64(i))
+		case reflect.Bool:
+			b, _ := strconv.ParseBool(value)
+			field.SetBool(b)
+		case reflect.Ptr:
+			field.SetString(value)
+		default:
+			log.Fatalf("unsupported type %s", v.FieldByName(fields[0]).Kind())
+		}
 	} else if len(fields) == 0 {
 		return
 	} else {
