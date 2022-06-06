@@ -298,6 +298,9 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 			if field.Len() == 0 {
 				field.Set(reflect.Append(field, reflect.ValueOf(value)))
 			}
+		case reflect.Int64:
+			i, _ := strconv.ParseInt(value, 10, 64)
+			field.SetInt(i)
 		case reflect.Int:
 			i, _ := strconv.Atoi(value)
 			field.SetInt(int64(i))
