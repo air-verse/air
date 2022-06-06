@@ -39,7 +39,7 @@ func parseFlag(args []string) {
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
 	cmd := flag.CommandLine
-	cmdArgs = runner.CreateArgsFlags(cmd)
+	cmdArgs = runner.ParseConfigFlag(cmd)
 	flag.CommandLine.Parse(args)
 }
 

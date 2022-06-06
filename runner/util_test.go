@@ -138,7 +138,7 @@ func TestChecksumMap(t *testing.T) {
 }
 
 func TestAdaptToVariousPlatforms(t *testing.T) {
-	config := &config{
+	config := &Config{
 		Build: cfgBuild{
 			Bin: "tmp\\main.exe  -dev",
 		},
@@ -151,7 +151,7 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 
 func Test_killCmd_no_process(t *testing.T) {
 	e := Engine{
-		config: &config{
+		config: &Config{
 			Build: cfgBuild{
 				SendInterrupt: false,
 			},
@@ -184,7 +184,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	os.Remove("pid")
 	defer os.Remove("pid")
 	e := Engine{
-		config: &config{
+		config: &Config{
 			Build: cfgBuild{
 				SendInterrupt: false,
 			},
@@ -236,7 +236,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 }
 
 func TestGetStructureFieldTagMap(t *testing.T) {
-	c := config{}
+	c := Config{}
 	tagMap := flatConfig(c)
 	for _, i2 := range tagMap {
 		fmt.Printf("%v\n", i2.fieldPath)
@@ -244,14 +244,14 @@ func TestGetStructureFieldTagMap(t *testing.T) {
 }
 
 func TestSetStructValue(t *testing.T) {
-	c := config{}
+	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "TmpDir", "asdasd")
 	assert.Equal(t, "asdasd", c.TmpDir)
 }
 
 func TestNestStructValue(t *testing.T) {
-	c := config{}
+	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "Build.Cmd", "asdasd")
 	assert.Equal(t, "asdasd", c.Build.Cmd)

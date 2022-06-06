@@ -25,7 +25,7 @@ func TestNewEngine(t *testing.T) {
 		t.Fatal("logger should not be nil")
 	}
 	if engine.config == nil {
-		t.Fatal("config should not be nil")
+		t.Fatal("Config should not be nil")
 	}
 	if engine.watcher == nil {
 		t.Fatal("watcher should not be nil")
@@ -200,7 +200,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	// fix https://github.com/cosmtrek/air/issues/278
 	// generate a random port
 	data := []byte("[build]\n  kill_delay = \"2s\"")
-	c := config{}
+	c := Config{}
 	if err := toml.Unmarshal(data, &c); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}

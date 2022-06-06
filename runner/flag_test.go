@@ -53,7 +53,7 @@ func TestFlag(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
-			cmdArgs := CreateArgsFlags(flag)
+			cmdArgs := ParseConfigFlag(flag)
 			flag.Parse(tc.args)
 			assert.Equal(t, tc.expected, *cmdArgs[tc.key].Value)
 		})
@@ -66,14 +66,14 @@ func TestConfigRuntimeArgs(t *testing.T) {
 		name  string
 		args  []string
 		key   string
-		check func(t *testing.T, conf *config)
+		check func(t *testing.T, conf *Config)
 	}
 	testCases := []testCase{
 		{
 			name: "test1",
 			args: []string{"--build.cmd", "go build -o ./tmp/main ."},
 			key:  "build.cmd",
-			check: func(t *testing.T, conf *config) {
+			check: func(t *testing.T, conf *Config) {
 				assert.Equal(t, "go build -o ./tmp/main .", conf.Build.Cmd)
 			},
 		},
@@ -81,7 +81,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			name: "tmp dir test",
 			args: []string{"--tmp_dir", "test"},
 			key:  "tmp_dir",
-			check: func(t *testing.T, conf *config) {
+			check: func(t *testing.T, conf *Config) {
 				assert.Equal(t, "test", conf.TmpDir)
 			},
 		},
@@ -89,7 +89,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			name: "check int64",
 			args: []string{"--build.kill_delay", "1000"},
 			key:  "build.kill_delay",
-			check: func(t *testing.T, conf *config) {
+			check: func(t *testing.T, conf *Config) {
 				assert.Equal(t, time.Duration(1000), conf.Build.KillDelay)
 			},
 		},
@@ -97,14 +97,14 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			name: "check bool",
 			args: []string{"--build.exclude_unchanged", "true"},
 			key:  "build.exclude_unchanged",
-			check: func(t *testing.T, conf *config) {
+			check: func(t *testing.T, conf *Config) {
 				assert.Equal(t, true, conf.Build.ExcludeUnchanged)
 			},
 		},
 		{
 			name: "check exclude_regex",
 			args: []string{"--build.exclude_regex", `["_test.go"]`},
-			check: func(t *testing.T, conf *config) {
+			check: func(t *testing.T, conf *Config) {
 				assert.Equal(t, []string{"_test.go"}, conf.Build.ExcludeRegex)
 			},
 		},
@@ -114,7 +114,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			dir := t.TempDir()
 			os.Chdir(dir)
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
-			cmdArgs := CreateArgsFlags(flag)
+			cmdArgs := ParseConfigFlag(flag)
 			flag.Parse(tc.args)
 			cfg, err := InitConfig("")
 			if err != nil {

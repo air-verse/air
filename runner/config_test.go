@@ -12,7 +12,7 @@ const (
 	cmd = "go build -o ./tmp/main ."
 )
 
-func getWindowsConfig() config {
+func getWindowsConfig() Config {
 	build := cfgBuild{
 		Cmd:          "go build -o ./tmp/main .",
 		Bin:          "./tmp/main",
@@ -28,7 +28,7 @@ func getWindowsConfig() config {
 		build.Cmd = cmd
 	}
 
-	return config{
+	return Config{
 		Root:        ".",
 		TmpDir:      "tmp",
 		TestDataDir: "testdata",
@@ -110,7 +110,7 @@ func TestReadConfByName(t *testing.T) {
 	_ = os.Unsetenv(airWd)
 	config, _ := readConfByName(dftTOML)
 	if config != nil {
-		t.Fatalf("expect config is nil,but get a not nil config")
+		t.Fatalf("expect Config is nil,but get a not nil Config")
 	}
 }
 

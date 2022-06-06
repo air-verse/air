@@ -202,7 +202,7 @@ func cmdPath(path string) string {
 	return strings.Split(path, " ")[0]
 }
 
-func adaptToVariousPlatforms(c *config) {
+func adaptToVariousPlatforms(c *Config) {
 	// Fix the default configuration is not used in Windows
 	// Use the unix configuration on Windows
 	if runtime.GOOS == PlatformWindows {
@@ -269,6 +269,7 @@ func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool)
 	return false
 }
 
+// TomlInfo is a struct for toml config file
 type TomlInfo struct {
 	fieldPath string
 	field     reflect.StructField
@@ -283,7 +284,7 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 	fields := strings.Split(fieldName, ".")
 	var addressableVal reflect.Value
 	switch v.Type().String() {
-	case "*runner.config":
+	case "*runner.Config":
 		addressableVal = v.Elem()
 	default:
 		addressableVal = v

@@ -26,12 +26,12 @@ var (
 type logFunc func(string, ...interface{})
 
 type logger struct {
-	config  *config
+	config  *Config
 	colors  map[string]string
 	loggers map[string]logFunc
 }
 
-func newLogger(cfg *config) *logger {
+func newLogger(cfg *Config) *logger {
 	if cfg == nil {
 		return nil
 	}

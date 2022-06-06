@@ -15,7 +15,7 @@ import (
 
 // Engine ...
 type Engine struct {
-	config    *config
+	config    *Config
 	logger    *logger
 	watcher   *fsnotify.Watcher
 	debugMode bool
@@ -38,7 +38,7 @@ type Engine struct {
 }
 
 // NewEngineWithConfig ...
-func NewEngineWithConfig(cfg *config, debugMode bool) (*Engine, error) {
+func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	logger := newLogger(cfg)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

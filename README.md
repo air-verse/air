@@ -24,6 +24,15 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 * Allow watching new directories after Air started
 * Better building process
 
+### ✨ beta feature
+Support air config fields as arguments:
+
+if you just want to config build command and run command, you can use like following command without config file:
+
+`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./api"`
+
+
+
 ## Installation
 
 ### Prefer install.sh
