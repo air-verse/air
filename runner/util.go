@@ -208,7 +208,7 @@ func adaptToVariousPlatforms(c *config) {
 		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
-		
+
 		if 0 < len(c.Build.FullBin) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
@@ -298,8 +298,8 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 	}
 }
 
-// CreateStructureFieldTagMap ...
-func CreateStructureFieldTagMap(stut interface{}) map[string]TomlInfo {
+// flatConfig ...
+func flatConfig(stut interface{}) map[string]TomlInfo {
 	m := make(map[string]TomlInfo)
 	t := reflect.TypeOf(stut)
 	setTage2Map("", t, m, "")

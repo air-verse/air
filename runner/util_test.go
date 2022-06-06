@@ -237,7 +237,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 
 func TestGetStructureFieldTagMap(t *testing.T) {
 	c := config{}
-	tagMap := CreateStructureFieldTagMap(c)
+	tagMap := flatConfig(c)
 	for _, i2 := range tagMap {
 		fmt.Printf("%v\n", i2.fieldPath)
 	}
@@ -256,4 +256,3 @@ func TestNestStructValue(t *testing.T) {
 	setValue2Struct(v, "Build.Cmd", "asdasd")
 	assert.Equal(t, "asdasd", c.Build.Cmd)
 }
-

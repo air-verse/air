@@ -4,11 +4,11 @@ import (
 	"flag"
 )
 
-func CreateArgsFlags() map[string]TomlInfo {
+func CreateArgsFlags(f *flag.FlagSet) map[string]TomlInfo {
 	c := config{}
-	m := CreateStructureFieldTagMap(c)
+	m := flatConfig(c)
 	for k, v := range m {
-		flag.StringVar(v.Value, k, "", "")
+		f.StringVar(v.Value, k, "", "")
 	}
 	return m
 }
