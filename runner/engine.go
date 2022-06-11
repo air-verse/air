@@ -368,7 +368,7 @@ func (e *Engine) buildRun() {
 	}
 	var err error
 	if err = e.building(); err != nil {
-		close(e.canExit)
+		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {

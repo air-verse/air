@@ -286,6 +286,100 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	assert.False(t, engine.running)
 }
 
+func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
+	// fix https://github.com/cosmtrek/air/issues/294
+	dir := initWithBuildFailedCode(t)
+
+	err := os.Chdir(dir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		engine.Run()
+		t.Logf("engine stopped")
+	}()
+
+	go func() {
+		<-sigs
+		engine.Stop()
+		t.Logf("engine stopped")
+	}()
+	// waiting for compile error
+	time.Sleep(time.Second * 3)
+	port, f := GetPort()
+	f()
+	// correct code
+	err = generateGoCode(dir, port)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	if err := waitingPortReady(t, port, time.Second*5); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	// ctrl + c
+	sigs <- syscall.SIGINT
+	time.Sleep(time.Second * 1)
+	if err := waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	assert.False(t, engine.running)
+
+}
+
+func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
+	// fix https://github.com/cosmtrek/air/issues/294
+	// happens after two failed builds
+	dir := initWithBuildFailedCode(t)
+	// change dir to tmpDir
+	err := os.Chdir(dir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		engine.Run()
+		t.Logf("engine stopped")
+	}()
+
+	go func() {
+		<-sigs
+		engine.Stop()
+		t.Logf("engine stopped")
+	}()
+
+	// waiting for compile error
+	time.Sleep(time.Second * 3)
+
+	// edit *.go file to create build error again
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	defer file.Close()
+	_, err = file.WriteString("\n")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	time.Sleep(time.Second * 3)
+	// ctrl + c
+	sigs <- syscall.SIGINT
+	time.Sleep(time.Second * 1)
+	assert.False(t, engine.running)
+}
+
 // waitingPortReady waits until the port is ready to be used.
 func waitingPortReady(t *testing.T, port int, timeout time.Duration) error {
 	t.Logf("waiting port %d ready", port)
@@ -366,6 +460,49 @@ func initTestEnv(t *testing.T, port int) string {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	return tempDir
+}
+
+func initWithBuildFailedCode(t *testing.T) string {
+	tempDir := t.TempDir()
+	t.Logf("tempDir: %s", tempDir)
+	// generate golang code to tempdir
+	err := generateBuildErrorGoCode(tempDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	return tempDir
+}
+
+func generateBuildErrorGoCode(dir string) error {
+	code := `package main
+// You can edit this code!
+// Click here and start typing.
+
+func main() {
+	Println("Hello, 世界")
+
+}
+`
+	file, err := os.Create(dir + "/main.go")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(code)
+
+	// generate go mod file
+	mod := `module air.sample.com
+
+go 1.17
+`
+	file, err = os.Create(dir + "/go.mod")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(mod)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // generateGoCode generates golang code to tempdir
