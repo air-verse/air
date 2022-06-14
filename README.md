@@ -19,12 +19,7 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 ## Features
 
 * Colorful log output
-* Customize build or 
-
-
-
-
-ary command
+* Customize build or ary command
 * Support excluding subdirectories
 * Allow watching new directories after Air started
 * Better building process
