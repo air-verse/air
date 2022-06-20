@@ -19,8 +19,8 @@ Air 是为 Go 应用开发设计的又一个热重载的命令行工具。只需
 * 彩色的日志输出
 * 自定义构建或必要的命令
 * 支持外部子目录
-* 在 Air 启动之后，允许监听新创建的路径。
-* 更棒的构建过程。
+* 在 Air 启动之后，允许监听新创建的路径
+* 更棒的构建过程
 
 ### ✨ beta 版本的特色
 
@@ -35,7 +35,7 @@ Air 是为 Go 应用开发设计的又一个热重载的命令行工具。只需
 ### 推荐使用 install.sh
 
 ```bash
-# 二进制文件会是 $(go env GOPATH)/bin/air
+# binary 文件会是在 $(go env GOPATH)/bin/air
 curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
 # 或者把它安装在 ./bin/ 路径下
@@ -46,9 +46,9 @@ air -v
 
 P.S. 非常感谢 mattn 的 [PR](https://github.com/cosmtrek/air/pull/1)，使得 Air 支持 Windows 平台。
 
-### Via `go install`
+### 使用 `go install`
 
-With go 1.16 or higher:
+使用 Go 的版本为 1.16 或更高:
 
 ```bash
 go install github.com/cosmtrek/air@latest
@@ -56,7 +56,7 @@ go install github.com/cosmtrek/air@latest
 
 ### Docker
 
-Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
+请拉取这个 Docker 镜像 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
 ```bash
 docker run -it --rm \
@@ -68,7 +68,7 @@ docker run -it --rm \
     -c <CONF>
 ```
 
-For example, one of my project runs in docker:
+例如，我的项目之一是在 Docker 上运行的：
 
 ```bash
 docker run -it --rm \
@@ -78,56 +78,56 @@ docker run -it --rm \
     cosmtrek/air
 ```
 
-## Usage
+## 使用方法
 
-For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
+您可以添加 `alias air='~/.air'` 到您的 `.bashrc` 或 `.zshrc` 后缀的文件.
 
-First enter into your project
+首先，进入你的项目文件夹
 
 ```bash
 cd /path/to/your_project
 ```
 
-The simplest usage is run
+最简单的方法是执行
 
 ```bash
-# firstly find `.air.toml` in current directory, if not found, use defaults
+# 优先在当前路径查找 `.air.toml` 后缀的文件，如果没有找到，则使用默认的
 air -c .air.toml
 ```
 
-You can initialize the `.air.toml` configuration file to the current directory with the default settings running the following command.
+您可以运行以下命令初始化，把默认配置添加到当前路径下的`.air.toml` 文件。
 
 ```bash
 air init
 ```
 
-After this you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
+在这之后，你只需执行 `air` 命令，无需添加额外的变量，它就能使用 `.air.toml` 文件中的配置了。
 
 ```bash
 air
 ```
 
-For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
+如欲修改配置信息，请参考 [air_example.toml](air_example.toml) 文件.
 
-### Runtime arguments
+### 运行时参数
 
-You can pass arguments for running the built binary by adding them after the air command.
+您可以通过把变量添加在 air 命令之后来传递参数。
 
 ```bash
-# Will run ./tmp/main bench
+# 会执行 ./tmp/main bench
 air bench
 
-# Will run ./tmp/main server --port 8080
+# 会执行 ./tmp/main server --port 8080
 air server --port 8080
 ```
 
 You can separate the arguments passed for the air command and the built binary with `--` argument.
 
 ```bash
-# Will run ./tmp/main -h
+# 会运行 ./tmp/main -h
 air -- -h
 
-# Will run air with custom config and pass -h argument to the built binary
+# 会使用个性化配置来运行 air，然后把 -h 后的变量和值添加到运行的参数中
 air -c .air.toml -- -h
 ```
 
@@ -149,67 +149,67 @@ services:
       - ./project-relative-path/:/project-package/
 ```
 
-### Debug
+### 调试
 
-`air -d` prints all logs.
+运行 `air -d` 命令能打印所有日志。
 
 ## Q&A
 
-### "command not found: air" or "No such file or directory"
+### 遇到 "command not found: air" 或 "No such file or directory" 该怎么办？
 
 ```zsh
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+export PATH=$PATH:$(go env GOPATH)/bin <---- 请确认这行在您的配置信息中！！！
 ```
 
-## Development
+## 部署
 
-Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
+请注意：这需要 Go 1.16+ ，因为我使用 `go mod` 来管理依赖。
 
 ```bash
-# 1. fork this project
+# 1. 首先复刻（fork）这个项目
 
-# 2. clone it
+# 2. 其次克隆（clone）它
 mkdir -p $GOPATH/src/github.com/cosmtrek
 cd $GOPATH/src/github.com/cosmtrek
 git clone git@github.com:<YOUR USERNAME>/air.git
 
-# 3. install dependencies
+# 3. 再次安装依赖
 cd air
 make ci
 
-# 4. explore it and happy hacking!
+# 4. 这样就可以快乐地探索和玩耍啦！
 make install
 ```
 
-BTW: Pull requests are welcome~
+顺便说一句: 欢迎 PR~
 
-### Release new version
+### 发布新版本
 
 ```
-# 1. checkout to master
+# 1. checkout 到 master 分支
 git checkout master
 
-# 2. add the version that needs to be released
+# 2. 添加需要发布的版本号
 git tag v1.xx.x
 
-# 3. push to remote
+# 3. 推送到远程
 git push origin v1.xx.x
 
-the ci will processing and will release new version,wait about 5 min you can fetch the new version.
+ci 会加工和处理，然后会发布新版本。等待大约五分钟，你就能获取到新版本了。
 ```
 
-## Sponsor
+## 赞助
 
 <a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
 
-Huge thanks to the following supporters. I've always been remembering your kindness.
+非常感谢以下的支持者们。我会一直你们的好意的。
 
 * Peter Aba
 * Apostolis Anastasiou
 * keita koga
 
-## License
+## 许可证
 
 [GNU General Public License v3.0](LICENSE)
