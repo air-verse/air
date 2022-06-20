@@ -1,54 +1,50 @@
 # Air [![Go](https://github.com/cosmtrek/air/workflows/Go/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
-:cloud: Live reload for Go apps
+:cloud: 热重载 Go 应用的工具
 
 ![air](docs/air.png)
 
-English | [简体中文](README-zh_cn.md) 
+[English](README.md) | 简体中文 
 
-## Motivation
+## 动机
 
-When I get started with developing websites in Go and [gin](https://github.com/gin-gonic/gin) framework, it's a pity
-that gin lacks live-reloading function. In fact, I tried [fresh](https://github.com/pilu/fresh) and it seems not much
-flexible, so I intended to rewrite it in a better way. Finally, Air's born.
-In addition, great thanks to [pilu](https://github.com/pilu), no fresh, no air :)
+当我用 Go 和 [gin](https://github.com/gin-gonic/gin) 框架开发网站时，gin 缺乏实时重载的功能是令人遗憾的。我曾经尝试过 [fresh](https://github.com/pilu/fresh) ，但是它用起来不太灵活，所以我试着用更好的方式来重写它。Air 就这样诞生了。此外，非常感谢 [pilu](https://github.com/pilu)。没有 fresh 就不会有 air :)
 
-Air is yet another live-reloading command line utility for Go applications in development. Just `air` in your project root directory, leave it alone,
-and focus on your code.
+Air 是为 Go 应用开发设计的又一个热重载的命令行工具。只需在你的项目根目录下输入 `air`，然后把它放在一边，专注于你的代码即可。
 
-NOTE: This tool has nothing to do with hot-deploy for production.
+**注意**：该工具与生产的热部署无关。
 
-## Features
+## 特色
 
-* Colorful log output
-* Customize build or ary command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+* 彩色的日志输出
+* 自定义构建或必要的命令
+* 支持外部子目录
+* 在 Air 启动之后，允许监听新创建的路径。
+* 更棒的构建过程。
 
-### ✨ beta feature
+### ✨ beta 版本的特色
 
-Support air config fields as arguments:
+支持使用参数来配置 air 字段:
 
-if you just want to config build command and run command, you can use like following command without config file:
+如果你只是想配置构建命令和运行命令，您可以直接使用以下命令，而无需配置文件:
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
 
-## Installation
+## 安装
 
-### Prefer install.sh
+### 推荐使用 install.sh
 
 ```bash
-# binary will be $(go env GOPATH)/bin/air
+# 二进制文件会是 $(go env GOPATH)/bin/air
 curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
-# or install it into ./bin/
+# 或者把它安装在 ./bin/ 路径下
 curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s
 
 air -v
 ```
 
-P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
+P.S. 非常感谢 mattn 的 [PR](https://github.com/cosmtrek/air/pull/1)，使得 Air 支持 Windows 平台。
 
 ### Via `go install`
 
