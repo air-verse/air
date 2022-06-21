@@ -4,6 +4,8 @@
 
 ![air](docs/air.png)
 
+English | [简体中文](README-zh_cn.md) 
+
 ## Motivation
 
 When I get started with developing websites in Go and [gin](https://github.com/gin-gonic/gin) framework, it's a pity
@@ -25,13 +27,12 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 * Better building process
 
 ### ✨ beta feature
+
 Support air config fields as arguments:
 
 if you just want to config build command and run command, you can use like following command without config file:
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
-
-
 
 ## Installation
 
