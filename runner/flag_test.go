@@ -103,9 +103,9 @@ func TestConfigRuntimeArgs(t *testing.T) {
 		},
 		{
 			name: "check exclude_regex",
-			args: []string{"--build.exclude_regex", `["_test.go"]`},
+			args: []string{"--build.exclude_regex", "_test.go,.html"},
 			check: func(t *testing.T, conf *Config) {
-				assert.Equal(t, []string{"_test.go"}, conf.Build.ExcludeRegex)
+				assert.Equal(t, []string{"_test.go", ".html"}, conf.Build.ExcludeRegex)
 			},
 		},
 	}
