@@ -136,7 +136,7 @@ func TestRebuild(t *testing.T) {
 		engine.Run()
 		t.Logf("engine stopped")
 	}()
-	err = waitingPortReady(t, port, time.Second*5)
+	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -235,7 +235,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	if err := waitingPortReady(t, port, time.Second*5); err != nil {
+	if err := waitingPortReady(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	sigs <- syscall.SIGINT
@@ -274,7 +274,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	if err := waitingPortReady(t, port, time.Second*5); err != nil {
+	if err := waitingPortReady(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	sigs <- syscall.SIGINT
@@ -320,7 +320,7 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
-	if err := waitingPortReady(t, port, time.Second*5); err != nil {
+	if err := waitingPortReady(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
