@@ -30,6 +30,10 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
 
+对于以列表形式输入的参数，使用逗号来分隔项目:
+
+`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
+
 ## 安装
 
 ### 推荐使用 install.sh
