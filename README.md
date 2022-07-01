@@ -34,6 +34,10 @@ if you just want to config build command and run command, you can use like follo
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
 
+use a comma to separate items for arguments that take a list as input:
+
+`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
+
 ## Installation
 
 ### Prefer install.sh
