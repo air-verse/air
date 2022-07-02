@@ -563,7 +563,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	if err := waitingPortReady(t, port, time.Second*20); err != nil {
+	if err := waitingPortReady(t, port, time.Second*40); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
@@ -588,7 +588,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	}
 	t.Logf("connection refused")
 	time.Sleep(time.Second * 2)
-	err = waitingPortReady(t, port, time.Second*20)
+	err = waitingPortReady(t, port, time.Second*40)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
