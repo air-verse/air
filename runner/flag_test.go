@@ -108,6 +108,15 @@ func TestConfigRuntimeArgs(t *testing.T) {
 				assert.Equal(t, []string{"_test.go", ".html"}, conf.Build.ExcludeRegex)
 			},
 		},
+		{
+			name: "check exclude_regex with empty string",
+			args: []string{"--build.exclude_regex", ""},
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, []string{}, conf.Build.ExcludeRegex)
+				t.Logf("%+v", conf.Build.ExcludeDir)
+				assert.NotEqual(t, []string{}, conf.Build.ExcludeDir)
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

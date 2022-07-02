@@ -300,7 +300,11 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 		case reflect.String:
 			field.SetString(value)
 		case reflect.Slice:
-			field.Set(reflect.ValueOf(strings.Split(value, sliceCmdArgSeparator)))
+			if len(value) == 0 {
+				field.Set(reflect.ValueOf([]string{}))
+			} else {
+				field.Set(reflect.ValueOf(strings.Split(value, sliceCmdArgSeparator)))
+			}
 		case reflect.Int64:
 			i, _ := strconv.ParseInt(value, 10, 64)
 			field.SetInt(i)
