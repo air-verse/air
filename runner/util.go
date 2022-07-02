@@ -16,6 +16,10 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+const (
+	sliceCmdArgSeparator = ","
+)
+
 func (e *Engine) mainLog(format string, v ...interface{}) {
 	e.logWithLock(func() {
 		e.logger.main()(format, v...)
@@ -296,8 +300,10 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 		case reflect.String:
 			field.SetString(value)
 		case reflect.Slice:
-			if field.Len() == 0 {
-				field.Set(reflect.Append(field, reflect.ValueOf(value)))
+			if len(value) == 0 {
+				field.Set(reflect.ValueOf([]string{}))
+			} else {
+				field.Set(reflect.ValueOf(strings.Split(value, sliceCmdArgSeparator)))
 			}
 		case reflect.Int64:
 			i, _ := strconv.ParseInt(value, 10, 64)

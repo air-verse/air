@@ -256,3 +256,21 @@ func TestNestStructValue(t *testing.T) {
 	setValue2Struct(v, "Build.Cmd", "asdasd")
 	assert.Equal(t, "asdasd", c.Build.Cmd)
 }
+
+func TestNestStructArrayValue(t *testing.T) {
+	c := Config{}
+	v := reflect.ValueOf(&c)
+	setValue2Struct(v, "Build.ExcludeDir", "dir1,dir2")
+	assert.Equal(t, []string{"dir1", "dir2"}, c.Build.ExcludeDir)
+}
+
+func TestNestStructArrayValueOverride(t *testing.T) {
+	c := Config{
+		Build: cfgBuild{
+			ExcludeDir: []string{"default1", "default2"},
+		},
+	}
+	v := reflect.ValueOf(&c)
+	setValue2Struct(v, "Build.ExcludeDir", "dir1,dir2")
+	assert.Equal(t, []string{"dir1", "dir2"}, c.Build.ExcludeDir)
+}
