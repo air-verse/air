@@ -65,7 +65,7 @@ func TestRegexes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	engine.config.Build.ExcludeRegex = []string{"foo.html$", "bar"}
+	engine.config.Build.ExcludeRegex = []string{"foo\\.html$", "bar", "_test\\.go"}
 
 	result, err := engine.isExcludeRegex("./test/foo.html")
 	if err != nil {
@@ -89,6 +89,21 @@ func TestRegexes(t *testing.T) {
 	}
 	if result {
 		t.Errorf("expected '%t' but got '%t'", false, result)
+	}
+
+	result, err = engine.isExcludeRegex("./myPackage/goFile_testxgo")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if result {
+		t.Errorf("expected '%t' but got '%t'", false, result)
+	}
+	result, err = engine.isExcludeRegex("./myPackage/goFile_test.go")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if result != true {
+		t.Errorf("expected '%t' but got '%t'", true, result)
 	}
 }
 
