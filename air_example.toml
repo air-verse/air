@@ -21,7 +21,7 @@ include_dir = []
 # Exclude files.
 exclude_file = []
 # Exclude specific regular expressions.
-exclude_regex = ["_test.go"]
+exclude_regex = ["_test\\.go"]
 # Exclude unchanged files.
 exclude_unchanged = true
 # Follow symlink for directories
