@@ -121,6 +121,7 @@ func InitConfig(path string) (cfg *Config, err error) {
 	err = mergo.Merge(cfg, defaultConfig(), func(config *mergo.Config) {
 		// mergo.Merge will overwrite the fields if it is Empty
 		// So need use this to avoid that none-zero slice will be overwritten.
+		// https://github.com/imdario/mergo#transformers
 		config.Transformers = sliceTransformer{}
 	})
 	if err != nil {
