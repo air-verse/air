@@ -106,7 +106,7 @@ func InitConfig(path string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	// mergo.Merge will overwrite if it is Empty, so we need to do it manually
+	// mergo.Merge will overwrite the fields if it is Empty, so we need to do it manually
 	cfg.Build.ExcludeRegex = oldCfg.Build.ExcludeRegex
 
 	err = cfg.preprocess()
