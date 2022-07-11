@@ -779,5 +779,18 @@ func TestCreateNewDir(t *testing.T) {
 		t.Fatal("should raise a error")
 	}
 	engine.Stop()
+	time.Sleep(2 * time.Second)
 
+}
+
+func TestCheckRunEnv(t *testing.T) {
+	_ = os.Unsetenv(airWd)
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	err = engine.checkRunEnv()
+	if err == nil {
+		t.Fatal("should throw a err")
+	}
 }
