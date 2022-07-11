@@ -123,6 +123,7 @@ func InitConfig(path string) (cfg *Config, err error) {
 		// So need use this to avoid that none-zero slice will be overwritten.
 		// https://github.com/imdario/mergo#transformers
 		config.Transformers = sliceTransformer{}
+		config.Overwrite = true
 	})
 	if err != nil {
 		return nil, err

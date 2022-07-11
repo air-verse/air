@@ -648,7 +648,7 @@ func TestCheckNilSliceShouldBeenOverwrite(t *testing.T) {
 
 	config := `
 [build]
-cmd = "go build -o ./tmp/main ."
+cmd = "go build ."
 bin = "tmp/main"
 exclude_regex = []
 exclude_dir = ["test"]
@@ -667,6 +667,7 @@ exclude_file = ["main.go"]
 	assert.Equal(t, []string{"test"}, engine.config.Build.ExcludeDir)
 	// add new config
 	assert.Equal(t, []string{"main.go"}, engine.config.Build.ExcludeFile)
+	assert.Equal(t, "go build .", engine.config.Build.Cmd)
 
 }
 
