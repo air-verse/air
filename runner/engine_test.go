@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -639,4 +641,79 @@ func TestWriteDefaultConfig(t *testing.T) {
 	expect := defaultConfig()
 
 	assert.Equal(t, expect, *actual)
+}
+
+func TestShouldIncludeGoTestFile(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	writeDefaultConfig()
+
+	// write go test file
+	file, err := os.Create("main_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = file.WriteString(`package main
+
+import "testing"
+
+func Test(t *testing.T) {
+	t.Log("testing")
+}
+`)
+	// run sed
+	// check the file is exist
+	if _, err := os.Stat(dftTOML); err != nil {
+		t.Fatal(err)
+	}
+	// check is MacOS
+	var cmd *exec.Cmd
+	if runtime.GOOS == "darwin" {
+		cmd = exec.Command("gsed", "-i", "s/\"_test.*go\"//g", ".air.toml")
+	} else {
+		cmd = exec.Command("sed", "-i", "s/\"_test.*go\"//g", ".air.toml")
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(time.Second * 3)
+	engine, err := NewEngine(".air.toml", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		engine.Run()
+	}()
+
+	t.Logf("start change main_test.go")
+	// change file of main_test.go
+	// just append a new empty line to main_test.go
+	if err = waitingPortReady(t, port, time.Second*40); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		file, err := os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+		defer file.Close()
+		_, err = file.WriteString("\n")
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+	}()
+	// should Have rebuild
+	if err = waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
+		t.Fatal(err)
+	}
 }

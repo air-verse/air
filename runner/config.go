@@ -100,10 +100,15 @@ func InitConfig(path string) (cfg *Config, err error) {
 			return nil, err
 		}
 	}
+	oldCfg := *cfg
 	err = mergo.Merge(cfg, defaultConfig())
 	if err != nil {
 		return nil, err
 	}
+
+	// mergo.Merge will overwrite if it is Empty, so we need to do it manually
+	cfg.Build.ExcludeRegex = oldCfg.Build.ExcludeRegex
+
 	err = cfg.preprocess()
 	return cfg, err
 }
