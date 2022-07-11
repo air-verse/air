@@ -744,3 +744,39 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCreateNewDir(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	go func() {
+		engine.Run()
+	}()
+	time.Sleep(time.Second * 2)
+	assert.True(t, checkPortHaveBeenUsed(port))
+
+	// create a new dir make dir
+	if err = os.Mkdir(tmpDir+"/dir", 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// no need reload
+	if err = waitingPortConnectionRefused(t, port, 3*time.Second); err == nil {
+		t.Fatal("should raise a error")
+	}
+	engine.Stop()
+
+}
