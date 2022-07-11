@@ -91,13 +91,10 @@ type sliceTransformer struct {
 }
 
 func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
-	if typ.Kind() != reflect.Slice {
+	if typ.Kind() == reflect.Slice {
 		return func(dst, src reflect.Value) error {
-			if dst.CanSet() {
-				// if it's a zero value of slice which is nil, then we need to overwrite it
-				if dst.IsZero() {
-					dst.Set(src)
-				}
+			if !src.IsZero() {
+				dst.Set(src)
 			}
 			return nil
 		}
@@ -118,7 +115,10 @@ func InitConfig(path string) (cfg *Config, err error) {
 			return nil, err
 		}
 	}
-	err = mergo.Merge(cfg, defaultConfig(), func(config *mergo.Config) {
+	config := defaultConfig()
+	// get addr
+	ret := &config
+	err = mergo.Merge(ret, cfg, func(config *mergo.Config) {
 		// mergo.Merge will overwrite the fields if it is Empty
 		// So need use this to avoid that none-zero slice will be overwritten.
 		// https://github.com/imdario/mergo#transformers
@@ -128,8 +128,8 @@ func InitConfig(path string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	err = cfg.preprocess()
-	return cfg, err
+	err = ret.preprocess()
+	return ret, err
 }
 
 func writeDefaultConfig() {

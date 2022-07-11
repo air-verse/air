@@ -3,6 +3,7 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -641,6 +642,44 @@ func TestWriteDefaultConfig(t *testing.T) {
 	expect := defaultConfig()
 
 	assert.Equal(t, expect, *actual)
+}
+
+func TestCheckNilSliceShouldBeenOverwrite(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+
+	// change dir to tmpDir
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// write easy config file
+
+	config := `
+[build]
+cmd = "go build -o ./tmp/main ."
+bin = "tmp/main"
+exclude_regex = []
+exclude_dir = ["test"]
+exclude_file = ["main.go"]
+
+`
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	engine, err := NewEngine(".air.toml", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []string{"go", "tpl", "tmpl", "html"}, engine.config.Build.IncludeExt)
+	assert.Equal(t, []string{}, engine.config.Build.ExcludeRegex)
+	assert.Equal(t, []string{"test"}, engine.config.Build.ExcludeDir)
+	// add new config
+	assert.Equal(t, []string{"main.go"}, engine.config.Build.ExcludeFile)
+
 }
 
 func TestShouldIncludeGoTestFile(t *testing.T) {
