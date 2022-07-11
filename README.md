@@ -171,6 +171,11 @@ export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 ```
 
+### Error under wsl when ' is included in the bin
+
+Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/cosmtrek/air/issues/305)
+
+
 ## Development
 
 Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
