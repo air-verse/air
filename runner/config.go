@@ -118,7 +118,6 @@ func InitConfig(path string) (cfg *Config, err error) {
 			return nil, err
 		}
 	}
-	//oldCfg := *cfg
 	err = mergo.Merge(cfg, defaultConfig(), func(config *mergo.Config) {
 		// mergo.Merge will overwrite the fields if it is Empty
 		// So need use this to avoid that none-zero slice will be overwritten.
