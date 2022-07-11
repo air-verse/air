@@ -87,6 +87,23 @@ type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
 }
 
+type sliceTransformer struct {
+}
+
+func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
+	if typ.Kind() != reflect.Slice {
+		return func(dst, src reflect.Value) error {
+			if dst.CanSet() {
+				if dst.IsZero() {
+					dst.Set(src)
+				}
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
 // InitConfig initializes the configuration.
 func InitConfig(path string) (cfg *Config, err error) {
 	if path == "" {
@@ -100,14 +117,15 @@ func InitConfig(path string) (cfg *Config, err error) {
 			return nil, err
 		}
 	}
-	oldCfg := *cfg
-	err = mergo.Merge(cfg, defaultConfig())
+	//oldCfg := *cfg
+	err = mergo.Merge(cfg, defaultConfig(), func(config *mergo.Config) {
+		// mergo.Merge will overwrite the fields if it is Empty
+		// So need use this to avoid that none-zero slice will be overwritten.
+		config.Transformers = sliceTransformer{}
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	// mergo.Merge will overwrite the fields if it is Empty, so we need to do it manually
-	cfg.Build.ExcludeRegex = oldCfg.Build.ExcludeRegex
 
 	err = cfg.preprocess()
 	return cfg, err
