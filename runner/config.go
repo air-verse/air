@@ -94,6 +94,7 @@ func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Va
 	if typ.Kind() != reflect.Slice {
 		return func(dst, src reflect.Value) error {
 			if dst.CanSet() {
+				// if it's a zero value of slice which is nil, then we need to overwrite it
 				if dst.IsZero() {
 					dst.Set(src)
 				}
