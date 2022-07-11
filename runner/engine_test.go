@@ -676,6 +676,11 @@ func Test(t *testing.T) {
 	// check is MacOS
 	var cmd *exec.Cmd
 	if runtime.GOOS == "darwin" {
+		//brew install --default-names gnu-sed   install gnu-sed
+		err = exec.Command("brew", "install", "--default-names", "gnu-sed").Run()
+		if err != nil {
+			t.Fatal(err)
+		}
 		cmd = exec.Command("gsed", "-i", "s/\"_test.*go\"//g", ".air.toml")
 	} else {
 		cmd = exec.Command("sed", "-i", "s/\"_test.*go\"//g", ".air.toml")
