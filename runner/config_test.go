@@ -93,7 +93,7 @@ func TestDefaultPathConfig(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			_ = os.Setenv(airWd, tt.path)
+			t.Setenv(airWd, tt.path)
 			c, err := defaultPathConfig()
 			if err != nil {
 				t.Fatalf("Should not be fail: %s.", err)
@@ -115,7 +115,7 @@ func TestReadConfByName(t *testing.T) {
 }
 
 func TestConfPreprocess(t *testing.T) {
-	_ = os.Setenv(airWd, "_testdata/toml")
+	t.Setenv(airWd, "_testdata/toml")
 	df := defaultConfig()
 	err := df.preprocess()
 	if err != nil {

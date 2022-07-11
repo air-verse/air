@@ -3,9 +3,12 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -639,4 +642,155 @@ func TestWriteDefaultConfig(t *testing.T) {
 	expect := defaultConfig()
 
 	assert.Equal(t, expect, *actual)
+}
+
+func TestCheckNilSliceShouldBeenOverwrite(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+
+	// change dir to tmpDir
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// write easy config file
+
+	config := `
+[build]
+cmd = "go build ."
+bin = "tmp/main"
+exclude_regex = []
+exclude_dir = ["test"]
+exclude_file = ["main.go"]
+
+`
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+	engine, err := NewEngine(".air.toml", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []string{"go", "tpl", "tmpl", "html"}, engine.config.Build.IncludeExt)
+	assert.Equal(t, []string{}, engine.config.Build.ExcludeRegex)
+	assert.Equal(t, []string{"test"}, engine.config.Build.ExcludeDir)
+	// add new config
+	assert.Equal(t, []string{"main.go"}, engine.config.Build.ExcludeFile)
+	assert.Equal(t, "go build .", engine.config.Build.Cmd)
+
+}
+
+func TestShouldIncludeGoTestFile(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	writeDefaultConfig()
+
+	// write go test file
+	file, err := os.Create("main_test.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = file.WriteString(`package main
+
+import "testing"
+
+func Test(t *testing.T) {
+	t.Log("testing")
+}
+`)
+	// run sed
+	// check the file is exist
+	if _, err := os.Stat(dftTOML); err != nil {
+		t.Fatal(err)
+	}
+	// check is MacOS
+	var cmd *exec.Cmd
+	if runtime.GOOS == "darwin" {
+		cmd = exec.Command("gsed", "-i", "s/\"_test.*go\"//g", ".air.toml")
+	} else {
+		cmd = exec.Command("sed", "-i", "s/\"_test.*go\"//g", ".air.toml")
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	time.Sleep(time.Second * 3)
+	engine, err := NewEngine(".air.toml", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		engine.Run()
+	}()
+
+	t.Logf("start change main_test.go")
+	// change file of main_test.go
+	// just append a new empty line to main_test.go
+	if err = waitingPortReady(t, port, time.Second*40); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		file, err := os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+		defer file.Close()
+		_, err = file.WriteString("\n")
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+	}()
+	// should Have rebuild
+	if err = waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCreateNewDir(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	err := os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	go func() {
+		engine.Run()
+	}()
+	time.Sleep(time.Second * 2)
+	assert.True(t, checkPortHaveBeenUsed(port))
+
+	// create a new dir make dir
+	if err = os.Mkdir(tmpDir+"/dir", 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// no need reload
+	if err = waitingPortConnectionRefused(t, port, 3*time.Second); err == nil {
+		t.Fatal("should raise a error")
+	}
+	engine.Stop()
+	time.Sleep(2 * time.Second)
+
 }
