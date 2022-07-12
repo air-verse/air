@@ -433,6 +433,9 @@ func (e *Engine) runBin() error {
 	}
 	go io.Copy(os.Stdout, stdout)
 	go io.Copy(os.Stderr, stderr)
+	go func() {
+		_, _ = cmd.Process.Wait()
+	}()
 
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
 		defer func() {
