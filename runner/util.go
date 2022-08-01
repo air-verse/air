@@ -65,7 +65,7 @@ func (e *Engine) isTestDataDir(path string) bool {
 }
 
 func isHiddenDirectory(path string) bool {
-	return len(path) > 1 && strings.HasPrefix(filepath.Base(path), ".")
+	return len(path) > 1 && strings.HasPrefix(filepath.Base(path), ".") && filepath.Base(path) != ".."
 }
 
 func cleanPath(path string) string {
