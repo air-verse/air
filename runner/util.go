@@ -379,3 +379,11 @@ func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath s
 		}
 	}
 }
+
+func joinPath(root, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	return filepath.Join(root, path)
+}
