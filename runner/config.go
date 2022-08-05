@@ -150,7 +150,7 @@ func writeDefaultConfig() {
 
 	file, err := os.Create(dftTOML)
 	if err != nil {
-		log.Fatalf("failed to create a new confiuration: %+v", err)
+		log.Fatalf("failed to create a new configuration: %+v", err)
 	}
 	defer file.Close()
 
