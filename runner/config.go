@@ -290,6 +290,10 @@ func (c *Config) preprocess() error {
 
 	adaptToVariousPlatforms(c)
 
+	// Join runtime arguments with the configuration arguments
+	runtimeArgs := flag.Args()
+	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
+
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
@@ -298,10 +302,6 @@ func (c *Config) preprocess() error {
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
-
-	// Join runtime arguments with the configuration arguments
-	runtimeArgs := flag.Args()
-	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
 
 	return err
 }
