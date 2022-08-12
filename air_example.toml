@@ -38,6 +38,13 @@ send_interrupt = false
 kill_delay = 500 # ms
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
 args_bin = ["hello", "world"]
+#execute commands before building the app (only if extension changes)
+[[build.pre_builder]]
+  cmd = "gqlgen generate"
+  only_ext = "graphql"
+[[build.pre_builder]]
+  cmd = "go generate"
+  only_ext = "tmpl"
 
 [log]
 # Show log time

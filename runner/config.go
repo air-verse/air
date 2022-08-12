@@ -35,6 +35,7 @@ type Config struct {
 
 type cfgBuild struct {
 	Cmd              string        `toml:"cmd"`
+	PreBuild         []preBuilder  `toml:"pre_builder"`
 	Bin              string        `toml:"bin"`
 	FullBin          string        `toml:"full_bin"`
 	ArgsBin          []string      `toml:"args_bin"`
@@ -51,6 +52,11 @@ type cfgBuild struct {
 	SendInterrupt    bool          `toml:"send_interrupt"`
 	KillDelay        time.Duration `toml:"kill_delay"`
 	regexCompiled    []*regexp.Regexp
+}
+
+type preBuilder struct {
+	OnlyExt string `toml:"only_ext"`
+	Cmd     string `toml:"cmd"`
 }
 
 func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
@@ -302,6 +308,12 @@ func (c *Config) preprocess() error {
 	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()
 	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
+
+	for _, preBuild := range c.Build.PreBuild {
+		if preBuild.Cmd == "" || preBuild.OnlyExt == "" {
+			return fmt.Errorf("pre_build cmd and only_ext are required")
+		}
+	}
 
 	return err
 }

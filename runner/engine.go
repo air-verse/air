@@ -307,7 +307,10 @@ func (e *Engine) start() {
 	firstRunCh <- true
 
 	for {
-		var filename string
+		var (
+			filename   string
+			fileEvents []string
+		)
 
 		select {
 		case <-e.exitCh:
@@ -325,14 +328,17 @@ func (e *Engine) start() {
 			}
 
 			time.Sleep(e.config.buildDelay())
-			e.flushEvents()
+			fileEvents = e.flushEvents()
+			fileEvents = append(fileEvents, filename)
 
 			// clean on rebuild https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
 			if e.config.Screen.ClearOnRebuild {
 				fmt.Println("\033[2J")
 			}
 
-			e.mainLog("%s has changed", e.config.rel(filename))
+			for _, fileEvent := range fileEvents {
+				e.mainLog("%s has changed", e.config.rel(fileEvent))
+			}
 		case <-firstRunCh:
 			// go down
 			break
@@ -350,11 +356,11 @@ func (e *Engine) start() {
 			close(e.binStopCh)
 			e.binStopCh = make(chan bool)
 		})
-		go e.buildRun()
+		go e.buildRun(fileEvents)
 	}
 }
 
-func (e *Engine) buildRun() {
+func (e *Engine) buildRun(fileEvents []string) {
 	e.buildRunCh <- true
 	defer func() {
 		<-e.buildRunCh
@@ -367,7 +373,14 @@ func (e *Engine) buildRun() {
 	default:
 	}
 	var err error
-	if err = e.building(); err != nil {
+	if err = e.preBuilding(fileEvents); err != nil {
+		e.canExit <- true
+		e.buildLog("failed to pre build, error: %s", err.Error())
+		_ = e.writeBuildErrorLog(err.Error())
+		if e.config.Build.StopOnError {
+			return
+		}
+	} else if err = e.building(); err != nil {
 		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
@@ -390,21 +403,54 @@ func (e *Engine) buildRun() {
 	}
 }
 
-func (e *Engine) flushEvents() {
+func (e *Engine) flushEvents() []string {
+	events := make([]string, 0)
 	for {
 		select {
-		case <-e.eventCh:
+		case ev := <-e.eventCh:
 			e.mainDebug("flushing events")
+			events = append(events, ev)
 		default:
-			return
+			return events
 		}
 	}
 }
 
+func (e *Engine) preBuilding(fileEvents []string) error {
+	for _, preBuild := range e.config.Build.PreBuild {
+		executePreBuild := len(fileEvents) == 0
+
+		for _, fileEvent := range fileEvents {
+			ext := filepath.Ext(fileEvent)
+
+			if ext == "."+strings.TrimSpace(preBuild.OnlyExt) {
+				executePreBuild = true
+				break
+			}
+		}
+
+		if !executePreBuild {
+			continue
+		}
+
+		message := fmt.Sprintf("execute pre build %q...", preBuild.Cmd)
+
+		if err := e.execCommand(preBuild.Cmd, message); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (e *Engine) building() error {
+	return e.execCommand(e.config.Build.Cmd, "building...")
+}
+
+func (e *Engine) execCommand(command, message string) error {
 	var err error
-	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+	e.buildLog(message)
+	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}
@@ -420,6 +466,7 @@ func (e *Engine) building() error {
 		return err
 	}
 	return nil
+
 }
 
 func (e *Engine) runBin() error {
