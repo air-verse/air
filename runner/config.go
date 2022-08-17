@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/imdario/mergo"
@@ -297,7 +298,11 @@ func (c *Config) preprocess() error {
 	}
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
-	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+	binParts := strings.Split(c.Build.Bin, " ")
+	c.Build.Bin, err = filepath.Abs(binParts[0])
+	if len(binParts) > 1 {
+		c.Build.Bin += " " + strings.Join(binParts[1:], " ")
+	}
 
 	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()
