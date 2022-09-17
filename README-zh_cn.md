@@ -1,36 +1,36 @@
 # Air [![Go](https://github.com/cosmtrek/air/workflows/Go/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
-:cloud: 热重载 Go 应用的工具
+:cloud: Go 应用热加载工具
 
 ![air](docs/air.png)
 
 [English](README.md) | 简体中文 
 
-## 开发动机
+## 开发的动机
 
-当我用 Go 和 [gin](https://github.com/gin-gonic/gin) 框架开发网站时，gin 缺乏实时重载的功能是令人遗憾的。我曾经尝试过 [fresh](https://github.com/pilu/fresh) ，但是它用起来不太灵活，所以我试着用更好的方式来重写它。Air 就这样诞生了。此外，非常感谢 [pilu](https://github.com/pilu)。没有 fresh 就不会有 air :)
+当用 Go 和 [gin](https://github.com/gin-gonic/gin) 框架开发网站的时候，很遗憾地发现 gin 并没有热加载的功能。我曾经尝试过 [fresh](https://github.com/pilu/fresh) ，但是它用起来不太灵活，所以我试着用更好的方式来重写它。Air 就这样诞生了。此外，非常感谢 [pilu](https://github.com/pilu)。没有 fresh 就不会有 air :)
 
-Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只需在你的项目根目录下输入 `air`，然后把它放在一边，专注于你的代码即可。
+Air 是为 Go 应用开发设计的另外一个热加载的命令行工具。只需在你的项目根目录下输入 `air`，然后把它放在一边，专注于你的代码即可
 
-**注意**：该工具与生产环境的热部署无关。
+**注意**：该工具与生产环境的热部署无关
 
 ## 特色
 
-* 彩色的日志输出
+* 支持打印彩色日志
 * 自定义构建或必要的命令
 * 支持外部子目录
 * 在 Air 启动之后，允许监听新创建的路径
-* 更棒的构建过程
+* 更好的构建处理
 
 ### ✨ beta 版本的特性
 
-支持使用参数来配置 air 字段:
+支持使用参数来配置 air:
 
-如果你只是想配置构建命令和运行命令，您可以直接使用以下命令，而无需配置文件:
+如果只是想配置 build，可以直接使用以下命令，无需配置文件:
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
 
-对于以列表形式输入的参数，使用逗号来分隔项目:
+对于以列表形式输入的参数，使用逗号来分隔:
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
 
@@ -39,7 +39,7 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 ### 推荐使用 install.sh
 
 ```bash
-# binary 文件会是在 $(go env GOPATH)/bin/air
+# 二进制可执行文件会放在 $(go env GOPATH)/bin/air
 curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
 # 或者把它安装在 ./bin/ 路径下
@@ -48,11 +48,11 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 air -v
 ```
 
-P.S. 非常感谢 mattn 的 [PR](https://github.com/cosmtrek/air/pull/1)，使得 Air 支持 Windows 平台。
+P.S. 非常感谢 mattn 的 [PR](https://github.com/cosmtrek/air/pull/1)，使得 Air 支持 Windows 平台
 
 ### 使用 `go install`
 
-使用 Go 的版本为 1.16 或更高:
+要求 Go 版本是 1.16或以上:
 
 ```bash
 go install github.com/cosmtrek/air@latest
@@ -72,7 +72,7 @@ docker run -it --rm \
     -c <CONF>
 ```
 
-例如，我的项目之一是在 Docker 上运行的：
+举个例子：
 
 ```bash
 docker run -it --rm \
@@ -84,7 +84,7 @@ docker run -it --rm \
 
 ## 使用方法
 
-您可以添加 `alias air='~/.air'` 到您的 `.bashrc` 或 `.zshrc` 后缀的文件.
+可以添加 `alias air='~/.air'` 到 `.bashrc` 或 `.zshrc`
 
 首先，进入你的项目文件夹
 
@@ -99,39 +99,39 @@ cd /path/to/your_project
 air -c .air.toml
 ```
 
-您可以运行以下命令初始化，把默认配置添加到当前路径下的`.air.toml` 文件。
+可以运行以下命令执行初始化，把默认配置添加到当前路径下的`.air.toml` 文件
 
 ```bash
 air init
 ```
 
-在这之后，你只需执行 `air` 命令，无需添加额外的变量，它就能使用 `.air.toml` 文件中的配置了。
+然后只需执行 `air` 命令，无需再加额外的参数，就能使用 `.air.toml` 文件中的配置了
 
 ```bash
 air
 ```
 
-如欲修改配置信息，请参考 [air_example.toml](air_example.toml) 文件.
+如果要修改配置信息，请参考 [air_example.toml](air_example.toml) 文件
 
 ### 运行时参数
 
-您可以通过把变量添加在 air 命令之后来传递参数。
+可以把应用的参数写在 air 命令之后，来传给监听的应用
 
 ```bash
-# 会执行 ./tmp/main bench
+# 执行 ./tmp/main bench
 air bench
 
-# 会执行 ./tmp/main server --port 8080
+# 执行 ./tmp/main server --port 8080
 air server --port 8080
 ```
 
-You can separate the arguments passed for the air command and the built binary with `--` argument.
+如果需要把参数分别传给 air 和监听的应用，可以用 `--` 来分割
 
 ```bash
-# 会运行 ./tmp/main -h
+# 执行 ./tmp/main -h
 air -- -h
 
-# 会使用个性化配置来运行 air，然后把 -h 后的变量和值添加到运行的参数中
+# 使用个性化配置来运行 air，然后把 -h 传给应用
 air -c .air.toml -- -h
 ```
 
@@ -155,11 +155,11 @@ services:
 
 ### 调试
 
-运行 `air -d` 命令能打印所有日志。
+运行 `air -d` 命令能打印所有日志
 
 ## Q&A
 
-### 遇到 "command not found: air" 或 "No such file or directory" 该怎么办？
+### "command not found: air" 或 "No such file or directory"
 
 ```zsh
 export GOPATH=$HOME/xxxxx
@@ -167,9 +167,13 @@ export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 export PATH=$PATH:$(go env GOPATH)/bin <---- 请确认这行在您的配置信息中！！！
 ```
 
+### Error under wsl when ' is included in the bin
+
+使用转义字符 `\'`，参考：[#305](https://github.com/cosmtrek/air/issues/305)
+
 ## 部署
 
-请注意：这需要 Go 1.16+ ，因为我使用 `go mod` 来管理依赖。
+注意：需要 Go 1.16+，因为使用了 `go mod`
 
 ```bash
 # 1. 首先复刻（fork）这个项目
@@ -208,7 +212,7 @@ ci 会加工和处理，然后会发布新版本。等待大约五分钟，你�
 
 <a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
 
-非常感谢以下的支持者们。我会一直你们的好意的。
+非常感谢以下的支持者们，你们的好意我会一直记得
 
 * Peter Aba
 * Apostolis Anastasiou
