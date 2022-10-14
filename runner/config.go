@@ -211,7 +211,6 @@ func defaultConfig() Config {
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        1000,
-		StopOnError:  true,
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
