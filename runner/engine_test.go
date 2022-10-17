@@ -796,3 +796,70 @@ func TestCreateNewDir(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 }
+
+func TestShouldIncludeIncludedFile(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	config := `
+[build]
+cmd = "go build ."
+bin = "tmp/main"
+include_dir = ["nonexist"]
+include_file = ["main.go"]
+`
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := os.Create("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = file.WriteString(`package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("main")
+}
+`)
+
+	time.Sleep(time.Second * 3)
+	engine, err := NewEngine(dftTOML, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		engine.Run()
+	}()
+
+	t.Logf("start change main.go")
+	// change file of main_test.go
+	// just append a new empty line to main.go
+	if err = waitingPortReady(t, port, time.Second*40); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+		defer file.Close()
+		_, err = file.WriteString("\n")
+		if err != nil {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+	}()
+	// should Have rebuild
+	if err = waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
+		t.Fatal(err)
+	}
+}
