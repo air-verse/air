@@ -279,7 +279,7 @@ func TestCheckIncludeFile(t *testing.T) {
 	e := Engine{
 		config: &Config{
 			Build: cfgBuild{
-				IncludeFile: []string{"main.go"},
+				IncludeFile:   []string{"main.go"},
 				SendInterrupt: false,
 			},
 		},

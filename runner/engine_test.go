@@ -665,6 +665,7 @@ bin = "tmp/main"
 exclude_regex = []
 exclude_dir = ["test"]
 exclude_file = ["main.go"]
+include_file = ["test/not_a_test.go"]
 
 `
 	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
@@ -679,6 +680,7 @@ exclude_file = ["main.go"]
 	assert.Equal(t, []string{"test"}, engine.config.Build.ExcludeDir)
 	// add new config
 	assert.Equal(t, []string{"main.go"}, engine.config.Build.ExcludeFile)
+	assert.Equal(t, []string{"test/not_a_test.go"}, engine.config.Build.IncludeFile)
 	assert.Equal(t, "go build .", engine.config.Build.Cmd)
 
 }
