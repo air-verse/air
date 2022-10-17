@@ -803,28 +803,28 @@ func TestShouldIncludeIncludedFile(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
-	// change dir to tmpDir
+
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
 	}
 
 	config := `
 [build]
-cmd = "cp main.sh build.sh"
-full_bin = "sh build.sh"
+cmd = "true" # do nothing
+full_bin = "sh main.sh"
+include_ext = ["sh"]
+include_dir = ["nonexist"] # prevent default "." watch from taking effect
 include_file = ["main.sh"]
 `
 	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	file, err := os.Create("main.sh")
+	err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf original > output"), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = file.WriteString("#!/bin/sh\necho 'hello from app'")
 
-	time.Sleep(time.Second * 3)
 	engine, err := NewEngine(dftTOML, false)
 	if err != nil {
 		t.Fatal(err)
@@ -833,24 +833,27 @@ include_file = ["main.sh"]
 		engine.Run()
 	}()
 
-	t.Logf("start change main.sh")
-	// change file of main_test.go
-	if err = waitingPortReady(t, port, time.Second*40); err != nil {
+	time.Sleep(time.Second * 1)
+
+	bytes, err := os.ReadFile("output")
+	if err != nil {
 		t.Fatal(err)
 	}
+	assert.Equal(t, []byte("original"), bytes)
+
+	t.Logf("start change main.sh")
 	go func() {
-		file, err := os.OpenFile("main.sh", os.O_APPEND|os.O_WRONLY, 0644)
+		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0755)
 		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
-		}
-		defer file.Close()
-		_, err = file.WriteString("\n") // just append a new empty line
-		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
+			t.Fatalf("Error updating file: %s.", err)
 		}
 	}()
-	// should Have rebuild
-	if err = waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
+
+	time.Sleep(time.Second * 3)
+
+	bytes, err = os.ReadFile("output")
+	if err != nil {
 		t.Fatal(err)
 	}
+	assert.Equal(t, []byte("modified"), bytes)
 }
