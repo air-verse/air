@@ -810,27 +810,19 @@ func TestShouldIncludeIncludedFile(t *testing.T) {
 
 	config := `
 [build]
-cmd = "go build ."
-bin = "tmp/main"
-include_dir = ["nonexist"]
-include_file = ["main.go"]
+cmd = "cp main.sh build.sh"
+bin = "sh build.sh"
+include_file = ["main.sh"]
 `
 	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	file, err := os.Create("main.go")
+	file, err := os.Create("main.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = file.WriteString(`package main
-
-import "fmt"
-
-func main() {
-	fmt.Println("main")
-}
-`)
+	_, err = file.WriteString("#!/bin/sh\necho 'hello from app'")
 
 	time.Sleep(time.Second * 3)
 	engine, err := NewEngine(dftTOML, false)
@@ -841,19 +833,18 @@ func main() {
 		engine.Run()
 	}()
 
-	t.Logf("start change main.go")
+	t.Logf("start change main.sh")
 	// change file of main_test.go
-	// just append a new empty line to main.go
 	if err = waitingPortReady(t, port, time.Second*40); err != nil {
 		t.Fatal(err)
 	}
 	go func() {
-		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+		file, err := os.OpenFile("main.sh", os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			t.Fatalf("Should not be fail: %s.", err)
 		}
 		defer file.Close()
-		_, err = file.WriteString("\n")
+		_, err = file.WriteString("\n") // just append a new empty line
 		if err != nil {
 			t.Fatalf("Should not be fail: %s.", err)
 		}
