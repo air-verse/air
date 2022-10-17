@@ -208,6 +208,7 @@ func defaultConfig() Config {
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
 		ExcludeFile:  []string{},
+		IncludeFile:  []string{},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
