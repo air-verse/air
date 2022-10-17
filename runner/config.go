@@ -43,6 +43,7 @@ type cfgBuild struct {
 	ExcludeDir       []string      `toml:"exclude_dir"`
 	IncludeDir       []string      `toml:"include_dir"`
 	ExcludeFile      []string      `toml:"exclude_file"`
+	IncludeFile      []string      `toml:"include_file"`
 	ExcludeRegex     []string      `toml:"exclude_regex"`
 	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
 	FollowSymlink    bool          `toml:"follow_symlink"`

@@ -111,6 +111,9 @@ func (e *Engine) watching(root string) error {
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		// NOTE: path is absolute
 		if info != nil && !info.IsDir() {
+			if e.checkIncludeFile(path) {
+				return e.watchPath(path)
+			}
 			return nil
 		}
 		// exclude tmp dir
@@ -138,7 +141,7 @@ func (e *Engine) watching(root string) error {
 			return filepath.SkipDir
 		}
 		if isIn {
-			return e.watchDir(path)
+			return e.watchPath(path)
 		}
 		return nil
 	})
@@ -174,7 +177,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 					return err
 				}
 				if linkInfo.IsDir() {
-					err = e.watchDir(link)
+					err = e.watchPath(link)
 					if err != nil {
 						return err
 					}
@@ -204,7 +207,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 	})
 }
 
-func (e *Engine) watchDir(path string) error {
+func (e *Engine) watchPath(path string) error {
 	if err := e.watcher.Add(path); err != nil {
 		e.watcherLog("failed to watch %s, error: %s", path, err.Error())
 		return err
