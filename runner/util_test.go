@@ -280,7 +280,6 @@ func TestCheckIncludeFile(t *testing.T) {
 		config: &Config{
 			Build: cfgBuild{
 				IncludeFile:   []string{"main.go"},
-				SendInterrupt: false,
 			},
 		},
 	}
