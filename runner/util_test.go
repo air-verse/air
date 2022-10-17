@@ -274,3 +274,16 @@ func TestNestStructArrayValueOverride(t *testing.T) {
 	setValue2Struct(v, "Build.ExcludeDir", "dir1,dir2")
 	assert.Equal(t, []string{"dir1", "dir2"}, c.Build.ExcludeDir)
 }
+
+func TestCheckIncludeFile(t *testing.T) {
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				IncludeFile: []string{"main.go"},
+				SendInterrupt: false,
+			},
+		},
+	}
+	assert.Equal(t, e.checkIncludeFile("main.go"), true)
+	assert.Equal(t, e.checkIncludeFile("no.go"), false)
+}
