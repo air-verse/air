@@ -286,4 +286,5 @@ func TestCheckIncludeFile(t *testing.T) {
 	}
 	assert.Equal(t, e.checkIncludeFile("main.go"), true)
 	assert.Equal(t, e.checkIncludeFile("no.go"), false)
+	assert.Equal(t, e.checkIncludeFile("."), false)
 }
