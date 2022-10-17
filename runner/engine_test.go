@@ -811,7 +811,7 @@ func TestShouldIncludeIncludedFile(t *testing.T) {
 	config := `
 [build]
 cmd = "cp main.sh build.sh"
-bin = "sh build.sh"
+full_bin = "sh build.sh"
 include_file = ["main.sh"]
 `
 	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
