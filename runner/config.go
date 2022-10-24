@@ -88,8 +88,7 @@ type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
 }
 
-type sliceTransformer struct {
-}
+type sliceTransformer struct{}
 
 func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
 	if typ.Kind() == reflect.Slice {
@@ -212,7 +211,7 @@ func defaultConfig() Config {
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
-		Delay:        1000,
+		Delay:        0,
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
