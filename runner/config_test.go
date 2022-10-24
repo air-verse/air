@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"flag"
 	"os"
 	"runtime"
 	"strings"
@@ -128,6 +129,38 @@ func TestConfPreprocess(t *testing.T) {
 	}
 }
 
+func TestConfigWithRuntimeArgs(t *testing.T) {
+	runtimeArg := "-flag=value"
+
+	// inject runtime arg
+	oldArgs := os.Args
+	defer func() {
+		os.Args = oldArgs
+		flag.Parse()
+	}()
+	os.Args = []string{"air", "--", runtimeArg}
+	flag.Parse()
+
+	t.Run("when using bin", func(t *testing.T) {
+		df := defaultConfig()
+		df.preprocess()
+
+		if !contains(df.Build.ArgsBin, runtimeArg) {
+			t.Fatalf("missing expected runtime arg: %s", runtimeArg)
+		}
+	})
+
+	t.Run("when using full_bin", func(t *testing.T) {
+		df := defaultConfig()
+		df.Build.FullBin = "./tmp/main"
+		df.preprocess()
+
+		if !contains(df.Build.ArgsBin, runtimeArg) {
+			t.Fatalf("missing expected runtime arg: %s", runtimeArg)
+		}
+	})
+}
+
 func TestReadConfigWithWrongPath(t *testing.T) {
 	c, err := readConfig("xxxx")
 	if err == nil {
@@ -136,4 +169,13 @@ func TestReadConfigWithWrongPath(t *testing.T) {
 	if c != nil {
 		t.Fatal("expect is nil but got a conf")
 	}
+}
+
+func contains(sl []string, target string) bool {
+	for _, c := range sl {
+		if c == target {
+			return true
+		}
+	}
+	return false
 }
