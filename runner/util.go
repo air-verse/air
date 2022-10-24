@@ -107,6 +107,23 @@ func (e *Engine) checkIncludeDir(path string) (bool, bool) {
 	return false, walkDir
 }
 
+func (e *Engine) checkIncludeFile(path string) bool {
+	cleanName := cleanPath(e.config.rel(path))
+	iFile := e.config.Build.IncludeFile
+	if len(iFile) == 0 { // ignore empty
+		return false
+	}
+	if cleanName == "." {
+		return false
+	}
+	for _, d := range iFile {
+		if d == cleanName {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) isIncludeExt(path string) bool {
 	ext := filepath.Ext(path)
 	for _, v := range e.config.Build.IncludeExt {

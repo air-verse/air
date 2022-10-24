@@ -18,6 +18,8 @@ include_ext = ["go", "tpl", "tmpl", "html"]
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
 # Watch these directories if you specified.
 include_dir = []
+# Watch these files.
+include_file = []
 # Exclude files.
 exclude_file = []
 # Exclude specific regular expressions.

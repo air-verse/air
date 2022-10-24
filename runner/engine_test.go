@@ -665,6 +665,7 @@ bin = "tmp/main"
 exclude_regex = []
 exclude_dir = ["test"]
 exclude_file = ["main.go"]
+include_file = ["test/not_a_test.go"]
 
 `
 	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
@@ -679,6 +680,7 @@ exclude_file = ["main.go"]
 	assert.Equal(t, []string{"test"}, engine.config.Build.ExcludeDir)
 	// add new config
 	assert.Equal(t, []string{"main.go"}, engine.config.Build.ExcludeFile)
+	assert.Equal(t, []string{"test/not_a_test.go"}, engine.config.Build.IncludeFile)
 	assert.Equal(t, "go build .", engine.config.Build.Cmd)
 
 }
@@ -793,4 +795,65 @@ func TestCreateNewDir(t *testing.T) {
 	engine.Stop()
 	time.Sleep(2 * time.Second)
 
+}
+
+func TestShouldIncludeIncludedFile(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
+	config := `
+[build]
+cmd = "true" # do nothing
+full_bin = "sh main.sh"
+include_ext = ["sh"]
+include_dir = ["nonexist"] # prevent default "." watch from taking effect
+include_file = ["main.sh"]
+`
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf original > output"), 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine, err := NewEngine(dftTOML, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		engine.Run()
+	}()
+
+	time.Sleep(time.Second * 1)
+
+	bytes, err := os.ReadFile("output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []byte("original"), bytes)
+
+	t.Logf("start change main.sh")
+	go func() {
+		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0755)
+		if err != nil {
+			t.Fatalf("Error updating file: %s.", err)
+		}
+	}()
+
+	time.Sleep(time.Second * 3)
+
+	bytes, err = os.ReadFile("output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []byte("modified"), bytes)
 }
