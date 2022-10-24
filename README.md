@@ -161,6 +161,39 @@ services:
 
 `air -d` prints all logs.
 
+## Installation and Usage for Docker users who don't want to use air image
+
+`Dockerfile`
+```
+# Choose whatever you want, version >= 1.16
+FROM golang:1.19-alpine
+
+WORKDIR /app
+
+RUN go install github.com/cosmtrek/air@latest
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+CMD ["air", "-c", ".air.toml"]
+```
+
+`docker-compose.yaml`
+```
+version: "3.8"
+services:
+  web:
+    build:
+      context: .
+      # Correct the path to your Dockerfile
+      dockerfile: Dockerfile
+    ports:
+      - 8080:3000
+    # Important to bind/mount your codebase dir to /app dir for live reload
+    volumes:
+      - ./:/app
+```
+
 ## Q&A
 
 ### "command not found: air" or "No such file or directory"
