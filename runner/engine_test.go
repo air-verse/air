@@ -166,7 +166,7 @@ func TestRebuild(t *testing.T) {
 	// change file of main.go
 	// just append a new empty line to main.go
 	time.Sleep(time.Second * 2)
-	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -349,7 +349,6 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	assert.False(t, engine.running)
-
 }
 
 func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
@@ -382,7 +381,7 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	time.Sleep(time.Second * 3)
 
 	// edit *.go file to create build error again
-	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -525,7 +524,6 @@ go 1.17
 
 // generateGoCode generates golang code to tempdir
 func generateGoCode(dir string, port int) error {
-
 	code := fmt.Sprintf(`package main
 
 import (
@@ -590,7 +588,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	// just append a new empty line to main.go
 	time.Sleep(time.Second * 2)
 	go func() {
-		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
 			t.Fatalf("Should not be fail: %s.", err)
 		}
@@ -668,7 +666,7 @@ exclude_file = ["main.go"]
 include_file = ["test/not_a_test.go"]
 
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	engine, err := NewEngine(".air.toml", true)
@@ -682,7 +680,6 @@ include_file = ["test/not_a_test.go"]
 	assert.Equal(t, []string{"main.go"}, engine.config.Build.ExcludeFile)
 	assert.Equal(t, []string{"test/not_a_test.go"}, engine.config.Build.IncludeFile)
 	assert.Equal(t, "go build .", engine.config.Build.Cmd)
-
 }
 
 func TestShouldIncludeGoTestFile(t *testing.T) {
@@ -728,7 +725,7 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 	engine, err := NewEngine(".air.toml", false)
 	if err != nil {
 		t.Fatal(err)
@@ -744,18 +741,14 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		file, err := os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
-		}
+		file, err = os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0o644)
+		assert.NoError(t, err)
 		defer file.Close()
 		_, err = file.WriteString("\n")
-		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
-		}
+		assert.NoError(t, err)
 	}()
 	// should Have rebuild
-	if err = waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
+	if err = waitingPortReady(t, port, time.Second*10); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -784,7 +777,7 @@ func TestCreateNewDir(t *testing.T) {
 	assert.True(t, checkPortHaveBeenUsed(port))
 
 	// create a new dir make dir
-	if err = os.Mkdir(tmpDir+"/dir", 0644); err != nil {
+	if err = os.Mkdir(tmpDir+"/dir", 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -794,7 +787,6 @@ func TestCreateNewDir(t *testing.T) {
 	}
 	engine.Stop()
 	time.Sleep(2 * time.Second)
-
 }
 
 func TestShouldIncludeIncludedFile(t *testing.T) {
