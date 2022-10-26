@@ -164,7 +164,7 @@ services:
 ## Installation and Usage for Docker users who don't want to use air image
 
 `Dockerfile`
-```
+```Dockerfile
 # Choose whatever you want, version >= 1.16
 FROM golang:1.19-alpine
 
@@ -179,7 +179,7 @@ CMD ["air", "-c", ".air.toml"]
 ```
 
 `docker-compose.yaml`
-```
+```yaml
 version: "3.8"
 services:
   web:
