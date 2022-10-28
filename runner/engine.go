@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/term"
+
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -35,6 +37,8 @@ type Engine struct {
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
+
+	oldStdoutState *term.State
 }
 
 // NewEngineWithConfig ...
@@ -330,6 +334,12 @@ func (e *Engine) start() {
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
 
+			// When running a Terminal UI Application, especially when killing it (due to code change)
+			// Need to restore terminal state otherwise text may come out unclear (like ignoring CR in text output)
+			if e.config.Build.TermUIApp {
+				term.Restore(int(os.Stdout.Fd()), e.oldStdoutState)
+			}
+
 			// clean on rebuild https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
 			if e.config.Screen.ClearOnRebuild {
 				fmt.Println("\033[2J")
@@ -338,7 +348,6 @@ func (e *Engine) start() {
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
-			break
 		}
 
 		// already build and run now
@@ -429,6 +438,11 @@ func (e *Engine) runBin() error {
 	var err error
 	e.runnerLog("running...")
 
+	// When running Terminal UI Application store terminal state for restoring after killing the app
+	if e.config.Build.TermUIApp {
+		e.oldStdoutState, _ = term.GetState(int(os.Stdout.Fd()))
+	}
+
 	command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
 	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
@@ -460,6 +474,11 @@ func (e *Engine) runBin() error {
 		if err != nil {
 			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
 			if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+				// Before exising, in case of Terminal UI Application, restoring terminal state
+				if e.config.Build.TermUIApp && e.oldStdoutState != nil {
+					term.Restore(int(os.Stdout.Fd()), e.oldStdoutState)
+				}
+
 				os.Exit(1)
 			}
 		} else {

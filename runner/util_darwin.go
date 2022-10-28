@@ -27,9 +27,14 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
-	// because using pty cannot have same pgid
-	c.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
+
+	// When running Terminal UI Applications, not sure why, but when using the setpgid (which runs the process under a new pgid)
+	// the application doesn't show. This change has implications on how process needs to be killed later on
+	if !e.config.Build.TermUIApp {
+		// because using pty cannot have same pgid
+		c.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+		}
 	}
 
 	stderr, err := c.StderrPipe()
