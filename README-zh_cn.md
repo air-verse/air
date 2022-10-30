@@ -208,7 +208,7 @@ ci 会加工和处理，然后会发布新版本。等待大约五分钟，你�
 
 <a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
 
-非常感谢以下的支持者们。我会一直你们的好意的。
+衷心感谢以下的支持者。我一直铭记着你们的善意。
 
 * Peter Aba
 * Apostolis Anastasiou
