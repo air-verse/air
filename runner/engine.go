@@ -336,7 +336,7 @@ func (e *Engine) start() {
 					fmt.Print("\033[2J")
 				} else {
 					// https://stackoverflow.com/questions/5367068/clear-a-terminal-screen-for-real/5367075#5367075
-					fmt.Println("\033c")
+					fmt.Print("\033c")
 				}
 			}
 
