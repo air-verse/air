@@ -330,9 +330,14 @@ func (e *Engine) start() {
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
 
-			// clean on rebuild https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
 			if e.config.Screen.ClearOnRebuild {
-				fmt.Println("\033[2J")
+				if e.config.Screen.KeepScroll {
+					// https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
+					fmt.Print("\033[2J")
+				} else {
+					// https://stackoverflow.com/questions/5367068/clear-a-terminal-screen-for-real/5367075#5367075
+					fmt.Println("\033c")
+				}
 			}
 
 			e.mainLog("%s has changed", e.config.rel(filename))
