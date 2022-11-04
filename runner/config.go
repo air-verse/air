@@ -240,7 +240,7 @@ func defaultConfig() Config {
 		Misc:        misc,
 		Screen: cfgScreen{
 			ClearOnRebuild: false,
-			KeepScroll:     false,
+			KeepScroll:     true,
 		},
 	}
 }
