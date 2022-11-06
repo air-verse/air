@@ -86,6 +86,7 @@ type cfgMisc struct {
 
 type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
+	KeepScroll     bool `toml:"keep_scroll"`
 }
 
 type sliceTransformer struct{}
@@ -237,6 +238,10 @@ func defaultConfig() Config {
 		Color:       color,
 		Log:         log,
 		Misc:        misc,
+		Screen: cfgScreen{
+			ClearOnRebuild: false,
+			KeepScroll:     true,
+		},
 	}
 }
 
