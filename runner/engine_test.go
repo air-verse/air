@@ -804,7 +804,7 @@ func TestShouldIncludeIncludedFile(t *testing.T) {
 [build]
 cmd = "true" # do nothing
 full_bin = "sh main.sh"
-include_ext = ["sh"]
+include_ext = []
 include_dir = ["nonexist"] # prevent default "." watch from taking effect
 include_file = ["main.sh"]
 `
