@@ -186,7 +186,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 			}
 		}
 
-		if e.isExcludeFile(path) || !e.isIncludeExt(ev.Name) && !e.checkIncludeFile(path) {
+		if e.isExcludeFile(path) || !e.isIncludeExt(path) && !e.checkIncludeFile(path) {
 			e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 			return nil
 		}
