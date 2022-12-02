@@ -431,60 +431,73 @@ func (e *Engine) building() error {
 }
 
 func (e *Engine) runBin() error {
-	var err error
-	e.runnerLog("running...")
+	for {
+		e.runnerLog("running...")
+		processExit := make(chan bool)
 
-	command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-	cmd, stdout, stderr, err := e.startCmd(command)
-	if err != nil {
-		return err
-	}
-	go func() {
-		_, _ = io.Copy(os.Stdout, stdout)
-		_, _ = io.Copy(os.Stderr, stderr)
-		_, _ = cmd.Process.Wait()
-	}()
-
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
-		defer func() {
-			select {
-			case <-e.exitCh:
-				e.mainDebug("exit in killFunc")
-				close(e.canExit)
-			default:
-			}
-		}()
-		// when invoke close() it will return
-		<-e.binStopCh
-		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
-		defer func() {
-			stdout.Close()
-			stderr.Close()
-		}()
-		pid, err := e.killCmd(cmd)
+		command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
+		cmd, stdout, stderr, err := e.startCmd(command)
 		if err != nil {
-			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
-			if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
-				os.Exit(1)
+			return err
+		}
+		go func() {
+			_, _ = io.Copy(os.Stdout, stdout)
+			_, _ = io.Copy(os.Stderr, stderr)
+			_, _ = cmd.Process.Wait()
+			processExit <- true
+			close(processExit)
+		}()
+
+		killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
+			defer func() {
+				select {
+				case <-e.exitCh:
+					e.mainDebug("exit in killFunc")
+					close(e.canExit)
+				default:
+				}
+			}()
+			// when invoke close() it will return
+			<-e.binStopCh
+			<-processExit
+
+			e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
+			defer func() {
+				stdout.Close()
+				stderr.Close()
+			}()
+			pid, err := e.killCmd(cmd)
+			if err != nil {
+				e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
+				if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+					os.Exit(1)
+				}
+			} else {
+				e.mainDebug("cmd killed, pid: %d", pid)
 			}
-		} else {
-			e.mainDebug("cmd killed, pid: %d", pid)
+			cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
+			if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
+				return
+			}
+			if err = os.Remove(cmdBinPath); err != nil {
+				e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+			}
 		}
-		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
-		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-			return
-		}
-		if err = os.Remove(cmdBinPath); err != nil {
-			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+		e.withLock(func() {
+			close(e.binStopCh)
+			e.binStopCh = make(chan bool)
+			go killFunc(cmd, stdout, stderr)
+		})
+		e.mainDebug("running process pid %v", cmd.Process.Pid)
+
+		select {
+		case <-processExit:
+			delay := 1 * time.Second
+			time.Sleep(delay)
+		case <-e.binStopCh:
+			return nil
 		}
 	}
-	e.withLock(func() {
-		close(e.binStopCh)
-		e.binStopCh = make(chan bool)
-		go killFunc(cmd, stdout, stderr)
-	})
-	e.mainDebug("running process pid %v", cmd.Process.Pid)
-	return nil
 }
 
 func (e *Engine) cleanup() {
