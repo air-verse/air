@@ -431,10 +431,9 @@ func (e *Engine) building() error {
 }
 
 func (e *Engine) runBin() error {
+	e.runnerLog("running...")
 	for {
-		e.runnerLog("running...")
 		processExit := make(chan bool)
-
 		command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
 		cmd, stdout, stderr, err := e.startCmd(command)
 		if err != nil {
@@ -458,8 +457,14 @@ func (e *Engine) runBin() error {
 				}
 			}()
 			// when invoke close() it will return
-			<-e.binStopCh
-			<-processExit
+			select {
+			case <-e.binStopCh:
+				e.mainDebug("pid %d :run bin kill func", cmd.Process.Pid)
+				break
+			case <-processExit:
+				// process is already exited
+				return
+			}
 
 			e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 			defer func() {
@@ -483,20 +488,20 @@ func (e *Engine) runBin() error {
 				e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 			}
 		}
-		e.withLock(func() {
-			close(e.binStopCh)
-			e.binStopCh = make(chan bool)
-			go killFunc(cmd, stdout, stderr)
-		})
+
 		e.mainDebug("running process pid %v", cmd.Process.Pid)
+
+		go killFunc(cmd, stdout, stderr)
 
 		select {
 		case <-processExit:
-			delay := 1 * time.Second
-			time.Sleep(delay)
+			// continue to next for loop
+			time.Sleep(1 * time.Second)
 		case <-e.binStopCh:
+			e.mainDebug("run bin for loop binStopCh reveice")
 			return nil
 		}
+
 	}
 }
 
