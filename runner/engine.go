@@ -23,13 +23,9 @@ type Engine struct {
 	runArgs   []string
 	running   bool
 
-	eventCh        chan string
-	watcherStopCh  chan bool
-	buildRunCh     chan bool
-	buildRunStopCh chan bool
-	canExit        chan bool
-	binStopCh      chan bool
-	exitCh         chan bool
+	eventCh       chan string
+	watcherStopCh chan bool
+	exitCh        chan bool
 
 	mu            sync.RWMutex
 	watchers      uint
@@ -46,21 +42,17 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		return nil, err
 	}
 	e := Engine{
-		ctx:            context.Background(),
-		config:         cfg,
-		logger:         logger,
-		watcher:        watcher,
-		debugMode:      debugMode,
-		runArgs:        cfg.Build.ArgsBin,
-		eventCh:        make(chan string, 1000),
-		watcherStopCh:  make(chan bool, 10),
-		buildRunCh:     make(chan bool, 1),
-		buildRunStopCh: make(chan bool, 1),
-		canExit:        make(chan bool, 1),
-		binStopCh:      make(chan bool),
-		exitCh:         make(chan bool),
-		fileChecksums:  &checksumMap{m: make(map[string]string)},
-		watchers:       0,
+		ctx:           context.Background(),
+		config:        cfg,
+		logger:        logger,
+		watcher:       watcher,
+		debugMode:     debugMode,
+		runArgs:       cfg.Build.ArgsBin,
+		eventCh:       make(chan string, 1000),
+		watcherStopCh: make(chan bool, 10),
+		exitCh:        make(chan bool),
+		fileChecksums: &checksumMap{m: make(map[string]string)},
+		watchers:      0,
 	}
 
 	return &e, nil
