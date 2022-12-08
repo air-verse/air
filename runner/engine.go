@@ -116,6 +116,14 @@ func (e *Engine) watching(root string) error {
 			}
 			return nil
 		}
+		isIn, walkDir := e.checkIncludeDir(path)
+		if !walkDir {
+			e.watcherLog("!exclude %s", e.config.rel(path))
+			return filepath.SkipDir
+		}
+		if isIn {
+			return e.watchPath(path)
+		}
 		// exclude tmp dir
 		if e.isTmpDir(path) {
 			e.watcherLog("!exclude %s", e.config.rel(path))
@@ -134,14 +142,6 @@ func (e *Engine) watching(root string) error {
 		if e.isExcludeDir(path) {
 			e.watcherLog("!exclude %s", e.config.rel(path))
 			return filepath.SkipDir
-		}
-		isIn, walkDir := e.checkIncludeDir(path)
-		if !walkDir {
-			e.watcherLog("!exclude %s", e.config.rel(path))
-			return filepath.SkipDir
-		}
-		if isIn {
-			return e.watchPath(path)
 		}
 		return nil
 	})
