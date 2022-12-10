@@ -574,7 +574,9 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	}
 	engine.config.Build.Cmd = "go build -gcflags='all=-N -l' -o ./tmp/main ."
 	engine.config.Build.Bin = ""
-	engine.config.Build.FullBin = "dlv exec --accept-multiclient --log --headless --continue --listen :2345 --api-version 2 ./tmp/main"
+	dlvPort, f := GetPort()
+	f()
+	engine.config.Build.FullBin = fmt.Sprintf("dlv exec --accept-multiclient --log --headless --continue --listen :%d --api-version 2 ./tmp/main", dlvPort)
 	_ = engine.config.preprocess()
 	go func() {
 		engine.Run()
