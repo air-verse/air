@@ -433,15 +433,24 @@ func (e *Engine) building() error {
 func (e *Engine) runBin() error {
 	// control killFunc should be kill or not
 	killCh := make(chan struct{})
+	wg := sync.WaitGroup{}
 	go func() {
 		// listen to binStopCh
 		// cleanup() will close binStopCh when engine stop
 		// start() will close binStopCh when file changed
 		<-e.binStopCh
 		close(killCh)
+
+		select {
+		case <-e.exitCh:
+			wg.Wait()
+			close(e.canExit)
+		default:
+		}
 	}()
 
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}) {
+	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
+		defer wg.Done()
 		select {
 		// the process haven't exited yet, kill it
 		case <-killCh:
@@ -450,16 +459,6 @@ func (e *Engine) runBin() error {
 		// the process is exited, return
 		case <-processExit:
 			return
-		}
-
-		select {
-		// Send to canExit channel after process has killed completely
-		case <-e.exitCh:
-			defer func() {
-				e.mainDebug("exit in killFunc")
-				close(e.canExit)
-			}()
-		default:
 		}
 
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
@@ -496,12 +495,19 @@ func (e *Engine) runBin() error {
 				cmd, stdout, stderr, _ := e.startCmd(command)
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
-				go killFunc(cmd, stdout, stderr, killCh, processExit)
+
+				wg.Add(1)
+				go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+
 				_, _ = io.Copy(os.Stdout, stdout)
 				_, _ = io.Copy(os.Stderr, stderr)
 				_, _ = cmd.Process.Wait()
 				close(processExit)
-				time.Sleep(1 * time.Second)
+
+				if !e.config.Build.Rerun {
+					return
+				}
+				time.Sleep(e.config.rerunDelay())
 			}
 		}
 	}()
