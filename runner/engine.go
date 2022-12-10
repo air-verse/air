@@ -1,10 +1,10 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -15,6 +15,7 @@ import (
 
 // Engine ...
 type Engine struct {
+	ctx       context.Context
 	config    *Config
 	logger    *logger
 	watcher   *fsnotify.Watcher
@@ -22,13 +23,9 @@ type Engine struct {
 	runArgs   []string
 	running   bool
 
-	eventCh        chan string
-	watcherStopCh  chan bool
-	buildRunCh     chan bool
-	buildRunStopCh chan bool
-	canExit        chan bool
-	binStopCh      chan bool
-	exitCh         chan bool
+	eventCh       chan string
+	watcherStopCh chan bool
+	exitCh        chan bool
 
 	mu            sync.RWMutex
 	watchers      uint
@@ -45,20 +42,17 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		return nil, err
 	}
 	e := Engine{
-		config:         cfg,
-		logger:         logger,
-		watcher:        watcher,
-		debugMode:      debugMode,
-		runArgs:        cfg.Build.ArgsBin,
-		eventCh:        make(chan string, 1000),
-		watcherStopCh:  make(chan bool, 10),
-		buildRunCh:     make(chan bool, 1),
-		buildRunStopCh: make(chan bool, 1),
-		canExit:        make(chan bool, 1),
-		binStopCh:      make(chan bool),
-		exitCh:         make(chan bool),
-		fileChecksums:  &checksumMap{m: make(map[string]string)},
-		watchers:       0,
+		ctx:           context.Background(),
+		config:        cfg,
+		logger:        logger,
+		watcher:       watcher,
+		debugMode:     debugMode,
+		runArgs:       cfg.Build.ArgsBin,
+		eventCh:       make(chan string, 1000),
+		watcherStopCh: make(chan bool, 10),
+		exitCh:        make(chan bool),
+		fileChecksums: &checksumMap{m: make(map[string]string)},
+		watchers:      0,
 	}
 
 	return &e, nil
@@ -308,6 +302,7 @@ func (e *Engine) start() {
 	e.running = true
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
+	var buildRunCancel context.CancelFunc
 
 	for {
 		var filename string
@@ -346,55 +341,47 @@ func (e *Engine) start() {
 			break
 		}
 
-		// already build and run now
-		select {
-		case <-e.buildRunCh:
-			e.buildRunStopCh <- true
-		default:
+		// cancel the original buildRun goRoutine
+		if buildRunCancel != nil {
+			buildRunCancel()
 		}
 
-		// if current app is running, stop it
-		e.withLock(func() {
-			close(e.binStopCh)
-			e.binStopCh = make(chan bool)
-		})
-		go e.buildRun()
+		buildRunCtx, cancel := context.WithCancel(e.ctx)
+		buildRunCancel = cancel
+		go e.buildRun(buildRunCtx)
 	}
 }
 
-func (e *Engine) buildRun() {
-	e.buildRunCh <- true
-	defer func() {
-		<-e.buildRunCh
-	}()
-
+func (e *Engine) doBuild(ctx context.Context) {
 	select {
-	case <-e.buildRunStopCh:
+	case <-ctx.Done():
 		return
-	case <-e.canExit:
 	default:
-	}
-	var err error
-	if err = e.building(); err != nil {
-		e.canExit <- true
-		e.buildLog("failed to build, error: %s", err.Error())
-		_ = e.writeBuildErrorLog(err.Error())
-		if e.config.Build.StopOnError {
+		if err := e.building(ctx); err != nil {
+			_ = e.writeBuildErrorLog(err.Error())
 			return
 		}
 	}
+}
 
+func (e *Engine) doRunBin(ctx context.Context) {
 	select {
-	case <-e.buildRunStopCh:
-		return
-	case <-e.exitCh:
-		e.mainDebug("exit in buildRun")
-		close(e.canExit)
+	case <-ctx.Done():
 		return
 	default:
+		if err := e.runBin(ctx); err != nil {
+			e.runnerLog("failed to run, error: %s", err.Error())
+		}
 	}
-	if err = e.runBin(); err != nil {
-		e.runnerLog("failed to run, error: %s", err.Error())
+}
+
+func (e *Engine) buildRun(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		e.doBuild(ctx)
+		e.doRunBin(ctx)
 	}
 }
 
@@ -409,10 +396,10 @@ func (e *Engine) flushEvents() {
 	}
 }
 
-func (e *Engine) building() error {
+func (e *Engine) building(ctx context.Context) error {
 	var err error
 	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+	cmd, stdout, stderr, err := e.startCmd(ctx, e.config.Build.Cmd)
 	if err != nil {
 		return err
 	}
@@ -430,87 +417,48 @@ func (e *Engine) building() error {
 	return nil
 }
 
-func (e *Engine) runBin() error {
-	var err error
+func (e *Engine) runBin(ctx context.Context) error {
 	e.runnerLog("running...")
-
-	command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-	cmd, stdout, stderr, err := e.startCmd(command)
-	if err != nil {
-		return err
-	}
-	go func() {
-		_, _ = io.Copy(os.Stdout, stdout)
-		_, _ = io.Copy(os.Stderr, stderr)
-		_, _ = cmd.Process.Wait()
-	}()
-
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
-		defer func() {
-			select {
-			case <-e.exitCh:
-				e.mainDebug("exit in killFunc")
-				close(e.canExit)
-			default:
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
+			cmd, stdout, stderr, err := e.startCmd(ctx, command)
+			if err != nil {
+				return err
 			}
-		}()
-		// when invoke close() it will return
-		<-e.binStopCh
-		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
-		defer func() {
-			stdout.Close()
-			stderr.Close()
-		}()
-		pid, err := e.killCmd(cmd)
-		if err != nil {
-			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
-			if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
-				os.Exit(1)
-			}
-		} else {
-			e.mainDebug("cmd killed, pid: %d", pid)
-		}
-		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
-		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-			return
-		}
-		if err = os.Remove(cmdBinPath); err != nil {
-			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+			_, _ = io.Copy(os.Stdout, stdout)
+			_, _ = io.Copy(os.Stderr, stderr)
+			_, _ = cmd.Process.Wait()
+			// run delay
+			time.Sleep(1 * time.Second)
 		}
 	}
-	e.withLock(func() {
-		close(e.binStopCh)
-		e.binStopCh = make(chan bool)
-		go killFunc(cmd, stdout, stderr)
-	})
-	e.mainDebug("running process pid %v", cmd.Process.Pid)
-	return nil
 }
 
 func (e *Engine) cleanup() {
 	e.mainLog("cleaning...")
 	defer e.mainLog("see you again~")
 
-	e.withLock(func() {
-		close(e.binStopCh)
-		e.binStopCh = make(chan bool)
-	})
 	e.mainDebug("wating for	close watchers..")
-
 	e.withLock(func() {
 		for i := 0; i < int(e.watchers); i++ {
 			e.watcherStopCh <- true
 		}
 	})
 
-	e.mainDebug("waiting for buildRun...")
 	var err error
 	if err = e.watcher.Close(); err != nil {
 		e.mainLog("failed to close watcher, error: %s", err.Error())
 	}
 
-	e.mainDebug("waiting for clean ...")
+	e.mainDebug("waiting for buildRun...")
+	_, cancel := context.WithCancel(e.ctx)
+	cancel()
 
+	e.mainDebug("waiting for clean ...")
 	if e.config.Misc.CleanOnExit {
 		e.mainLog("deleting %s", e.config.tmpPath())
 		if err = os.RemoveAll(e.config.tmpPath()); err != nil {
@@ -518,10 +466,6 @@ func (e *Engine) cleanup() {
 		}
 	}
 
-	e.mainDebug("waiting for exit...")
-
-	<-e.canExit
-	e.running = false
 	e.mainDebug("exited")
 }
 

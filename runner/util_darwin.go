@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -25,8 +26,8 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	return pid, err
 }
 
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
-	c := exec.Command("/bin/sh", "-c", cmd)
+func (e *Engine) startCmd(ctx context.Context, cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+	c := exec.CommandContext(ctx, "/bin/sh", "-c", cmd)
 	// because using pty cannot have same pgid
 	c.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
