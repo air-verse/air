@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -32,6 +33,7 @@ type Engine struct {
 
 	mu            sync.RWMutex
 	watchers      uint
+	round         uint64
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
@@ -497,6 +499,7 @@ func (e *Engine) runBin() error {
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
 
 				wg.Add(1)
+				atomic.AddUint64(&e.round, 1)
 				go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
 
 				_, _ = io.Copy(os.Stdout, stdout)
