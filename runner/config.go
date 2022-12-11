@@ -215,7 +215,7 @@ func defaultConfig() Config {
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        0,
-		Rerun:        true,
+		Rerun:        false,
 		RerunDelay:   500,
 	}
 	if runtime.GOOS == PlatformWindows {
