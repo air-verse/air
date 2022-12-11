@@ -185,8 +185,6 @@ func TestRerunWhenFileChanged(t *testing.T) {
 	t.Logf("engine stopped")
 
 	roundAfterChange := atomic.LoadUint64(&engine.round)
-	fmt.Println(roundBeforeChange)
-	fmt.Println(roundAfterChange)
 	if roundBeforeChange+1 >= roundAfterChange {
 		t.Fatalf("The engine didn't rerun")
 	}
