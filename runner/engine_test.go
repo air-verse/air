@@ -133,6 +133,19 @@ func GetPort() (int, func()) {
 	}
 }
 
+func removePath(tmpDir string) {
+	removed := false
+	for !removed {
+		os.RemoveAll(tmpDir)
+		// check if the dir is removed
+		_, err := os.Stat(tmpDir)
+		if err != nil {
+			removed = true
+		}
+	}
+
+}
+
 func TestRebuild(t *testing.T) {
 	// generate a random port
 	port, f := GetPort()
@@ -140,6 +153,7 @@ func TestRebuild(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer removePath(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -228,6 +242,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer removePath(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -272,6 +287,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer removePath(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -424,6 +440,7 @@ func TestRun(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer removePath(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -563,6 +580,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	f()
 	t.Logf("port: %d", port)
 	tmpDir := initTestEnv(t, port)
+	defer removePath(tmpDir)
 	// change dir to tmpDir
 	err := os.Chdir(tmpDir)
 	if err != nil {
@@ -624,6 +642,7 @@ func TestWriteDefaultConfig(t *testing.T) {
 	t.Logf("port: %d", port)
 
 	tmpDir := initTestEnv(t, port)
+	defer removePath(tmpDir)
 	// change dir to tmpDir
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatal(err)
