@@ -33,21 +33,27 @@ func (e *Engine) mainDebug(format string, v ...interface{}) {
 }
 
 func (e *Engine) buildLog(format string, v ...interface{}) {
-	e.logWithLock(func() {
-		e.logger.build()(format, v...)
-	})
+	if e.debugMode || !e.config.Log.MainOnly {
+		e.logWithLock(func() {
+			e.logger.build()(format, v...)
+		})
+	}
 }
 
 func (e *Engine) runnerLog(format string, v ...interface{}) {
-	e.logWithLock(func() {
-		e.logger.runner()(format, v...)
-	})
+	if e.debugMode || !e.config.Log.MainOnly {
+		e.logWithLock(func() {
+			e.logger.runner()(format, v...)
+		})
+	}
 }
 
 func (e *Engine) watcherLog(format string, v ...interface{}) {
-	e.logWithLock(func() {
-		e.logger.watcher()(format, v...)
-	})
+	if e.debugMode || !e.config.Log.MainOnly {
+		e.logWithLock(func() {
+			e.logger.watcher()(format, v...)
+		})
+	}
 }
 
 func (e *Engine) watcherDebug(format string, v ...interface{}) {

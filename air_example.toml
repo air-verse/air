@@ -44,6 +44,7 @@ args_bin = ["hello", "world"]
 [log]
 # Show log time
 time = false
+main_only = false
 
 [color]
 # Customize each part's color. If no color found, use the raw app log.

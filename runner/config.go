@@ -69,7 +69,8 @@ func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 }
 
 type cfgLog struct {
-	AddTime bool `toml:"time"`
+	AddTime  bool `toml:"time"`
+	MainOnly bool `toml:"main_only"`
 }
 
 type cfgColor struct {
@@ -219,7 +220,8 @@ func defaultConfig() Config {
 		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
 	log := cfgLog{
-		AddTime: false,
+		AddTime:  false,
+		MainOnly: false,
 	}
 	color := cfgColor{
 		Main:    "magenta",
