@@ -44,6 +44,7 @@ args_bin = ["hello", "world"]
 [log]
 # Show log time
 time = false
+# Only show main log (silences watcher, build, runner)
 main_only = false
 
 [color]
