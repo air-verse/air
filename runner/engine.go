@@ -439,8 +439,13 @@ func (e *Engine) runBin() error {
 	if err != nil {
 		return err
 	}
+
 	go func() {
 		_, _ = io.Copy(os.Stdout, stdout)
+		_, _ = cmd.Process.Wait()
+	}()
+
+	go func() {
 		_, _ = io.Copy(os.Stderr, stderr)
 		_, _ = cmd.Process.Wait()
 	}()
