@@ -449,6 +449,7 @@ func (e *Engine) runBin() error {
 			close(e.canExit)
 		default:
 		}
+
 	}()
 
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
