@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -32,6 +33,7 @@ type Engine struct {
 
 	mu            sync.RWMutex
 	watchers      uint
+	round         uint64
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
@@ -431,36 +433,37 @@ func (e *Engine) building() error {
 }
 
 func (e *Engine) runBin() error {
-	var err error
-	e.runnerLog("running...")
-
-	command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-	cmd, stdout, stderr, err := e.startCmd(command)
-	if err != nil {
-		return err
-	}
-
+	// control killFunc should be kill or not
+	killCh := make(chan struct{})
+	wg := sync.WaitGroup{}
 	go func() {
-		_, _ = io.Copy(os.Stdout, stdout)
-		_, _ = cmd.Process.Wait()
-	}()
-
-	go func() {
-		_, _ = io.Copy(os.Stderr, stderr)
-		_, _ = cmd.Process.Wait()
-	}()
-
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
-		defer func() {
-			select {
-			case <-e.exitCh:
-				e.mainDebug("exit in killFunc")
-				close(e.canExit)
-			default:
-			}
-		}()
-		// when invoke close() it will return
+		// listen to binStopCh
+		// cleanup() will close binStopCh when engine stop
+		// start() will close binStopCh when file changed
 		<-e.binStopCh
+		close(killCh)
+
+		select {
+		case <-e.exitCh:
+			wg.Wait()
+			close(e.canExit)
+		default:
+		}
+
+	}()
+
+	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
+		defer wg.Done()
+		select {
+		// the process haven't exited yet, kill it
+		case <-killCh:
+			break
+
+		// the process is exited, return
+		case <-processExit:
+			return
+		}
+
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
@@ -483,12 +486,36 @@ func (e *Engine) runBin() error {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
 	}
-	e.withLock(func() {
-		close(e.binStopCh)
-		e.binStopCh = make(chan bool)
-		go killFunc(cmd, stdout, stderr)
-	})
-	e.mainDebug("running process pid %v", cmd.Process.Pid)
+
+	e.runnerLog("running...")
+	go func() {
+		for {
+			select {
+			case <-killCh:
+				return
+			default:
+				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
+				cmd, stdout, stderr, _ := e.startCmd(command)
+				processExit := make(chan struct{})
+				e.mainDebug("running process pid %v", cmd.Process.Pid)
+
+				wg.Add(1)
+				atomic.AddUint64(&e.round, 1)
+				go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+
+				_, _ = io.Copy(os.Stdout, stdout)
+				_, _ = io.Copy(os.Stderr, stderr)
+				_, _ = cmd.Process.Wait()
+				close(processExit)
+
+				if !e.config.Build.Rerun {
+					return
+				}
+				time.Sleep(e.config.rerunDelay())
+			}
+		}
+	}()
+
 	return nil
 }
 

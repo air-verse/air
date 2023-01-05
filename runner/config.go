@@ -51,6 +51,8 @@ type cfgBuild struct {
 	StopOnError      bool          `toml:"stop_on_error"`
 	SendInterrupt    bool          `toml:"send_interrupt"`
 	KillDelay        time.Duration `toml:"kill_delay"`
+	Rerun            bool          `toml:"rerun"`
+	RerunDelay       int           `toml:"rerun_delay"`
 	regexCompiled    []*regexp.Regexp
 }
 
@@ -213,6 +215,8 @@ func defaultConfig() Config {
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        0,
+		Rerun:        false,
+		RerunDelay:   500,
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
@@ -326,6 +330,10 @@ func (c *Config) buildLogPath() string {
 
 func (c *Config) buildDelay() time.Duration {
 	return time.Duration(c.Build.Delay) * time.Millisecond
+}
+
+func (c *Config) rerunDelay() time.Duration {
+	return time.Duration(c.Build.RerunDelay) * time.Millisecond
 }
 
 func (c *Config) binPath() string {
