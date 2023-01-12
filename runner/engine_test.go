@@ -114,10 +114,7 @@ func TestRegexes(t *testing.T) {
 func TestRerun(t *testing.T) {
 	tmpDir := initWithQuickExitGoCode(t)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	engine.config.Build.ExcludeUnchanged = true
 	engine.config.Build.Rerun = true
@@ -145,10 +142,7 @@ func TestRerun(t *testing.T) {
 func TestRerunWhenFileChanged(t *testing.T) {
 	tmpDir := initWithQuickExitGoCode(t)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	engine.config.Build.ExcludeUnchanged = true
 	engine.config.Build.Rerun = true
@@ -221,10 +215,7 @@ func TestRebuild(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	engine.config.Build.ExcludeUnchanged = true
 	if err != nil {
@@ -309,10 +300,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -353,10 +341,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -387,11 +372,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	// fix https://github.com/cosmtrek/air/issues/294
 	dir := initWithBuildFailedCode(t)
-
-	err := os.Chdir(dir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, dir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -436,10 +417,7 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	// happens after two failed builds
 	dir := initWithBuildFailedCode(t)
 	// change dir to tmpDir
-	err := os.Chdir(dir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, dir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -505,10 +483,7 @@ func TestRun(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -688,10 +663,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("port: %d", port)
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -749,9 +721,7 @@ func TestWriteDefaultConfig(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
+	chdir(t, tmpDir)
 	writeDefaultConfig()
 	// check the file is exist
 	if _, err := os.Stat(dftTOML); err != nil {
@@ -776,9 +746,7 @@ func TestCheckNilSliceShouldBeenOverwrite(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 
 	// change dir to tmpDir
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
+	chdir(t, tmpDir)
 
 	// write easy config file
 
@@ -815,9 +783,7 @@ func TestShouldIncludeGoTestFile(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
+	chdir(t, tmpDir)
 	writeDefaultConfig()
 
 	// write go test file
@@ -887,10 +853,7 @@ func TestCreateNewDir(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -922,9 +885,7 @@ func TestShouldIncludeIncludedFile(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
+	chdir(t, tmpDir)
 
 	config := `
 [build]
