@@ -1,27 +1,27 @@
-# Air [![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+# :cloud: Air - Live reload for Go apps
 
-:cloud: Live reload for Go apps
+[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
 ![air](docs/air.png)
 
-English | [简体中文](README-zh_cn.md) 
+English | [简体中文](README-zh_cn.md)
 
 ## Motivation
 
-When I get started with developing websites in Go and [gin](https://github.com/gin-gonic/gin) framework, it's a pity
-that gin lacks live-reloading function. In fact, I tried [fresh](https://github.com/pilu/fresh) and it seems not much
-flexible, so I intended to rewrite it in a better way. Finally, Air's born.
+When I started developing websites in Go and using [gin](https://github.com/gin-gonic/gin) framework, it was a pity
+that gin lacked a live-reloading function. So I searched around and tried [fresh](https://github.com/pilu/fresh), it seems not much
+flexible, so I intended to rewrite it better. Finally, Air's born.
 In addition, great thanks to [pilu](https://github.com/pilu), no fresh, no air :)
 
-Air is yet another live-reloading command line utility for Go applications in development. Just `air` in your project root directory, leave it alone,
+Air is yet another live-reloading command line utility for developing Go applications. Run `air` in your project root directory, leave it alone,
 and focus on your code.
 
-NOTE: This tool has nothing to do with hot-deploy for production.
+Note: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
 * Colorful log output
-* Customize build or ary command
+* Customize build or any command
 * Support excluding subdirectories
 * Allow watching new directories after Air started
 * Better building process
@@ -30,11 +30,11 @@ NOTE: This tool has nothing to do with hot-deploy for production.
 
 Support air config fields as arguments:
 
-if you just want to config build command and run command, you can use like following command without config file:
+If you want to config build command and run command, you can use like the following command without the config file:
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
 
-use a comma to separate items for arguments that take a list as input:
+Use a comma to separate items for arguments that take a list as input:
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
 
@@ -51,8 +51,6 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 
 air -v
 ```
-
-P.S. Great thanks mattn's [PR](https://github.com/cosmtrek/air/pull/1) for supporting Windows platform.
 
 ### Via `go install`
 
@@ -76,7 +74,10 @@ docker run -it --rm \
     -c <CONF>
 ```
 
-For example, one of my project runs in docker:
+<details>
+  <summary>For example</summary>
+
+One of my project runs in docker:
 
 ```bash
 docker run -it --rm \
@@ -85,6 +86,7 @@ docker run -it --rm \
     -p 9090:9090 \
     cosmtrek/air
 ```
+</details>
 
 ## Usage
 
@@ -109,7 +111,7 @@ You can initialize the `.air.toml` configuration file to the current directory w
 air init
 ```
 
-After this you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
+After this, you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
 
 ```bash
 air
@@ -208,53 +210,52 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 
 Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/cosmtrek/air/issues/305)
 
-
 ## Development
 
 Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
 
 ```bash
-# 1. fork this project
+# Fork this project
 
-# 2. clone it
+# Clone it
 mkdir -p $GOPATH/src/github.com/cosmtrek
 cd $GOPATH/src/github.com/cosmtrek
 git clone git@github.com:<YOUR USERNAME>/air.git
 
-# 3. install dependencies
+# Install dependencies
 cd air
 make ci
 
-# 4. explore it and happy hacking!
+# Explore it and happy hacking!
 make install
 ```
 
-BTW: Pull requests are welcome~
+Pull requests are welcome.
 
-### Release new version
+### Release
 
 ```
-# 1. checkout to master
+# Checkout to master
 git checkout master
 
-# 2. add the version that needs to be released
+# Add the version that needs to be released
 git tag v1.xx.x
 
-# 3. push to remote
+# Push to remote
 git push origin v1.xx.x
 
-the ci will processing and will release new version,wait about 5 min you can fetch the new version.
+# The CI will process and release a new version. Wait about 5 min, and you can fetch the latest version
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=cosmtrek/air&type=Date)](https://star-history.com/#cosmtrek/air&Date)
 
 ## Sponsor
 
 <a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
 
-Huge thanks to the following supporters. I've always been remembering your kindness.
-
-* Peter Aba
-* Apostolis Anastasiou
-* keita koga
+Give huge thanks to lots of supporters. I've always been remembering your kindness.
 
 ## License
 
