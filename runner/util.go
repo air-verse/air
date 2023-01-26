@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-
+	proc "github.com/shirou/gopsutil/v3/process"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -379,4 +379,19 @@ func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath s
 			m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path}
 		}
 	}
+}
+
+//Force kill air process
+func ForceKill(){
+	processList, _ := proc.Processes() //get all running proccesses on a host machine
+    // map through all the processes
+    for _, x := range processList {
+		val, _ := x.Name() //specifically get access to process names
+	
+		if val == "air"{
+			log.Printf("%v is shutting down...\n", val)
+			x.Kill()
+			return 
+		}
+    }
 }
