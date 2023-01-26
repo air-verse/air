@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"runtime"
 	proc "github.com/shirou/gopsutil/v3/process"
 	"github.com/fsnotify/fsnotify"
 )
@@ -485,17 +486,6 @@ func (e *Engine) runBin() error {
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
-		shellList, _ := proc.Processes()
-			for _,y := range shellList{
-				process, _ := y.Name()
-				a := process != "zsh"
-				b := process != "bash"
-				c := process != "sh"
-				if  (a) || (b) || (c) { // if the shells aren't present kill air 
-					ForceKill()
-				}
-
-			}
 	}
 
 	e.runnerLog("running...")
@@ -566,6 +556,19 @@ func (e *Engine) cleanup() {
 	<-e.canExit
 	e.running = false
 	e.mainDebug("exited")
+
+	if runtime.GOOS == "darwin"{
+		//this can be built out similar for other shells like bash of fish
+		shellList, _ := proc.Processes()
+			for _,y := range shellList{
+				process, _ := y.Name() 
+				if  process == "zsh" { //if zsh is running else kill air 
+					fmt.Printf("Air is Active in zsh")
+				}else{
+					ForceKill()
+				}
+			}
+	}
 }
 
 // Stop the air
