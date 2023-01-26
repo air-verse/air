@@ -10,7 +10,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
+	"runtime"
+	proc "github.com/shirou/gopsutil/v3/process"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -555,6 +556,19 @@ func (e *Engine) cleanup() {
 	<-e.canExit
 	e.running = false
 	e.mainDebug("exited")
+
+	if runtime.GOOS == "darwin"{
+		//this can be built out similar for other shells like bash of fish
+		shellList, _ := proc.Processes()
+			for _,y := range shellList{
+				process, _ := y.Name() 
+				if  process == "zsh" { //if zsh is running else kill air 
+					fmt.Printf("Air is Active in zsh")
+				}else{
+					ForceKill()
+				}
+			}
+	}
 }
 
 // Stop the air
