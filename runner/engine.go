@@ -544,8 +544,15 @@ func (e *Engine) runBin() error {
 					go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
 				})
 
-				_, _ = io.Copy(os.Stdout, stdout)
-				_, _ = io.Copy(os.Stderr, stderr)
+				go func() {
+					_, _ = io.Copy(os.Stdout, stdout)
+					_, _ = cmd.Process.Wait()
+				}()
+
+				go func() {
+					_, _ = io.Copy(os.Stderr, stderr)
+					_, _ = cmd.Process.Wait()
+				}()
 				state, _ := cmd.Process.Wait()
 				close(processExit)
 				switch state.ExitCode() {
