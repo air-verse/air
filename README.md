@@ -168,7 +168,7 @@ services:
 `Dockerfile`
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.19-alpine
+FROM golang:1.20-alpine
 
 WORKDIR /app
 
