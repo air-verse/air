@@ -39,8 +39,14 @@ func TestFlag(t *testing.T) {
 		},
 		{
 			name:     "check int",
-			args:     []string{"--build.kill_delay", "1000"},
+			args:     []string{"--build.delay", "1000"},
 			expected: "1000",
+			key:      "build.delay",
+		},
+		{
+			name:     "check time.Duration",
+			args:     []string{"--build.kill_delay", "1s"},
+			expected: "1s",
 			key:      "build.kill_delay",
 		},
 		{
@@ -87,10 +93,18 @@ func TestConfigRuntimeArgs(t *testing.T) {
 		},
 		{
 			name: "check int64",
-			args: []string{"--build.kill_delay", "1000"},
+			args: []string{"--build.delay", "1000"},
+			key:  "build.delay",
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, 1000, conf.Build.Delay)
+			},
+		},
+		{
+			name: "check time.Duration",
+			args: []string{"--build.kill_delay", "500000000"},
 			key:  "build.kill_delay",
 			check: func(t *testing.T, conf *Config) {
-				assert.Equal(t, time.Duration(1000), conf.Build.KillDelay)
+				assert.Equal(t, time.Duration(500*time.Millisecond), conf.Build.KillDelay)
 			},
 		},
 		{
