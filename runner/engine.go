@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/joho/godotenv"
 )
 
 // Engine ...
@@ -495,7 +496,22 @@ func (e *Engine) runBin() error {
 				return
 			default:
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-				cmd, stdout, stderr, _ := e.startCmd(command)
+
+				var environmentVariables []string
+				if e.config.Build.EnvFile != "" {
+					var myEnv map[string]string
+					myEnv, err := godotenv.Read(e.config.Build.EnvFile)
+					if err != nil {
+						e.mainLog("failed to parse environment file, error: %s", err)
+						os.Exit(1)
+					}
+
+					for k, v := range myEnv {
+						environmentVariables = append(environmentVariables, fmt.Sprintf("%s=%s", k, v))
+					}
+				}
+
+				cmd, stdout, stderr, _ := e.startCmd(command, environmentVariables...)
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
 

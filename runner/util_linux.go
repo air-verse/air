@@ -28,8 +28,10 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	return
 }
 
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+func (e *Engine) startCmd(cmd string, envVariables ...string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
+	c.Env = append(c.Env, envVariables...)
+
 	f, err := pty.Start(c)
 	return c, f, f, err
 }
