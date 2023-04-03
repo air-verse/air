@@ -44,6 +44,8 @@ rerun = false
 rerun_delay = 500
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
 args_bin = ["hello", "world"]
+# Load environment variables from a file
+env_file = ".env"
 
 [log]
 # Show log time
