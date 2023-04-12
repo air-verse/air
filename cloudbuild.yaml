@@ -1,0 +1,18 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args: [
+        '-c',
+        'DOCKER_BUILDKIT=1 docker build -t gcr.io/$PROJECT_ID/$REPO_NAME:$TAG_NAME --build-arg TOKEN=$$TOKEN . --file=./Dockerfile' ]
+    secretEnv:
+      - 'TOKEN'
+images:
+  - 'gcr.io/$PROJECT_ID/$REPO_NAME:$TAG_NAME'
+timeout: 6000s
+options:
+  env:
+    - 'DOCKER_CLI_EXPERIMENTAL=enabled'
+availableSecrets:
+  secretManager:
+    - versionName: projects/searchspring-devops/secrets/machine-user-github-token/versions/latest
+      env: 'TOKEN'
