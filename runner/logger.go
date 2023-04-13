@@ -53,7 +53,7 @@ func newLogFunc(colorname string, cfg cfgLog) logFunc {
 	return func(msg string, v ...interface{}) {
 		// There are some escape sequences to format color in terminal, so cannot
 		// just trim new line from right.
-		msg = strings.Replace(msg, "\n", "", -1)
+		msg = strings.ReplaceAll(msg, "\n", "")
 		msg = strings.TrimSpace(msg)
 		if len(msg) == 0 {
 			return
