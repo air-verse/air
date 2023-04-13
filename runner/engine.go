@@ -345,7 +345,6 @@ func (e *Engine) start() {
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
-			break
 		}
 
 		// already build and run now
@@ -449,7 +448,6 @@ func (e *Engine) runBin() error {
 			close(e.canExit)
 		default:
 		}
-
 	}()
 
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {

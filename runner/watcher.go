@@ -12,9 +12,9 @@ func newWatcher(cfg *Config) (filenotify.FileWatcher, error) {
 	}
 
 	// Get the poll interval from the config.
-	interval := cfg.Build.Delay
+	interval := cfg.Build.PollInterval
 
-	// Configure a minimum poll interval of 500ms.
+	// Make sure the interval is at least 500ms.
 	if interval < 500 {
 		interval = 500
 	}
