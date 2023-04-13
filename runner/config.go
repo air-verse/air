@@ -48,6 +48,7 @@ type cfgBuild struct {
 	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
 	FollowSymlink    bool          `toml:"follow_symlink"`
 	Poll             bool          `toml:"poll"`
+	PollInterval     int           `toml:"poll_interval"`
 	Delay            int           `toml:"delay"`
 	StopOnError      bool          `toml:"stop_on_error"`
 	SendInterrupt    bool          `toml:"send_interrupt"`
