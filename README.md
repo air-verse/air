@@ -54,7 +54,7 @@ air -v
 
 ### Via `go install`
 
-With go 1.16 or higher:
+With go 1.18 or higher:
 
 ```bash
 go install github.com/cosmtrek/air@latest
