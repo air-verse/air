@@ -65,3 +65,9 @@ runner = "green"
 [misc]
 # Delete tmp directory on exit
 clean_on_exit = true
+
+[screen]
+# Clear screen while rebuild
+clear_on_rebuild = false
+# Keep screen scroll while clear
+keep_scroll = true

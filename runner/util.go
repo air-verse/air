@@ -40,6 +40,14 @@ func (e *Engine) buildLog(format string, v ...interface{}) {
 	}
 }
 
+func (e *Engine) checkerLog(format string, v ...interface{}) {
+	if e.debugMode || !e.config.Log.MainOnly {
+		e.logWithLock(func() {
+			e.logger.checker()(format, v...)
+		})
+	}
+}
+
 func (e *Engine) runnerLog(format string, v ...interface{}) {
 	if e.debugMode || !e.config.Log.MainOnly {
 		e.logWithLock(func() {
