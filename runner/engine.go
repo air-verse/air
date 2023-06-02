@@ -1,8 +1,10 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -356,6 +358,15 @@ func (e *Engine) start() {
 			close(e.binStopCh)
 			e.binStopCh = make(chan bool)
 		})
+
+		// checksum with existed bin file and run it
+		if err := e.sumExistAndRun(); err != nil {
+			e.mainDebug("file checksum failed: %s", err.Error())
+		} else {
+			e.checkerLog("find existed bin and running it")
+			continue
+		}
+
 		go e.buildRun()
 	}
 }
@@ -391,6 +402,11 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
+
+	if err = e.sumBin(); err != nil {
+		e.mainDebug("failed to get sum, error: %s", err.Error())
+	}
+
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
 	}
@@ -423,6 +439,42 @@ func (e *Engine) building() error {
 	// wait for building
 	err = cmd.Wait()
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *Engine) sumExistAndRun() error {
+	binName := strings.Split(e.config.Build.Bin, " ")
+	checksum, err := fileChecksum(binName[len(binName)-1])
+	if err != nil {
+		return err
+	}
+	// compare file checksum
+	shaFile := binName[len(binName)-1] + ".sha"
+	shaText, err := os.ReadFile(shaFile)
+	if err != nil {
+		return err
+	}
+	if checksum != string(shaText) {
+		return errors.New("file checksum mismatching")
+	}
+	// run existed bin file
+	if err = e.runBin(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *Engine) sumBin() error {
+	binName := strings.Split(e.config.Build.Bin, " ")
+	checksum, err := fileChecksum(binName[len(binName)-1])
+	if err != nil {
+		return err
+	}
+	// save file checksum
+	shaFile := binName[len(binName)-1] + ".sha"
+	if err = os.WriteFile(shaFile, []byte(checksum), fs.ModePerm); err != nil {
 		return err
 	}
 	return nil

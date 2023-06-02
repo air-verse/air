@@ -87,6 +87,10 @@ func (l *logger) build() logFunc {
 	return l.getLogger("build")
 }
 
+func (l *logger) checker() logFunc {
+	return l.getLogger("checker")
+}
+
 func (l *logger) runner() logFunc {
 	return l.getLogger("runner")
 }
