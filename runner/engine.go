@@ -239,9 +239,6 @@ func (e *Engine) watchPath(path string) error {
 				return
 			case ev := <-e.watcher.Events():
 				e.mainDebug("event: %+v", ev)
-				if !validEvent(ev) {
-					break
-				}
 				if isDir(ev.Name) {
 					e.watchNewDir(ev.Name, removeEvent(ev))
 					break
