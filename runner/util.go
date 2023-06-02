@@ -215,6 +215,12 @@ func isDir(path string) bool {
 	return i.IsDir()
 }
 
+func validEvent(ev fsnotify.Event) bool {
+	return ev.Op&fsnotify.Create == fsnotify.Create ||
+		ev.Op&fsnotify.Write == fsnotify.Write ||
+		ev.Op&fsnotify.Remove == fsnotify.Remove
+}
+
 func removeEvent(ev fsnotify.Event) bool {
 	return ev.Op&fsnotify.Remove == fsnotify.Remove
 }
