@@ -2,8 +2,6 @@ name: smoke_test
 
 on:
   push:
-  pull_request:
-    branches: [ master ]
 
 jobs:
   smoke_test_ubuntu:

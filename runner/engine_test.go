@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"os/exec"
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -110,6 +112,79 @@ func TestRegexes(t *testing.T) {
 	}
 }
 
+func TestRerun(t *testing.T) {
+	tmpDir := initWithQuickExitGoCode(t)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
+	engine, err := NewEngine("", true)
+	engine.config.Build.ExcludeUnchanged = true
+	engine.config.Build.Rerun = true
+	engine.config.Build.RerunDelay = 100
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	go func() {
+		engine.Run()
+		t.Logf("engine run")
+	}()
+
+	time.Sleep(time.Second * 1)
+
+	// stop engine
+	engine.Stop()
+	time.Sleep(time.Second * 1)
+	t.Logf("engine stopped")
+
+	if atomic.LoadUint64(&engine.round) <= 1 {
+		t.Fatalf("The engine did't rerun")
+	}
+}
+
+func TestRerunWhenFileChanged(t *testing.T) {
+	tmpDir := initWithQuickExitGoCode(t)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
+	engine, err := NewEngine("", true)
+	engine.config.Build.ExcludeUnchanged = true
+	engine.config.Build.Rerun = true
+	engine.config.Build.RerunDelay = 100
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	go func() {
+		engine.Run()
+		t.Logf("engine run")
+	}()
+	time.Sleep(time.Second * 1)
+
+	roundBeforeChange := atomic.LoadUint64(&engine.round)
+
+	t.Logf("start change main.go")
+	// change file of main.go
+	// just append a new empty line to main.go
+	time.Sleep(time.Second * 2)
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	defer file.Close()
+	_, err = file.WriteString("\n")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	time.Sleep(time.Second * 1)
+	// stop engine
+	engine.Stop()
+	time.Sleep(time.Second * 1)
+	t.Logf("engine stopped")
+
+	roundAfterChange := atomic.LoadUint64(&engine.round)
+	if roundBeforeChange+1 >= roundAfterChange {
+		t.Fatalf("The engine didn't rerun")
+	}
+}
+
 func TestRunBin(t *testing.T) {
 	engine, err := NewEngine("", true)
 	if err != nil {
@@ -141,10 +216,7 @@ func TestRebuild(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	engine.config.Build.ExcludeUnchanged = true
 	if err != nil {
@@ -166,7 +238,7 @@ func TestRebuild(t *testing.T) {
 	// change file of main.go
 	// just append a new empty line to main.go
 	time.Sleep(time.Second * 2)
-	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -229,10 +301,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -273,10 +342,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -307,11 +373,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	// fix https://github.com/cosmtrek/air/issues/294
 	dir := initWithBuildFailedCode(t)
-
-	err := os.Chdir(dir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, dir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -349,7 +411,6 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	assert.False(t, engine.running)
-
 }
 
 func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
@@ -357,10 +418,7 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	// happens after two failed builds
 	dir := initWithBuildFailedCode(t)
 	// change dir to tmpDir
-	err := os.Chdir(dir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, dir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -382,7 +440,7 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	time.Sleep(time.Second * 3)
 
 	// edit *.go file to create build error again
-	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -426,10 +484,7 @@ func TestRun(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -454,10 +509,7 @@ func checkPortConnectionRefused(port int) bool {
 			_ = conn.Close()
 		}
 	}()
-	if errors.Is(err, syscall.ECONNREFUSED) {
-		return true
-	}
-	return false
+	return errors.Is(err, syscall.ECONNREFUSED)
 }
 
 func checkPortHaveBeenUsed(port int) bool {
@@ -491,6 +543,53 @@ func initWithBuildFailedCode(t *testing.T) string {
 	return tempDir
 }
 
+func initWithQuickExitGoCode(t *testing.T) string {
+	tempDir := t.TempDir()
+	t.Logf("tempDir: %s", tempDir)
+	// generate golang code to tempdir
+	err := generateQuickExitGoCode(tempDir)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	return tempDir
+}
+
+func generateQuickExitGoCode(dir string) error {
+	code := `package main
+// You can edit this code!
+// Click here and start typing.
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello, 世界")
+}
+`
+	file, err := os.Create(dir + "/main.go")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(code)
+	if err != nil {
+		return err
+	}
+
+	// generate go mod file
+	mod := `module air.sample.com
+
+go 1.17
+`
+	file, err = os.Create(dir + "/go.mod")
+	if err != nil {
+		return err
+	}
+	_, err = file.WriteString(mod)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func generateBuildErrorGoCode(dir string) error {
 	code := `package main
 // You can edit this code!
@@ -506,6 +605,9 @@ func main() {
 		return err
 	}
 	_, err = file.WriteString(code)
+	if err != nil {
+		return err
+	}
 
 	// generate go mod file
 	mod := `module air.sample.com
@@ -525,7 +627,6 @@ go 1.17
 
 // generateGoCode generates golang code to tempdir
 func generateGoCode(dir string, port int) error {
-
 	code := fmt.Sprintf(`package main
 
 import (
@@ -542,6 +643,9 @@ func main() {
 		return err
 	}
 	_, err = file.WriteString(code)
+	if err != nil {
+		return err
+	}
 
 	// generate go mod file
 	mod := `module air.sample.com
@@ -566,17 +670,16 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("port: %d", port)
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	engine.config.Build.Cmd = "go build -gcflags='all=-N -l' -o ./tmp/main ."
 	engine.config.Build.Bin = ""
-	engine.config.Build.FullBin = "dlv exec --accept-multiclient --log --headless --continue --listen :2345 --api-version 2 ./tmp/main"
+	dlvPort, f := GetPort()
+	f()
+	engine.config.Build.FullBin = fmt.Sprintf("dlv exec --accept-multiclient --log --headless --continue --listen :%d --api-version 2 ./tmp/main", dlvPort)
 	_ = engine.config.preprocess()
 	go func() {
 		engine.Run()
@@ -590,14 +693,14 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	// just append a new empty line to main.go
 	time.Sleep(time.Second * 2)
 	go func() {
-		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0644)
+		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
+			log.Fatalf("Should not be fail: %s.", err)
 		}
 		defer file.Close()
 		_, err = file.WriteString("\n")
 		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
+			log.Fatalf("Should not be fail: %s.", err)
 		}
 	}()
 	err = waitingPortConnectionRefused(t, port, time.Second*10)
@@ -625,9 +728,7 @@ func TestWriteDefaultConfig(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
+	chdir(t, tmpDir)
 	writeDefaultConfig()
 	// check the file is exist
 	if _, err := os.Stat(dftTOML); err != nil {
@@ -652,9 +753,7 @@ func TestCheckNilSliceShouldBeenOverwrite(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 
 	// change dir to tmpDir
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
+	chdir(t, tmpDir)
 
 	// write easy config file
 
@@ -665,9 +764,10 @@ bin = "tmp/main"
 exclude_regex = []
 exclude_dir = ["test"]
 exclude_file = ["main.go"]
+include_file = ["test/not_a_test.go"]
 
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	engine, err := NewEngine(".air.toml", true)
@@ -679,8 +779,8 @@ exclude_file = ["main.go"]
 	assert.Equal(t, []string{"test"}, engine.config.Build.ExcludeDir)
 	// add new config
 	assert.Equal(t, []string{"main.go"}, engine.config.Build.ExcludeFile)
+	assert.Equal(t, []string{"test/not_a_test.go"}, engine.config.Build.IncludeFile)
 	assert.Equal(t, "go build .", engine.config.Build.Cmd)
-
 }
 
 func TestShouldIncludeGoTestFile(t *testing.T) {
@@ -690,9 +790,7 @@ func TestShouldIncludeGoTestFile(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
-	}
+	chdir(t, tmpDir)
 	writeDefaultConfig()
 
 	// write go test file
@@ -726,7 +824,7 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 	engine, err := NewEngine(".air.toml", false)
 	if err != nil {
 		t.Fatal(err)
@@ -742,18 +840,14 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		file, err := os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
-		}
+		file, err = os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0o644)
+		assert.NoError(t, err)
 		defer file.Close()
 		_, err = file.WriteString("\n")
-		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
-		}
+		assert.NoError(t, err)
 	}()
 	// should Have rebuild
-	if err = waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
+	if err = waitingPortReady(t, port, time.Second*10); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -766,10 +860,7 @@ func TestCreateNewDir(t *testing.T) {
 
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
-	err := os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -782,7 +873,7 @@ func TestCreateNewDir(t *testing.T) {
 	assert.True(t, checkPortHaveBeenUsed(port))
 
 	// create a new dir make dir
-	if err = os.Mkdir(tmpDir+"/dir", 0644); err != nil {
+	if err = os.Mkdir(tmpDir+"/dir", 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -792,5 +883,63 @@ func TestCreateNewDir(t *testing.T) {
 	}
 	engine.Stop()
 	time.Sleep(2 * time.Second)
+}
 
+func TestShouldIncludeIncludedFile(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+
+	chdir(t, tmpDir)
+
+	config := `
+[build]
+cmd = "true" # do nothing
+full_bin = "sh main.sh"
+include_ext = ["sh"]
+include_dir = ["nonexist"] # prevent default "." watch from taking effect
+include_file = ["main.sh"]
+`
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf original > output"), 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine, err := NewEngine(dftTOML, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		engine.Run()
+	}()
+
+	time.Sleep(time.Second * 1)
+
+	bytes, err := os.ReadFile("output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []byte("original"), bytes)
+
+	t.Logf("start change main.sh")
+	go func() {
+		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
+		if err != nil {
+			log.Fatalf("Error updating file: %s.", err)
+		}
+	}()
+
+	time.Sleep(time.Second * 3)
+
+	bytes, err = os.ReadFile("output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []byte("modified"), bytes)
 }

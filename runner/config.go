@@ -44,13 +44,18 @@ type cfgBuild struct {
 	ExcludeDir       []string      `toml:"exclude_dir"`
 	IncludeDir       []string      `toml:"include_dir"`
 	ExcludeFile      []string      `toml:"exclude_file"`
+	IncludeFile      []string      `toml:"include_file"`
 	ExcludeRegex     []string      `toml:"exclude_regex"`
 	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
 	FollowSymlink    bool          `toml:"follow_symlink"`
+	Poll             bool          `toml:"poll"`
+	PollInterval     int           `toml:"poll_interval"`
 	Delay            int           `toml:"delay"`
 	StopOnError      bool          `toml:"stop_on_error"`
 	SendInterrupt    bool          `toml:"send_interrupt"`
 	KillDelay        time.Duration `toml:"kill_delay"`
+	Rerun            bool          `toml:"rerun"`
+	RerunDelay       int           `toml:"rerun_delay"`
 	regexCompiled    []*regexp.Regexp
 }
 
@@ -74,7 +79,8 @@ func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 }
 
 type cfgLog struct {
-	AddTime bool `toml:"time"`
+	AddTime  bool `toml:"time"`
+	MainOnly bool `toml:"main_only"`
 }
 
 type cfgColor struct {
@@ -91,10 +97,10 @@ type cfgMisc struct {
 
 type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
+	KeepScroll     bool `toml:"keep_scroll"`
 }
 
-type sliceTransformer struct {
-}
+type sliceTransformer struct{}
 
 func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
 	if typ.Kind() == reflect.Slice {
@@ -156,7 +162,7 @@ func writeDefaultConfig() {
 
 	file, err := os.Create(dftTOML)
 	if err != nil {
-		log.Fatalf("failed to create a new confiuration: %+v", err)
+		log.Fatalf("failed to create a new configuration: %+v", err)
 	}
 	defer file.Close()
 
@@ -213,18 +219,21 @@ func defaultConfig() Config {
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
 		ExcludeFile:  []string{},
+		IncludeFile:  []string{},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
-		Delay:        1000,
-		StopOnError:  true,
+		Delay:        0,
+		Rerun:        false,
+		RerunDelay:   500,
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
 		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
 	log := cfgLog{
-		AddTime: false,
+		AddTime:  false,
+		MainOnly: false,
 	}
 	color := cfgColor{
 		Main:    "magenta",
@@ -243,6 +252,10 @@ func defaultConfig() Config {
 		Color:       color,
 		Log:         log,
 		Misc:        misc,
+		Screen: cfgScreen{
+			ClearOnRebuild: false,
+			KeepScroll:     true,
+		},
 	}
 }
 
@@ -296,6 +309,10 @@ func (c *Config) preprocess() error {
 
 	adaptToVariousPlatforms(c)
 
+	// Join runtime arguments with the configuration arguments
+	runtimeArgs := flag.Args()
+	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
+
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
@@ -333,6 +350,10 @@ func (c *Config) buildLogPath() string {
 
 func (c *Config) buildDelay() time.Duration {
 	return time.Duration(c.Build.Delay) * time.Millisecond
+}
+
+func (c *Config) rerunDelay() time.Duration {
+	return time.Duration(c.Build.RerunDelay) * time.Millisecond
 }
 
 func (c *Config) binPath() string {

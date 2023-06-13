@@ -33,21 +33,27 @@ func (e *Engine) mainDebug(format string, v ...interface{}) {
 }
 
 func (e *Engine) buildLog(format string, v ...interface{}) {
-	e.logWithLock(func() {
-		e.logger.build()(format, v...)
-	})
+	if e.debugMode || !e.config.Log.MainOnly {
+		e.logWithLock(func() {
+			e.logger.build()(format, v...)
+		})
+	}
 }
 
 func (e *Engine) runnerLog(format string, v ...interface{}) {
-	e.logWithLock(func() {
-		e.logger.runner()(format, v...)
-	})
+	if e.debugMode || !e.config.Log.MainOnly {
+		e.logWithLock(func() {
+			e.logger.runner()(format, v...)
+		})
+	}
 }
 
 func (e *Engine) watcherLog(format string, v ...interface{}) {
-	e.logWithLock(func() {
-		e.logger.watcher()(format, v...)
-	})
+	if e.debugMode || !e.config.Log.MainOnly {
+		e.logWithLock(func() {
+			e.logger.watcher()(format, v...)
+		})
+	}
 }
 
 func (e *Engine) watcherDebug(format string, v ...interface{}) {
@@ -105,6 +111,23 @@ func (e *Engine) checkIncludeDir(path string) (bool, bool) {
 		}
 	}
 	return false, walkDir
+}
+
+func (e *Engine) checkIncludeFile(path string) bool {
+	cleanName := cleanPath(e.config.rel(path))
+	iFile := e.config.Build.IncludeFile
+	if len(iFile) == 0 { // ignore empty
+		return false
+	}
+	if cleanName == "." {
+		return false
+	}
+	for _, d := range iFile {
+		if d == cleanName {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) isIncludeExt(path string) bool {
@@ -261,7 +284,7 @@ type checksumMap struct {
 	m map[string]string
 }
 
-// update updates the filename with the given checksum if different.
+// updateFileChecksum updates the filename with the given checksum if different.
 func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool) {
 	a.l.Lock()
 	defer a.l.Unlock()

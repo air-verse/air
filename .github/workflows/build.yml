@@ -2,8 +2,6 @@ name: build
 
 on:
   push:
-  pull_request:
-    branches: [ master ]
 
 jobs:
   build:
@@ -15,11 +13,11 @@ jobs:
     steps:
       - name: check out code
         uses: actions/checkout@v2
-      - name: setup Go 1.17
+      - name: setup Go 1.20
         id: go
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.17
+          go-version: ^1.20
       - name: build
         run: make build
       - name: install dependency

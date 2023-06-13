@@ -8,16 +8,17 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/gohugoio/hugo/watcher/filenotify"
 )
 
 // Engine ...
 type Engine struct {
 	config    *Config
 	logger    *logger
-	watcher   *fsnotify.Watcher
+	watcher   filenotify.FileWatcher
 	debugMode bool
 	runArgs   []string
 	running   bool
@@ -32,6 +33,7 @@ type Engine struct {
 
 	mu            sync.RWMutex
 	watchers      uint
+	round         uint64
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
@@ -40,7 +42,7 @@ type Engine struct {
 // NewEngineWithConfig ...
 func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	logger := newLogger(cfg)
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newWatcher(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -111,6 +113,9 @@ func (e *Engine) watching(root string) error {
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		// NOTE: path is absolute
 		if info != nil && !info.IsDir() {
+			if e.checkIncludeFile(path) {
+				return e.watchPath(path)
+			}
 			return nil
 		}
 		// exclude tmp dir
@@ -138,7 +143,7 @@ func (e *Engine) watching(root string) error {
 			return filepath.SkipDir
 		}
 		if isIn {
-			return e.watchDir(path)
+			return e.watchPath(path)
 		}
 		return nil
 	})
@@ -174,7 +179,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 					return err
 				}
 				if linkInfo.IsDir() {
-					err = e.watchDir(link)
+					err = e.watchPath(link)
 					if err != nil {
 						return err
 					}
@@ -204,7 +209,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 	})
 }
 
-func (e *Engine) watchDir(path string) error {
+func (e *Engine) watchPath(path string) error {
 	if err := e.watcher.Add(path); err != nil {
 		e.watcherLog("failed to watch %s, error: %s", path, err.Error())
 		return err
@@ -232,7 +237,7 @@ func (e *Engine) watchDir(path string) error {
 			select {
 			case <-e.watcherStopCh:
 				return
-			case ev := <-e.watcher.Events:
+			case ev := <-e.watcher.Events():
 				e.mainDebug("event: %+v", ev)
 				if !validEvent(ev) {
 					break
@@ -253,7 +258,7 @@ func (e *Engine) watchDir(path string) error {
 				}
 				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
 				e.eventCh <- ev.Name
-			case err := <-e.watcher.Errors:
+			case err := <-e.watcher.Errors():
 				e.watcherLog("error: %s", err.Error())
 			}
 		}
@@ -331,9 +336,14 @@ func (e *Engine) start() {
 			fileEvents = e.flushEvents()
 			fileEvents = append(fileEvents, filename)
 
-			// clean on rebuild https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
 			if e.config.Screen.ClearOnRebuild {
-				fmt.Println("\033[2J")
+				if e.config.Screen.KeepScroll {
+					// https://stackoverflow.com/questions/22891644/how-can-i-clear-the-terminal-screen-in-go
+					fmt.Print("\033[2J")
+				} else {
+					// https://stackoverflow.com/questions/5367068/clear-a-terminal-screen-for-real/5367075#5367075
+					fmt.Print("\033c")
+				}
 			}
 
 			for _, fileEvent := range fileEvents {
@@ -341,7 +351,6 @@ func (e *Engine) start() {
 			}
 		case <-firstRunCh:
 			// go down
-			break
 		}
 
 		// already build and run now
@@ -470,31 +479,36 @@ func (e *Engine) execCommand(command, message string) error {
 }
 
 func (e *Engine) runBin() error {
-	var err error
-	e.runnerLog("running...")
-
-	command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-	cmd, stdout, stderr, err := e.startCmd(command)
-	if err != nil {
-		return err
-	}
+	// control killFunc should be kill or not
+	killCh := make(chan struct{})
+	wg := sync.WaitGroup{}
 	go func() {
-		_, _ = io.Copy(os.Stdout, stdout)
-		_, _ = io.Copy(os.Stderr, stderr)
-		_, _ = cmd.Process.Wait()
+		// listen to binStopCh
+		// cleanup() will close binStopCh when engine stop
+		// start() will close binStopCh when file changed
+		<-e.binStopCh
+		close(killCh)
+
+		select {
+		case <-e.exitCh:
+			wg.Wait()
+			close(e.canExit)
+		default:
+		}
 	}()
 
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser) {
-		defer func() {
-			select {
-			case <-e.exitCh:
-				e.mainDebug("exit in killFunc")
-				close(e.canExit)
-			default:
-			}
-		}()
-		// when invoke close() it will return
-		<-e.binStopCh
+	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
+		defer wg.Done()
+		select {
+		// the process haven't exited yet, kill it
+		case <-killCh:
+			break
+
+		// the process is exited, return
+		case <-processExit:
+			return
+		}
+
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
 			stdout.Close()
@@ -517,12 +531,36 @@ func (e *Engine) runBin() error {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
 	}
-	e.withLock(func() {
-		close(e.binStopCh)
-		e.binStopCh = make(chan bool)
-		go killFunc(cmd, stdout, stderr)
-	})
-	e.mainDebug("running process pid %v", cmd.Process.Pid)
+
+	e.runnerLog("running...")
+	go func() {
+		for {
+			select {
+			case <-killCh:
+				return
+			default:
+				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
+				cmd, stdout, stderr, _ := e.startCmd(command)
+				processExit := make(chan struct{})
+				e.mainDebug("running process pid %v", cmd.Process.Pid)
+
+				wg.Add(1)
+				atomic.AddUint64(&e.round, 1)
+				go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+
+				_, _ = io.Copy(os.Stdout, stdout)
+				_, _ = io.Copy(os.Stderr, stderr)
+				_, _ = cmd.Process.Wait()
+				close(processExit)
+
+				if !e.config.Build.Rerun {
+					return
+				}
+				time.Sleep(e.config.rerunDelay())
+			}
+		}
+	}()
+
 	return nil
 }
 

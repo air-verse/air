@@ -18,6 +18,8 @@ include_ext = ["go", "tpl", "tmpl", "html"]
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
 # Watch these directories if you specified.
 include_dir = []
+# Watch these files.
+include_file = []
 # Exclude files.
 exclude_file = []
 # Exclude specific regular expressions.
@@ -28,14 +30,22 @@ exclude_unchanged = true
 follow_symlink = true
 # This log file places in your tmp_dir.
 log = "air.log"
+# Poll files for changes instead of using fsnotify.
+poll = false
+# Poll interval (defaults to the minimum interval of 500ms).
+poll_interval = 500 # ms
 # It's not necessary to trigger build each time file changes if it's too frequent.
-delay = 1000 # ms
+delay = 0 # ms
 # Stop running old binary when build errors occur.
 stop_on_error = true
 # Send Interrupt signal before killing process (windows does not support this feature)
 send_interrupt = false
 # Delay after sending Interrupt signal
 kill_delay = 500 # ms
+# Rerun binary or not
+rerun = false
+# Delay after each executions
+rerun_delay = 500
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
 args_bin = ["hello", "world"]
 #execute commands before building the app (only if extension changes)
@@ -49,6 +59,8 @@ args_bin = ["hello", "world"]
 [log]
 # Show log time
 time = false
+# Only show main log (silences watcher, build, runner)
+main_only = false
 
 [color]
 # Customize each part's color. If no color found, use the raw app log.
@@ -60,3 +72,7 @@ runner = "green"
 [misc]
 # Delete tmp directory on exit
 clean_on_exit = true
+
+[screen]
+clear_on_rebuild = true
+keep_scroll = true
