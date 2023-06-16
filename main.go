@@ -49,7 +49,7 @@ func main() {
  / /\  | | | |_) 
 /_/--\ |_| |_| \_ %s, built with Go %s
 
-`, airVersion, goVersion)
+`, AirVersion, GoVersion)
 
 	if showVersion {
 		return
