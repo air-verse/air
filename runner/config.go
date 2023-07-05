@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"github.com/pelletier/go-toml"
 )
 
@@ -127,7 +127,7 @@ func InitConfig(path string) (cfg *Config, err error) {
 	err = mergo.Merge(ret, cfg, func(config *mergo.Config) {
 		// mergo.Merge will overwrite the fields if it is Empty
 		// So need use this to avoid that none-zero slice will be overwritten.
-		// https://github.com/imdario/mergo#transformers
+		// https://dario.cat/mergo#transformers
 		config.Transformers = sliceTransformer{}
 		config.Overwrite = true
 	})
