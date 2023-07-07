@@ -52,6 +52,16 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 air -v
 ```
 
+### Via [goblin.run](https://goblin.run)
+
+```sh
+# binary will be /usr/local/bin/air
+curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
+
+# to put to a custom path
+curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
+```
+
 ### Via `go install`
 
 With go 1.18 or higher:
