@@ -1,6 +1,4 @@
-FROM golang:1.20 AS builder
-
-MAINTAINER Rick Yu <cosmtrek@gmail.com>
+FROM golang:1.21 AS builder
 
 ENV GOPATH /go
 ENV GO111MODULE on
@@ -12,7 +10,7 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build make ci && make install
 
-FROM golang:1.20
+FROM golang:1.21
 
 COPY --from=builder /go/bin/air  /go/bin/air
 
