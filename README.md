@@ -1,6 +1,6 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=cosmtrek/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
 ![air](docs/air.png)
 
@@ -20,11 +20,11 @@ Note: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
-* Colorful log output
-* Customize build or any command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+-   Colorful log output
+-   Customize build or any command
+-   Support excluding subdirectories
+-   Allow watching new directories after Air started
+-   Better building process
 
 ### ✨ beta feature
 
@@ -86,6 +86,7 @@ docker run -it --rm \
     -p 9090:9090 \
     cosmtrek/air
 ```
+
 </details>
 
 ## Usage
@@ -166,9 +167,10 @@ services:
 ## Installation and Usage for Docker users who don't want to use air image
 
 `Dockerfile`
+
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.20-alpine
+FROM golang:1.21-alpine
 
 WORKDIR /app
 
@@ -181,19 +183,20 @@ CMD ["air", "-c", ".air.toml"]
 ```
 
 `docker-compose.yaml`
+
 ```yaml
-version: "3.8"
+version: '3.8'
 services:
-  web:
-    build:
-      context: .
-      # Correct the path to your Dockerfile
-      dockerfile: Dockerfile
-    ports:
-      - 8080:3000
-    # Important to bind/mount your codebase dir to /app dir for live reload
-    volumes:
-      - ./:/app
+    web:
+        build:
+            context: .
+            # Correct the path to your Dockerfile
+            dockerfile: Dockerfile
+        ports:
+            - 8080:3000
+        # Important to bind/mount your codebase dir to /app dir for live reload
+        volumes:
+            - ./:/app
 ```
 
 ## Q&A
