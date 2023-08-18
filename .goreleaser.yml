@@ -9,6 +9,8 @@ builds:
     ldflags:
       - -s -w -X "main.airVersion={{.Version}}"
       - -s -w -X "main.goVersion={{.Env.GOVERSION}}"
+    env:
+      - CGO_ENABLED=0
 archives:
   - id: tar.gz
     format: tar.gz
