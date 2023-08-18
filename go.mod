@@ -1,6 +1,6 @@
 module github.com/cosmtrek/air
 
-go 1.20
+go 1.21
 
 require (
 	github.com/creack/pty v1.1.18
