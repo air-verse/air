@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/imdario/mergo"
+	"dario.cat/mergo"
 	"github.com/pelletier/go-toml"
 )
 
@@ -47,6 +47,8 @@ type cfgBuild struct {
 	ExcludeRegex     []string      `toml:"exclude_regex"`
 	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
 	FollowSymlink    bool          `toml:"follow_symlink"`
+	Poll             bool          `toml:"poll"`
+	PollInterval     int           `toml:"poll_interval"`
 	Delay            int           `toml:"delay"`
 	StopOnError      bool          `toml:"stop_on_error"`
 	SendInterrupt    bool          `toml:"send_interrupt"`
@@ -125,7 +127,7 @@ func InitConfig(path string) (cfg *Config, err error) {
 	err = mergo.Merge(ret, cfg, func(config *mergo.Config) {
 		// mergo.Merge will overwrite the fields if it is Empty
 		// So need use this to avoid that none-zero slice will be overwritten.
-		// https://github.com/imdario/mergo#transformers
+		// https://dario.cat/mergo#transformers
 		config.Transformers = sliceTransformer{}
 		config.Overwrite = true
 	})

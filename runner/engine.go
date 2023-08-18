@@ -11,14 +11,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/gohugoio/hugo/watcher/filenotify"
 )
 
 // Engine ...
 type Engine struct {
 	config    *Config
 	logger    *logger
-	watcher   *fsnotify.Watcher
+	watcher   filenotify.FileWatcher
 	debugMode bool
 	runArgs   []string
 	running   bool
@@ -42,7 +42,7 @@ type Engine struct {
 // NewEngineWithConfig ...
 func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	logger := newLogger(cfg)
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newWatcher(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +237,7 @@ func (e *Engine) watchPath(path string) error {
 			select {
 			case <-e.watcherStopCh:
 				return
-			case ev := <-e.watcher.Events:
+			case ev := <-e.watcher.Events():
 				e.mainDebug("event: %+v", ev)
 				if !validEvent(ev) {
 					break
@@ -258,7 +258,7 @@ func (e *Engine) watchPath(path string) error {
 				}
 				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
 				e.eventCh <- ev.Name
-			case err := <-e.watcher.Errors:
+			case err := <-e.watcher.Errors():
 				e.watcherLog("error: %s", err.Error())
 			}
 		}
@@ -345,7 +345,6 @@ func (e *Engine) start() {
 			e.mainLog("%s has changed", e.config.rel(filename))
 		case <-firstRunCh:
 			// go down
-			break
 		}
 
 		// already build and run now
@@ -449,7 +448,6 @@ func (e *Engine) runBin() error {
 			close(e.canExit)
 		default:
 		}
-
 	}()
 
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {

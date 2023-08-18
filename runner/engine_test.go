@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -508,10 +509,7 @@ func checkPortConnectionRefused(port int) bool {
 			_ = conn.Close()
 		}
 	}()
-	if errors.Is(err, syscall.ECONNREFUSED) {
-		return true
-	}
-	return false
+	return errors.Is(err, syscall.ECONNREFUSED)
 }
 
 func checkPortHaveBeenUsed(port int) bool {
@@ -572,6 +570,9 @@ func main() {
 		return err
 	}
 	_, err = file.WriteString(code)
+	if err != nil {
+		return err
+	}
 
 	// generate go mod file
 	mod := `module air.sample.com
@@ -604,6 +605,9 @@ func main() {
 		return err
 	}
 	_, err = file.WriteString(code)
+	if err != nil {
+		return err
+	}
 
 	// generate go mod file
 	mod := `module air.sample.com
@@ -639,6 +643,9 @@ func main() {
 		return err
 	}
 	_, err = file.WriteString(code)
+	if err != nil {
+		return err
+	}
 
 	// generate go mod file
 	mod := `module air.sample.com
@@ -688,12 +695,12 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	go func() {
 		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
+			log.Fatalf("Should not be fail: %s.", err)
 		}
 		defer file.Close()
 		_, err = file.WriteString("\n")
 		if err != nil {
-			t.Fatalf("Should not be fail: %s.", err)
+			log.Fatalf("Should not be fail: %s.", err)
 		}
 	}()
 	err = waitingPortConnectionRefused(t, port, time.Second*10)
@@ -895,11 +902,11 @@ include_ext = ["sh"]
 include_dir = ["nonexist"] # prevent default "." watch from taking effect
 include_file = ["main.sh"]
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0644); err != nil {
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf original > output"), 0755)
+	err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf original > output"), 0o755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -922,9 +929,9 @@ include_file = ["main.sh"]
 
 	t.Logf("start change main.sh")
 	go func() {
-		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0755)
+		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
 		if err != nil {
-			t.Fatalf("Error updating file: %s.", err)
+			log.Fatalf("Error updating file: %s.", err)
 		}
 	}()
 

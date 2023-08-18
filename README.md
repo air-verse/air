@@ -54,7 +54,7 @@ air -v
 
 ### Via `go install`
 
-With go 1.16 or higher:
+With go 1.18 or higher:
 
 ```bash
 go install github.com/cosmtrek/air@latest
@@ -168,7 +168,7 @@ services:
 `Dockerfile`
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.20-alpine
+FROM golang:1.21-alpine
 
 WORKDIR /app
 

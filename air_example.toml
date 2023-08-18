@@ -30,6 +30,10 @@ exclude_unchanged = true
 follow_symlink = true
 # This log file places in your tmp_dir.
 log = "air.log"
+# Poll files for changes instead of using fsnotify.
+poll = false
+# Poll interval (defaults to the minimum interval of 500ms).
+poll_interval = 500 # ms
 # It's not necessary to trigger build each time file changes if it's too frequent.
 delay = 0 # ms
 # Stop running old binary when build errors occur.
@@ -61,3 +65,7 @@ runner = "green"
 [misc]
 # Delete tmp directory on exit
 clean_on_exit = true
+
+[screen]
+clear_on_rebuild = true
+keep_scroll = true

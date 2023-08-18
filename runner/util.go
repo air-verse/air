@@ -284,7 +284,7 @@ type checksumMap struct {
 	m map[string]string
 }
 
-// update updates the filename with the given checksum if different.
+// updateFileChecksum updates the filename with the given checksum if different.
 func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool) {
 	a.l.Lock()
 	defer a.l.Unlock()
