@@ -13,48 +13,51 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/pelletier/go-toml"
+	"gopkg.in/yaml.v3"
 )
 
 const (
 	dftTOML = ".air.toml"
+	dftYAML = ".air.yaml"
+	dftYML  = ".air.yml"
 	dftConf = ".air.conf"
 	airWd   = "air_wd"
 )
 
 // Config is the main configuration structure for Air.
 type Config struct {
-	Root        string    `toml:"root"`
-	TmpDir      string    `toml:"tmp_dir"`
-	TestDataDir string    `toml:"testdata_dir"`
-	Build       cfgBuild  `toml:"build"`
-	Color       cfgColor  `toml:"color"`
-	Log         cfgLog    `toml:"log"`
-	Misc        cfgMisc   `toml:"misc"`
-	Screen      cfgScreen `toml:"screen"`
+	Root        string    `toml:"root" yaml:"root"`
+	TmpDir      string    `toml:"tmp_dir" yaml:"tmp_dir"`
+	TestDataDir string    `toml:"testdata_dir" yaml:"testdata_dir"`
+	Build       cfgBuild  `toml:"build" yaml:"build"`
+	Color       cfgColor  `toml:"color" yaml:"color"`
+	Log         cfgLog    `toml:"log" yaml:"log"`
+	Misc        cfgMisc   `toml:"misc" yaml:"misc"`
+	Screen      cfgScreen `toml:"screen" yaml:"screen"`
 }
 
 type cfgBuild struct {
-	Cmd              string        `toml:"cmd"`
-	Bin              string        `toml:"bin"`
-	FullBin          string        `toml:"full_bin"`
-	ArgsBin          []string      `toml:"args_bin"`
-	Log              string        `toml:"log"`
-	IncludeExt       []string      `toml:"include_ext"`
-	ExcludeDir       []string      `toml:"exclude_dir"`
-	IncludeDir       []string      `toml:"include_dir"`
-	ExcludeFile      []string      `toml:"exclude_file"`
-	IncludeFile      []string      `toml:"include_file"`
-	ExcludeRegex     []string      `toml:"exclude_regex"`
-	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
-	FollowSymlink    bool          `toml:"follow_symlink"`
-	Poll             bool          `toml:"poll"`
-	PollInterval     int           `toml:"poll_interval"`
-	Delay            int           `toml:"delay"`
-	StopOnError      bool          `toml:"stop_on_error"`
-	SendInterrupt    bool          `toml:"send_interrupt"`
-	KillDelay        time.Duration `toml:"kill_delay"`
-	Rerun            bool          `toml:"rerun"`
-	RerunDelay       int           `toml:"rerun_delay"`
+	Cmd              string        `toml:"cmd" yaml:"cmd"`
+	Bin              string        `toml:"bin" yaml:"bin"`
+	FullBin          string        `toml:"full_bin" yaml:"full_bin"`
+	ArgsBin          []string      `toml:"args_bin" yaml:"args_bin"`
+	Log              string        `toml:"log" yaml:"log"`
+	IncludeExt       []string      `toml:"include_ext" yaml:"include_ext"`
+	ExcludeDir       []string      `toml:"exclude_dir" yaml:"exclude_dir"`
+	IncludeDir       []string      `toml:"include_dir" yaml:"include_dir"`
+	ExcludeFile      []string      `toml:"exclude_file" yaml:"exclude_file"`
+	IncludeFile      []string      `toml:"include_file" yaml:"include_file"`
+	ExcludeRegex     []string      `toml:"exclude_regex" yaml:"exclude_regex"`
+	ExcludeUnchanged bool          `toml:"exclude_unchanged" yaml:"exclude_unchanged"`
+	FollowSymlink    bool          `toml:"follow_symlink" yaml:"follow_symlink"`
+	Poll             bool          `toml:"poll" yaml:"poll"`
+	PollInterval     int           `toml:"poll_interval" yaml:"poll_interval"`
+	Delay            int           `toml:"delay" yaml:"delay"`
+	StopOnError      bool          `toml:"stop_on_error" yaml:"stop_on_error"`
+	SendInterrupt    bool          `toml:"send_interrupt" yaml:"send_interrupt"`
+	KillDelay        time.Duration `toml:"kill_delay" yaml:"kill_delay"`
+	Rerun            bool          `toml:"rerun" yaml:"rerun"`
+	RerunDelay       int           `toml:"rerun_delay" yaml:"rerun_delay"`
 	regexCompiled    []*regexp.Regexp
 }
 
@@ -73,25 +76,25 @@ func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 }
 
 type cfgLog struct {
-	AddTime  bool `toml:"time"`
-	MainOnly bool `toml:"main_only"`
+	AddTime  bool `toml:"time" yaml:"time"`
+	MainOnly bool `toml:"main_only" yaml:"main_only"`
 }
 
 type cfgColor struct {
-	Main    string `toml:"main"`
-	Watcher string `toml:"watcher"`
-	Build   string `toml:"build"`
-	Runner  string `toml:"runner"`
-	App     string `toml:"app"`
+	Main    string `toml:"main" yaml:"main"`
+	Watcher string `toml:"watcher" yaml:"watcher"`
+	Build   string `toml:"build" yaml:"build"`
+	Runner  string `toml:"runner" yaml:"runner"`
+	App     string `toml:"app" yaml:"app"`
 }
 
 type cfgMisc struct {
-	CleanOnExit bool `toml:"clean_on_exit"`
+	CleanOnExit bool `toml:"clean_on_exit" yaml:"clean_on_exit"`
 }
 
 type cfgScreen struct {
-	ClearOnRebuild bool `toml:"clear_on_rebuild"`
-	KeepScroll     bool `toml:"keep_scroll"`
+	ClearOnRebuild bool `toml:"clear_on_rebuild" yaml:"clear_on_rebuild"`
+	KeepScroll     bool `toml:"keep_scroll" yaml:"keep_scroll"`
 }
 
 type sliceTransformer struct{}
@@ -109,16 +112,17 @@ func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Va
 }
 
 // InitConfig initializes the configuration.
-func InitConfig(path string) (cfg *Config, err error) {
+func InitConfig(path string) (cfg *Config, name string, err error) {
+	name = path
 	if path == "" {
-		cfg, err = defaultPathConfig()
+		cfg, name, err = defaultPathConfig()
 		if err != nil {
-			return nil, err
+			return nil, name, err
 		}
 	} else {
 		cfg, err = readConfigOrDefault(path)
 		if err != nil {
-			return nil, err
+			return nil, name, err
 		}
 	}
 	config := defaultConfig()
@@ -132,15 +136,15 @@ func InitConfig(path string) (cfg *Config, err error) {
 		config.Overwrite = true
 	})
 	if err != nil {
-		return nil, err
+		return nil, name, err
 	}
 
 	err = ret.preprocess()
-	return ret, err
+	return ret, name, err
 }
 
 func writeDefaultConfig() {
-	confFiles := []string{dftTOML, dftConf}
+	confFiles := []string{dftTOML, dftYAML, dftYML, dftConf}
 
 	for _, fname := range confFiles {
 		fstat, err := os.Stat(fname)
@@ -174,20 +178,20 @@ func writeDefaultConfig() {
 	fmt.Printf("%s file created to the current directory with the default settings\n", dftTOML)
 }
 
-func defaultPathConfig() (*Config, error) {
-	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-	for _, name := range []string{dftTOML, dftConf} {
+func defaultPathConfig() (*Config, string, error) {
+	// when path is blank, first find `.air.toml`, `.air.yaml`, `.air.yml`,`.air.conf` in `air_wd` and current working directory, if not found, use defaults
+	for _, name := range []string{dftTOML, dftYAML, dftYML, dftConf} {
 		cfg, err := readConfByName(name)
 		if err == nil {
 			if name == dftConf {
 				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
 			}
-			return cfg, nil
+			return cfg, name, nil
 		}
 	}
 
 	dftCfg := defaultConfig()
-	return &dftCfg, nil
+	return &dftCfg, "", nil
 }
 
 func readConfByName(name string) (*Config, error) {
@@ -260,8 +264,17 @@ func readConfig(path string) (*Config, error) {
 	}
 
 	cfg := new(Config)
-	if err = toml.Unmarshal(data, cfg); err != nil {
-		return nil, err
+	ext := filepath.Ext(path)
+	switch ext {
+	case ".yml", ".yaml":
+		if err = yaml.Unmarshal(data, cfg); err != nil {
+			return nil, err
+		}
+
+	default:
+		if err = toml.Unmarshal(data, cfg); err != nil {
+			return nil, err
+		}
 	}
 
 	return cfg, nil

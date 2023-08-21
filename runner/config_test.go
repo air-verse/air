@@ -70,38 +70,57 @@ func TestBinCmdPath(t *testing.T) {
 
 func TestDefaultPathConfig(t *testing.T) {
 	tests := []struct {
-		name string
-		path string
-		root string
+		name     string
+		path     string
+		root     string
+		filename string
 	}{{
-		name: "Invalid Path",
-		path: "invalid/path",
-		root: ".",
+		name:     "Invalid Path",
+		path:     "invalid/path",
+		root:     ".",
+		filename: "",
 	}, {
-		name: "TOML",
-		path: "_testdata/toml",
-		root: "toml_root",
+		name:     "TOML",
+		path:     "_testdata/toml",
+		root:     "toml_root",
+		filename: ".air.toml",
 	}, {
-		name: "Conf",
-		path: "_testdata/conf",
-		root: "conf_root",
+		name:     "YAML",
+		path:     "_testdata/yaml",
+		root:     "yaml_root",
+		filename: ".air.yaml",
 	}, {
-		name: "Both",
-		path: "_testdata/both",
-		root: "both_root",
+		name:     "YML",
+		path:     "_testdata/yml",
+		root:     "yml_root",
+		filename: ".air.yml",
+	}, {
+		name:     "Conf",
+		path:     "_testdata/conf",
+		root:     "conf_root",
+		filename: ".air.conf",
+	}, {
+		name:     "Both",
+		path:     "_testdata/both",
+		root:     "both_root",
+		filename: ".air.toml",
 	}}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(airWd, tt.path)
-			c, err := defaultPathConfig()
+			c, filename, err := defaultPathConfig()
 			if err != nil {
 				t.Fatalf("Should not be fail: %s.", err)
 			}
 
 			if got, want := c.Root, tt.root; got != want {
 				t.Fatalf("Root is %s, but want %s.", got, want)
+			}
+
+			if got, want := filename, tt.filename; got != want {
+				t.Fatalf("Filename is %s, but want %s.", got, want)
 			}
 		})
 	}

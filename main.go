@@ -62,10 +62,13 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	var err error
-	cfg, err := runner.InitConfig(cfgPath)
+	cfg, name, err := runner.InitConfig(cfgPath)
 	if err != nil {
 		log.Fatal(err)
 		return
+	}
+	if name != "" {
+		fmt.Printf("Using configuration: %s\n", name)
 	}
 	cfg.WithArgs(cmdArgs)
 	r, err := runner.NewEngineWithConfig(cfg, debugMode)

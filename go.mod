@@ -10,6 +10,7 @@ require (
 	github.com/gohugoio/hugo v0.111.3
 	github.com/pelletier/go-toml v1.9.5
 	github.com/stretchr/testify v1.8.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -26,5 +27,4 @@ require (
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

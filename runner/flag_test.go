@@ -125,7 +125,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			flag.Parse(tc.args)
-			cfg, err := InitConfig("")
+			cfg, _, err := InitConfig("")
 			if err != nil {
 				log.Fatal(err)
 				return
