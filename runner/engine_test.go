@@ -721,7 +721,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	assert.True(t, checkPortConnectionRefused(port))
 }
 
-func TestWriteDefaultConfig(t *testing.T) {
+func TestWriteDefaultTOMLConfig(t *testing.T) {
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -729,7 +729,7 @@ func TestWriteDefaultConfig(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	writeDefaultConfig()
+	writeDefaultConfig("")
 	// check the file is exist
 	if _, err := os.Stat(dftTOML); err != nil {
 		t.Fatal(err)
@@ -737,6 +737,54 @@ func TestWriteDefaultConfig(t *testing.T) {
 
 	// check the file content is right
 	actual, err := readConfig(dftTOML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := defaultConfig()
+
+	assert.Equal(t, expect, *actual)
+}
+
+func TestWriteDefaultYAMLConfig(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
+	writeDefaultConfig("yaml")
+	// check the file is exist
+	if _, err := os.Stat(dftYAML); err != nil {
+		t.Fatal(err)
+	}
+
+	// check the file content is right
+	actual, err := readConfig(dftYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := defaultConfig()
+
+	assert.Equal(t, expect, *actual)
+}
+
+func TestWriteDefaultYMLConfig(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
+	writeDefaultConfig("yml")
+	// check the file is exist
+	if _, err := os.Stat(dftYAML); err != nil {
+		t.Fatal(err)
+	}
+
+	// check the file content is right
+	actual, err := readConfig(dftYAML)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -791,7 +839,7 @@ func TestShouldIncludeGoTestFile(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	writeDefaultConfig()
+	writeDefaultConfig("")
 
 	// write go test file
 	file, err := os.Create("main_test.go")

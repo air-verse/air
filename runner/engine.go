@@ -79,7 +79,11 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 // Run run run
 func (e *Engine) Run() {
 	if len(os.Args) > 1 && os.Args[1] == "init" {
-		writeDefaultConfig()
+		mode := "toml"
+		if len(os.Args) > 2 {
+			mode = os.Args[2]
+		}
+		writeDefaultConfig(mode)
 		return
 	}
 

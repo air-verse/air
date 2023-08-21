@@ -143,7 +143,7 @@ func InitConfig(path string) (cfg *Config, name string, err error) {
 	return ret, name, err
 }
 
-func writeDefaultConfig() {
+func writeDefaultConfig(mode string) {
 	confFiles := []string{dftTOML, dftYAML, dftYML, dftConf}
 
 	for _, fname := range confFiles {
@@ -158,24 +158,43 @@ func writeDefaultConfig() {
 		}
 	}
 
-	file, err := os.Create(dftTOML)
+	var fname string
+	switch mode {
+	case "yaml", "yml":
+		fname = dftYAML
+	default:
+		fname = dftTOML
+	}
+
+	file, err := os.Create(fname)
 	if err != nil {
 		log.Fatalf("failed to create a new configuration: %+v", err)
 	}
 	defer file.Close()
 
 	config := defaultConfig()
-	configFile, err := toml.Marshal(config)
-	if err != nil {
-		log.Fatalf("failed to marshal the default configuration: %+v", err)
+
+	var configFile []byte
+	switch mode {
+	case "yaml", "yml":
+		configFile, err = yaml.Marshal(config)
+		if err != nil {
+			log.Fatalf("failed to marshal the default configuration: %+v", err)
+		}
+
+	default:
+		configFile, err = toml.Marshal(config)
+		if err != nil {
+			log.Fatalf("failed to marshal the default configuration: %+v", err)
+		}
 	}
 
 	_, err = file.Write(configFile)
 	if err != nil {
-		log.Fatalf("failed to write to %s: %+v", dftTOML, err)
+		log.Fatalf("failed to write to %s: %+v", fname, err)
 	}
 
-	fmt.Printf("%s file created to the current directory with the default settings\n", dftTOML)
+	fmt.Printf("%s file created to the current directory with the default settings\n", fname)
 }
 
 func defaultPathConfig() (*Config, string, error) {
