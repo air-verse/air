@@ -111,6 +111,12 @@ You can initialize the `.air.toml` configuration file to the current directory w
 air init
 ```
 
+Alternatively, you can generate a `.air.yaml` configuration with the following command:
+
+```bash
+air init yaml
+```
+
 After this, you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
 
 ```bash
