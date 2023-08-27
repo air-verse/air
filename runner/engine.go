@@ -432,29 +432,18 @@ func (e *Engine) building() error {
 }
 
 func (e *Engine) runBin() error {
-	// control killFunc should be kill or not
-	killCh := make(chan struct{})
-	wg := sync.WaitGroup{}
-	go func() {
-		// listen to binStopCh
-		// cleanup() will close binStopCh when engine stop
-		// start() will close binStopCh when file changed
-		<-e.binStopCh
-		close(killCh)
-
-		select {
-		case <-e.exitCh:
-			wg.Wait()
-			close(e.canExit)
-		default:
-		}
-	}()
-
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
 		defer wg.Done()
 		select {
 		// the process haven't exited yet, kill it
 		case <-killCh:
+			break
+
+		// listen to binStopCh
+		// cleanup() will close binStopCh when engine stop
+		// start() will close binStopCh when file changed
+		case <-e.binStopCh:
+			close(killCh)
 			break
 
 		// the process is exited, return
@@ -487,10 +476,15 @@ func (e *Engine) runBin() error {
 
 	e.runnerLog("running...")
 	go func() {
+		// control killFunc should be kill or not
+		killCh := make(chan struct{})
+		wg := sync.WaitGroup{}
+
+	rerun:
 		for {
 			select {
 			case <-killCh:
-				return
+				break rerun
 			default:
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
 				cmd, stdout, stderr, _ := e.startCmd(command)
@@ -499,7 +493,11 @@ func (e *Engine) runBin() error {
 
 				wg.Add(1)
 				atomic.AddUint64(&e.round, 1)
-				go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+				e.withLock(func() {
+					close(e.binStopCh)
+					e.binStopCh = make(chan bool)
+					go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+				})
 
 				_, _ = io.Copy(os.Stdout, stdout)
 				_, _ = io.Copy(os.Stderr, stderr)
@@ -507,10 +505,18 @@ func (e *Engine) runBin() error {
 				close(processExit)
 
 				if !e.config.Build.Rerun {
-					return
+					break rerun
 				}
 				time.Sleep(e.config.rerunDelay())
 			}
+		}
+
+		select {
+		case <-e.exitCh:
+			e.mainDebug("exit in runBin")
+			wg.Wait()
+			close(e.canExit)
+		default:
 		}
 	}()
 
