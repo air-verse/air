@@ -435,10 +435,6 @@ func (e *Engine) runBin() error {
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
 		defer wg.Done()
 		select {
-		// the process haven't exited yet, kill it
-		case <-killCh:
-			break
-
 		// listen to binStopCh
 		// cleanup() will close binStopCh when engine stop
 		// start() will close binStopCh when file changed
