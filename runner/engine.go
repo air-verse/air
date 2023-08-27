@@ -472,15 +472,24 @@ func (e *Engine) runBin() error {
 
 	e.runnerLog("running...")
 	go func() {
-		// control killFunc should be kill or not
-		killCh := make(chan struct{})
 		wg := sync.WaitGroup{}
 
-	rerun:
+		defer func() {
+			select {
+			case <-e.exitCh:
+				e.mainDebug("exit in runBin")
+				wg.Wait()
+				close(e.canExit)
+			default:
+			}
+		}()
+
+		// control killFunc should be kill or not
+		killCh := make(chan struct{})
 		for {
 			select {
 			case <-killCh:
-				break rerun
+				return
 			default:
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
 				cmd, stdout, stderr, _ := e.startCmd(command)
@@ -501,18 +510,10 @@ func (e *Engine) runBin() error {
 				close(processExit)
 
 				if !e.config.Build.Rerun {
-					break rerun
+					return
 				}
 				time.Sleep(e.config.rerunDelay())
 			}
-		}
-
-		select {
-		case <-e.exitCh:
-			e.mainDebug("exit in runBin")
-			wg.Wait()
-			close(e.canExit)
-		default:
 		}
 	}()
 
