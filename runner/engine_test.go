@@ -316,7 +316,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 		t.Logf("engine stopped")
 	}()
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
 		<-sigs
 		engine.Stop()
