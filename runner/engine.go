@@ -376,6 +376,13 @@ func (e *Engine) buildRun() {
 	default:
 	}
 	var err error
+	if err = e.runPreCmd(); err != nil {
+		e.canExit <- true
+		e.mainLog("failed to execute pre_cmd: %s", err.Error())
+		if e.config.Build.StopOnError {
+			return
+		}
+	}
 	if err = e.building(); err != nil {
 		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
@@ -427,6 +434,28 @@ func (e *Engine) building() error {
 	err = cmd.Wait()
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (e *Engine) runPreCmd() error {
+	for _, command := range e.config.Build.PreCmd {
+		e.runnerLog("> %s", command)
+		cmd, stdout, stderr, err := e.startCmd(command)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			stdout.Close()
+			stderr.Close()
+		}()
+		_, _ = io.Copy(os.Stdout, stdout)
+		_, _ = io.Copy(os.Stderr, stderr)
+		// wait for cmd to execute
+		err = cmd.Wait()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
