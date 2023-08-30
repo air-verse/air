@@ -185,6 +185,17 @@ func TestRerunWhenFileChanged(t *testing.T) {
 	}
 }
 
+func TestRunPreCmd(t *testing.T) {
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	err = engine.runPreCmd()
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+}
+
 func TestRunBin(t *testing.T) {
 	engine, err := NewEngine("", true)
 	if err != nil {

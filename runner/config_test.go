@@ -15,6 +15,7 @@ const (
 
 func getWindowsConfig() Config {
 	build := cfgBuild{
+		PreCmd:       []string{"echo Hello Air"},
 		Cmd:          "go build -o ./tmp/main .",
 		Bin:          "./tmp/main",
 		Log:          "build-errors.log",
