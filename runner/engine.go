@@ -417,6 +417,7 @@ func (e *Engine) flushEvents() {
 	}
 }
 
+// utility to execute commands, such as cmd & pre_cmd
 func (e *Engine) runCommand(command string) error {
 	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
@@ -436,6 +437,7 @@ func (e *Engine) runCommand(command string) error {
 	return nil
 }
 
+// run cmd option in .air.toml
 func (e *Engine) building() error {
 	e.buildLog("building...")
 	err := e.runCommand(e.config.Build.Cmd)
@@ -445,6 +447,7 @@ func (e *Engine) building() error {
 	return nil
 }
 
+// run pre_cmd option in .air.toml
 func (e *Engine) runPreCmd() error {
 	for _, command := range e.config.Build.PreCmd {
 		e.runnerLog("> %s", command)
