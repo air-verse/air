@@ -7,7 +7,7 @@ tmp_dir = "tmp"
 
 [build]
 # Array of commands to run before each build
-pre_cmd = ["echo Hello","echo Air"]
+pre_cmd = ["echo \"hello air\" > test.txt"]
 # Just plain old shell command. You could use `make` as well.
 cmd = "go build -o ./tmp/main ."
 # Binary file yields from `cmd`.

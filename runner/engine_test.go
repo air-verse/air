@@ -186,17 +186,36 @@ func TestRerunWhenFileChanged(t *testing.T) {
 }
 
 func TestRunCommand(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	err = engine.runCommand("echo Hello Air")
+	err = engine.runCommand("touch test.txt")
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if _, err := os.Stat("./test.txt"); err != nil {
+		if os.IsNotExist(err) {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
 	}
 }
 
 func TestRunPreCmd(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
 	engine, err := NewEngine("", true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -204,6 +223,11 @@ func TestRunPreCmd(t *testing.T) {
 	err = engine.runPreCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if _, err := os.Stat("./test.txt"); err != nil {
+		if os.IsNotExist(err) {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
 	}
 }
 
