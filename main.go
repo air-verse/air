@@ -59,7 +59,7 @@ func main() {
 		fmt.Println("[debug] mode")
 	}
 	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	var err error
 	cfg, name, err := runner.InitConfig(cfgPath)
