@@ -36,6 +36,7 @@ type Config struct {
 type cfgBuild struct {
 	PreCmd           []string      `toml:"pre_cmd"`
 	Cmd              string        `toml:"cmd"`
+	PostCmd          []string      `toml:"post_cmd"`
 	Bin              string        `toml:"bin"`
 	FullBin          string        `toml:"full_bin"`
 	ArgsBin          []string      `toml:"args_bin"`

@@ -378,7 +378,7 @@ func (e *Engine) buildRun() {
 	var err error
 	if err = e.runPreCmd(); err != nil {
 		e.canExit <- true
-		e.mainLog("failed to execute pre_cmd: %s", err.Error())
+		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
 		if e.config.Build.StopOnError {
 			return
 		}
@@ -450,6 +450,18 @@ func (e *Engine) building() error {
 // run pre_cmd option in .air.toml
 func (e *Engine) runPreCmd() error {
 	for _, command := range e.config.Build.PreCmd {
+		e.runnerLog("> %s", command)
+		err := e.runCommand(command)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// run post_cmd option in .air.toml
+func (e *Engine) runPostCmd() error {
+	for _, command := range e.config.Build.PostCmd {
 		e.runnerLog("> %s", command)
 		err := e.runCommand(command)
 		if err != nil {
@@ -585,5 +597,8 @@ func (e *Engine) cleanup() {
 
 // Stop the air
 func (e *Engine) Stop() {
+	if err := e.runPostCmd(); err != nil {
+		e.runnerLog("failed to execute post_cmd, error: %s", err.Error())
+	}
 	close(e.exitCh)
 }
