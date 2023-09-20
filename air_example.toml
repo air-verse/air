@@ -7,9 +7,11 @@ tmp_dir = "tmp"
 
 [build]
 # Array of commands to run before each build
-pre_cmd = ["echo \"hello air\" > test.txt"]
+pre_cmd = ["echo \"hello air\" > pre_cmd.txt"]
 # Just plain old shell command. You could use `make` as well.
 cmd = "go build -o ./tmp/main ."
+# Array of commands to run after ^C
+post_cmd = ["echo \"hello air\" > post_cmd.txt"]
 # Binary file yields from `cmd`.
 bin = "tmp/main"
 # Customize binary, can setup environment variables when run your app.
