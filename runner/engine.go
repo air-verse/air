@@ -376,6 +376,13 @@ func (e *Engine) buildRun() {
 	default:
 	}
 	var err error
+	if err = e.runPreCmd(); err != nil {
+		e.canExit <- true
+		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
+		if e.config.Build.StopOnError {
+			return
+		}
+	}
 	if err = e.building(); err != nil {
 		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
@@ -410,10 +417,9 @@ func (e *Engine) flushEvents() {
 	}
 }
 
-func (e *Engine) building() error {
-	var err error
-	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+// utility to execute commands, such as cmd & pre_cmd
+func (e *Engine) runCommand(command string) error {
+	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}
@@ -423,10 +429,44 @@ func (e *Engine) building() error {
 	}()
 	_, _ = io.Copy(os.Stdout, stdout)
 	_, _ = io.Copy(os.Stderr, stderr)
-	// wait for building
+	// wait for command to finish
 	err = cmd.Wait()
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// run cmd option in .air.toml
+func (e *Engine) building() error {
+	e.buildLog("building...")
+	err := e.runCommand(e.config.Build.Cmd)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// run pre_cmd option in .air.toml
+func (e *Engine) runPreCmd() error {
+	for _, command := range e.config.Build.PreCmd {
+		e.runnerLog("> %s", command)
+		err := e.runCommand(command)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// run post_cmd option in .air.toml
+func (e *Engine) runPostCmd() error {
+	for _, command := range e.config.Build.PostCmd {
+		e.runnerLog("> %s", command)
+		err := e.runCommand(command)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -557,5 +597,8 @@ func (e *Engine) cleanup() {
 
 // Stop the air
 func (e *Engine) Stop() {
+	if err := e.runPostCmd(); err != nil {
+		e.runnerLog("failed to execute post_cmd, error: %s", err.Error())
+	}
 	close(e.exitCh)
 }
