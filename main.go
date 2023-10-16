@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/cosmtrek/air/runner"
@@ -43,13 +45,38 @@ func parseFlag(args []string) {
 	flag.CommandLine.Parse(args)
 }
 
+type versionInfo struct {
+	airVersion string
+	goVersion  string
+}
+
+func GetVersionInfo() versionInfo {
+	if len(airVersion) != 0 && len(goVersion) != 0 {
+		return versionInfo{
+			airVersion: airVersion,
+			goVersion:  goVersion,
+		}
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		return versionInfo{
+			airVersion: info.Main.Version,
+			goVersion:  runtime.Version(),
+		}
+	}
+	return versionInfo{
+		airVersion: "(unknown)",
+		goVersion:  runtime.Version(),
+	}
+}
+
 func main() {
+	versionInfo := GetVersionInfo()
 	fmt.Printf(`
   __    _   ___  
  / /\  | | | |_) 
 /_/--\ |_| |_| \_ %s, built with Go %s
 
-`, airVersion, goVersion)
+`, versionInfo.airVersion, versionInfo.goVersion)
 
 	if showVersion {
 		return
