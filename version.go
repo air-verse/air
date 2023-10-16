@@ -1,4 +1,6 @@
 package main
 
-var airVersion string
-var goVersion string
+var (
+	airVersion string
+	goVersion  string
+)
