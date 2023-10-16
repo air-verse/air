@@ -220,6 +220,7 @@ func TestRunPreCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
 	err = engine.runPreCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -245,6 +246,7 @@ func TestRunPostCmd(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
+	engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
 	err = engine.runPostCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
