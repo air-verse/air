@@ -74,6 +74,9 @@ docker run -it --rm \
     -c <CONF>
 ```
 
+<PROJECT> is your project path in container, eg: /go/example
+if you want to enter the container, Please add --entrypoint=bash.
+
 <details>
   <summary>For example</summary>
 
