@@ -291,6 +291,9 @@ func (c *Config) preprocess() error {
 		c.Root = cwd
 	}
 	c.Root, err = expandPath(c.Root)
+	if err != nil {
+		return err
+	}
 	if c.TmpDir == "" {
 		c.TmpDir = "tmp"
 	}
