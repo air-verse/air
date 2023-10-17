@@ -47,6 +47,7 @@ With go 1.18 or higher:
 ```bash
 go install github.com/cosmtrek/air@latest
 ```
+
 ### Via install.sh
 
 ```bash
@@ -58,7 +59,6 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 
 air -v
 ```
-
 
 ### Docker
 
@@ -74,7 +74,7 @@ docker run -it --rm \
     -c <CONF>
 ```
 
-<PROJECT> is your project path in container, eg: /go/example
+`<PROJECT>` is your project path in container, eg: /go/example
 if you want to enter the container, Please add --entrypoint=bash.
 
 <details>
@@ -89,6 +89,7 @@ docker run -it --rm \
     -p 9090:9090 \
     cosmtrek/air
 ```
+
 </details>
 
 ## Usage
@@ -146,7 +147,7 @@ air -c .air.toml -- -h
 
 ### Docker-compose
 
-```
+```yaml
 services:
   my-project-with-air:
     image: cosmtrek/air
@@ -169,6 +170,7 @@ services:
 ## Installation and Usage for Docker users who don't want to use air image
 
 `Dockerfile`
+
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
 FROM golang:1.21-alpine
@@ -184,6 +186,7 @@ CMD ["air", "-c", ".air.toml"]
 ```
 
 `docker-compose.yaml`
+
 ```yaml
 version: "3.8"
 services:
@@ -237,7 +240,7 @@ Pull requests are welcome.
 
 ### Release
 
-```
+```bash
 # Checkout to master
 git checkout master
 

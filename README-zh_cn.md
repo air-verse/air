@@ -4,7 +4,7 @@
 
 ![air](docs/air.png)
 
-[English](README.md) | 简体中文 
+[English](README.md) | 简体中文
 
 ## 开发动机
 
@@ -137,7 +137,7 @@ air -c .air.toml -- -h
 
 ### Docker-compose
 
-```
+```yaml
 services:
   my-project-with-air:
     image: cosmtrek/air
@@ -191,7 +191,7 @@ make install
 
 ### 发布新版本
 
-```
+```bash
 # 1. checkout 到 master 分支
 git checkout master
 
