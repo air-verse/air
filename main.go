@@ -18,7 +18,6 @@ var (
 	debugMode   bool
 	showVersion bool
 	cmdArgs     map[string]runner.TomlInfo
-	runArgs     []string
 )
 
 func helpMessage() {
@@ -42,7 +41,7 @@ func parseFlag(args []string) {
 	flag.BoolVar(&showVersion, "v", false, "show version")
 	cmd := flag.CommandLine
 	cmdArgs = runner.ParseConfigFlag(cmd)
-	flag.CommandLine.Parse(args)
+	_ = flag.CommandLine.Parse(args)
 }
 
 type versionInfo struct {

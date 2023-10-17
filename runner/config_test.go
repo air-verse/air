@@ -39,7 +39,6 @@ func getWindowsConfig() Config {
 }
 
 func TestBinCmdPath(t *testing.T) {
-
 	var err error
 
 	c := getWindowsConfig()
@@ -144,7 +143,9 @@ func TestConfigWithRuntimeArgs(t *testing.T) {
 
 	t.Run("when using bin", func(t *testing.T) {
 		df := defaultConfig()
-		df.preprocess()
+		if err := df.preprocess(); err != nil {
+			t.Fatalf("preprocess error %v", err)
+		}
 
 		if !contains(df.Build.ArgsBin, runtimeArg) {
 			t.Fatalf("missing expected runtime arg: %s", runtimeArg)
@@ -154,7 +155,9 @@ func TestConfigWithRuntimeArgs(t *testing.T) {
 	t.Run("when using full_bin", func(t *testing.T) {
 		df := defaultConfig()
 		df.Build.FullBin = "./tmp/main"
-		df.preprocess()
+		if err := df.preprocess(); err != nil {
+			t.Fatalf("preprocess error %v", err)
+		}
 
 		if !contains(df.Build.ArgsBin, runtimeArg) {
 			t.Fatalf("missing expected runtime arg: %s", runtimeArg)
