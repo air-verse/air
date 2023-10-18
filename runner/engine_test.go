@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -296,9 +297,12 @@ func TestRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		engine.Run()
 		t.Logf("engine stopped")
+		wg.Done()
 	}()
 	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
@@ -334,6 +338,7 @@ func TestRebuild(t *testing.T) {
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
+	wg.Wait()
 	time.Sleep(time.Second * 1)
 	t.Logf("engine stopped")
 	assert.True(t, checkPortConnectionRefused(port))
