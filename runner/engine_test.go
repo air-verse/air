@@ -156,12 +156,12 @@ func TestRerunWhenFileChanged(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 
+	wg.Add(1)
 	go func() {
 		engine.Run()
 		t.Logf("engine run")
 		wg.Done()
 	}()
-	wg.Add(1)
 	time.Sleep(time.Second * 1)
 
 	roundBeforeChange := atomic.LoadUint64(&engine.round)
@@ -183,7 +183,7 @@ func TestRerunWhenFileChanged(t *testing.T) {
 	time.Sleep(time.Second * 1)
 	// stop engine
 	engine.Stop()
-	wg.Done()
+	wg.Wait()
 	t.Logf("engine stopped")
 
 	roundAfterChange := atomic.LoadUint64(&engine.round)
