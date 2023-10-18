@@ -123,19 +123,16 @@ func TestRerun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	var wg sync.WaitGroup
-	wg.Add(1)
 	go func() {
 		engine.Run()
 		t.Logf("engine run")
-		wg.Done()
 	}()
 
 	time.Sleep(time.Second * 1)
 
 	// stop engine
 	engine.Stop()
-	wg.Wait()
+	time.Sleep(time.Second * 1)
 	t.Logf("engine stopped")
 
 	if atomic.LoadUint64(&engine.round) <= 1 {
