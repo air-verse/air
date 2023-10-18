@@ -317,6 +317,7 @@ func (e *Engine) start() {
 		select {
 		case <-e.exitCh:
 			e.mainDebug("exit in start")
+			close(e.canExit)
 			return
 		case filename = <-e.eventCh:
 			if !e.isIncludeExt(filename) {
