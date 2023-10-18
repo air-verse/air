@@ -3,7 +3,6 @@ package runner
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -387,7 +386,9 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	engine.config.Build.KillDelay = c.Build.KillDelay
 	engine.config.Build.Delay = 2000
 	engine.config.Build.SendInterrupt = true
-	engine.config.preprocess()
+	if err := engine.config.preprocess(); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 
 	go func() {
 		engine.Run()
@@ -845,7 +846,7 @@ exclude_file = ["main.go"]
 include_file = ["test/not_a_test.go"]
 
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
+	if err := os.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	engine, err := NewEngine(".air.toml", true)
@@ -980,7 +981,7 @@ include_ext = ["sh"]
 include_dir = ["nonexist"] # prevent default "." watch from taking effect
 include_file = ["main.sh"]
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
+	if err := os.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
