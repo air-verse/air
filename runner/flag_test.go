@@ -54,7 +54,7 @@ func TestFlag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
-			_ = flag.Parse(tc.args)
+			assert.NoError(t, flag.Parse(tc.args))
 			assert.Equal(t, tc.expected, *cmdArgs[tc.key].Value)
 		})
 	}
@@ -121,7 +121,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			_ = os.Chdir(dir)
+			assert.NoError(t, os.Chdir(dir))
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			_ = flag.Parse(tc.args)

@@ -221,7 +221,8 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	t.Logf("%v was been killed", pid)
 	// check processes were being killed
 	// read pids from file
-	bytesRead, _ := os.ReadFile("pid")
+	bytesRead, err := os.ReadFile("pid")
+	assert.NoError(t, err)
 	lines := strings.Split(string(bytesRead), "\n")
 	for _, line := range lines {
 		_, err := strconv.Atoi(line)
