@@ -124,13 +124,13 @@ func TestRerun(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		engine.Run()
 		t.Logf("engine run")
 		wg.Done()
 	}()
 
-	wg.Add(1)
 	time.Sleep(time.Second * 1)
 
 	// stop engine
