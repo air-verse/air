@@ -338,9 +338,8 @@ func TestRebuild(t *testing.T) {
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
-	wg.Wait()
-	time.Sleep(time.Second * 1)
 	t.Logf("engine stopped")
+	wg.Wait()
 	assert.True(t, checkPortConnectionRefused(port))
 }
 
