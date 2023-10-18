@@ -123,16 +123,19 @@ func TestRerun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	var wg sync.WaitGroup
 	go func() {
 		engine.Run()
 		t.Logf("engine run")
+		wg.Done()
 	}()
 
+	wg.Add(1)
 	time.Sleep(time.Second * 1)
 
 	// stop engine
 	engine.Stop()
-	time.Sleep(time.Second * 1)
+	wg.Wait()
 	t.Logf("engine stopped")
 
 	if atomic.LoadUint64(&engine.round) <= 1 {
@@ -151,10 +154,14 @@ func TestRerunWhenFileChanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	var wg sync.WaitGroup
+
 	go func() {
 		engine.Run()
 		t.Logf("engine run")
+		wg.Done()
 	}()
+	wg.Add(1)
 	time.Sleep(time.Second * 1)
 
 	roundBeforeChange := atomic.LoadUint64(&engine.round)
@@ -176,7 +183,7 @@ func TestRerunWhenFileChanged(t *testing.T) {
 	time.Sleep(time.Second * 1)
 	// stop engine
 	engine.Stop()
-	time.Sleep(time.Second * 1)
+	wg.Done()
 	t.Logf("engine stopped")
 
 	roundAfterChange := atomic.LoadUint64(&engine.round)
@@ -390,10 +397,13 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
+	var wg sync.WaitGroup
 	go func() {
 		engine.Run()
 		t.Logf("engine stopped")
+		wg.Done()
 	}()
+	wg.Add(1)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
@@ -405,11 +415,11 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	sigs <- syscall.SIGINT
+	wg.Wait()
 	err = waitingPortConnectionRefused(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(time.Second * 3)
 	assert.False(t, engine.running)
 }
 
@@ -426,9 +436,12 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		engine.Run()
 		t.Logf("engine stopped")
+		wg.Done()
 	}()
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -441,7 +454,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	sigs <- syscall.SIGINT
-	time.Sleep(time.Second * 1)
+	wg.Wait()
 	err = waitingPortConnectionRefused(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -569,14 +582,17 @@ func TestRun(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
+	var wg sync.WaitGroup
 	go func() {
 		engine.Run()
+		wg.Done()
 	}()
+	wg.Add(1)
 	time.Sleep(time.Second * 2)
 	assert.True(t, checkPortHaveBeenUsed(port))
 	t.Logf("try to stop")
 	engine.Stop()
-	time.Sleep(time.Second * 1)
+	wg.Wait()
 	assert.False(t, checkPortHaveBeenUsed(port))
 	t.Logf("stoped")
 }
@@ -908,8 +924,11 @@ func Test(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		engine.Run()
+		wg.Done()
 	}()
 
 	t.Logf("start change main_test.go")
@@ -929,6 +948,8 @@ func Test(t *testing.T) {
 	if err = waitingPortReady(t, port, time.Second*10); err != nil {
 		t.Fatal(err)
 	}
+	engine.Stop()
+	wg.Wait()
 }
 
 func TestCreateNewDir(t *testing.T) {
@@ -945,8 +966,11 @@ func TestCreateNewDir(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		engine.Run()
+		wg.Done()
 	}()
 	time.Sleep(time.Second * 2)
 	assert.True(t, checkPortHaveBeenUsed(port))
@@ -961,7 +985,7 @@ func TestCreateNewDir(t *testing.T) {
 		t.Fatal("should raise a error")
 	}
 	engine.Stop()
-	time.Sleep(2 * time.Second)
+	wg.Wait()
 }
 
 func TestShouldIncludeIncludedFile(t *testing.T) {
@@ -994,8 +1018,11 @@ include_file = ["main.sh"]
 	if err != nil {
 		t.Fatal(err)
 	}
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		engine.Run()
+		wg.Done()
 	}()
 
 	time.Sleep(time.Second * 1)
@@ -1013,9 +1040,9 @@ include_file = ["main.sh"]
 			log.Fatalf("Error updating file: %s.", err)
 		}
 	}()
-
 	time.Sleep(time.Second * 3)
-
+	engine.Stop()
+	wg.Wait()
 	bytes, err = os.ReadFile("output")
 	if err != nil {
 		t.Fatal(err)
