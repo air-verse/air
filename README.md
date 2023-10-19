@@ -26,7 +26,7 @@ Note: This tool has nothing to do with hot-deploy for production.
 * Allow watching new directories after Air started
 * Better building process
 
-### ✨ beta feature
+### Overwrite specify configuration from arguments:
 
 Support air config fields as arguments:
 
