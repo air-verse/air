@@ -24,7 +24,7 @@ jobs:
       - name: check rebuild
         id: check_rebuild
         working-directory: ./smoke_test/check_rebuild
-        run: | 
+        run: |
           nohup air > nohup.out 2> nohup.err < /dev/null &
           sleep 15
           echo "" >> main.go
