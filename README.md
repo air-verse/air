@@ -60,18 +60,39 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 air -v
 ```
 
-### Docker
+
+### Via `go install`
+
+With go 1.18 or higher:
+
+```bash
+go install github.com/cosmtrek/air@latest
+```
+
+### Docker/Podman
+
 
 Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
 ```bash
-docker run -it --rm \
+docker/podman run -it --rm \
     -w "<PROJECT>" \
     -e "air_wd=<PROJECT>" \
     -v $(pwd):<PROJECT> \
     -p <PORT>:<APP SERVER PORT> \
     cosmtrek/air
     -c <CONF>
+```
+#### Docker/Podman .${SHELL}rc
+
+if you want to use air continuously like a normal app, you can create a function in your ${SHELL}rc (bash,zsh,etc...)
+```bash
+air() {
+    podman/docker run -it --rm \
+        -w "$PWD" -v "$PWD":"$PWD" \
+        -p "$AIR_PORT":"$AIR_PORT" \
+        docker.io/cosmtrek/air "$@"
+}
 ```
 
 `<PROJECT>` is your project path in container, eg: /go/example
@@ -80,7 +101,7 @@ if you want to enter the container, Please add --entrypoint=bash.
 <details>
   <summary>For example</summary>
 
-One of my project runs in docker:
+- One of my project runs in docker:
 
 ```bash
 docker run -it --rm \
@@ -89,6 +110,13 @@ docker run -it --rm \
     -p 9090:9090 \
     cosmtrek/air
 ```
+  
+- Another example:
+```bash
+cd /go/src/github.com/cosmtrek/hub
+AIR_PORT=8080 air -c "config.toml"
+```
+this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the aplication itself for example -c
 
 </details>
 
