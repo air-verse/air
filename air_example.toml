@@ -6,8 +6,12 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
+# Array of commands to run before each build
+pre_cmd = ["echo 'hello air' > pre_cmd.txt"]
 # Just plain old shell command. You could use `make` as well.
 cmd = "go build -o ./tmp/main ."
+# Array of commands to run after ^C
+post_cmd = ["echo 'hello air' > post_cmd.txt"]
 # Binary file yields from `cmd`.
 bin = "tmp/main"
 # Customize binary, can setup environment variables when run your app.
@@ -41,7 +45,7 @@ stop_on_error = true
 # Send Interrupt signal before killing process (windows does not support this feature)
 send_interrupt = false
 # Delay after sending Interrupt signal
-kill_delay = 500 # ms
+kill_delay = 500 # nanosecond
 # Rerun binary or not
 rerun = false
 # Delay after each executions

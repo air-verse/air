@@ -40,7 +40,15 @@ Use a comma to separate items for arguments that take a list as input:
 
 ## Installation
 
-### Prefer install.sh
+### Prefer `go install` (Recommend)
+
+With go 1.18 or higher:
+
+```bash
+go install github.com/cosmtrek/air@latest
+```
+
+### Via install.sh
 
 ```bash
 # binary will be $(go env GOPATH)/bin/air
@@ -52,6 +60,7 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 air -v
 ```
 
+
 ### Via `go install`
 
 With go 1.18 or higher:
@@ -61,6 +70,7 @@ go install github.com/cosmtrek/air@latest
 ```
 
 ### Docker/Podman
+
 
 Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
@@ -85,6 +95,9 @@ air() {
 }
 ```
 
+`<PROJECT>` is your project path in container, eg: /go/example
+if you want to enter the container, Please add --entrypoint=bash.
+
 <details>
   <summary>For example</summary>
 
@@ -97,6 +110,7 @@ docker run -it --rm \
     -p 9090:9090 \
     cosmtrek/air
 ```
+  
 - Another example:
 ```bash
 cd /go/src/github.com/cosmtrek/hub
@@ -161,7 +175,7 @@ air -c .air.toml -- -h
 
 ### Docker-compose
 
-```
+```yaml
 services:
   my-project-with-air:
     image: cosmtrek/air
@@ -184,6 +198,7 @@ services:
 ## Installation and Usage for Docker users who don't want to use air image
 
 `Dockerfile`
+
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
 FROM golang:1.21-alpine
@@ -199,6 +214,7 @@ CMD ["air", "-c", ".air.toml"]
 ```
 
 `docker-compose.yaml`
+
 ```yaml
 version: "3.8"
 services:
@@ -252,7 +268,7 @@ Pull requests are welcome.
 
 ### Release
 
-```
+```bash
 # Checkout to master
 git checkout master
 

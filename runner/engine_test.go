@@ -3,7 +3,6 @@ package runner
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -185,6 +185,80 @@ func TestRerunWhenFileChanged(t *testing.T) {
 	}
 }
 
+func TestRunCommand(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	err = engine.runCommand("touch test.txt")
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if _, err := os.Stat("./test.txt"); err != nil {
+		if os.IsNotExist(err) {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+	}
+}
+
+func TestRunPreCmd(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	err = engine.runPreCmd()
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if _, err := os.Stat("./pre_cmd.txt"); err != nil {
+		if os.IsNotExist(err) {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+	}
+}
+
+func TestRunPostCmd(t *testing.T) {
+	// generate a random port
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
+	chdir(t, tmpDir)
+
+	engine, err := NewEngine("", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	err = engine.runPostCmd()
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	if _, err := os.Stat("./post_cmd.txt"); err != nil {
+		if os.IsNotExist(err) {
+			t.Fatalf("Should not be fail: %s.", err)
+		}
+	}
+}
+
 func TestRunBin(t *testing.T) {
 	engine, err := NewEngine("", true)
 	if err != nil {
@@ -222,9 +296,12 @@ func TestRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		engine.Run()
 		t.Logf("engine stopped")
+		wg.Done()
 	}()
 	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
@@ -260,8 +337,8 @@ func TestRebuild(t *testing.T) {
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
-	time.Sleep(time.Second * 1)
 	t.Logf("engine stopped")
+	wg.Wait()
 	assert.True(t, checkPortConnectionRefused(port))
 }
 
@@ -309,7 +386,9 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	engine.config.Build.KillDelay = c.Build.KillDelay
 	engine.config.Build.Delay = 2000
 	engine.config.Build.SendInterrupt = true
-	engine.config.preprocess()
+	if err := engine.config.preprocess(); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 
 	go func() {
 		engine.Run()
@@ -767,7 +846,7 @@ exclude_file = ["main.go"]
 include_file = ["test/not_a_test.go"]
 
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
+	if err := os.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	engine, err := NewEngine(".air.toml", true)
@@ -902,7 +981,7 @@ include_ext = ["sh"]
 include_dir = ["nonexist"] # prevent default "." watch from taking effect
 include_file = ["main.sh"]
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
+	if err := os.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

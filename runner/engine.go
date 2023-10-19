@@ -329,6 +329,8 @@ func (e *Engine) start() {
 				}
 			}
 
+			// cannot set buldDelay to 0, because when the write mutiple events received in short time
+			// it will start Multiple buildRuns: https://github.com/cosmtrek/air/issues/473
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
 
@@ -376,6 +378,13 @@ func (e *Engine) buildRun() {
 	default:
 	}
 	var err error
+	if err = e.runPreCmd(); err != nil {
+		e.canExit <- true
+		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
+		if e.config.Build.StopOnError {
+			return
+		}
+	}
 	if err = e.building(); err != nil {
 		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
@@ -410,10 +419,9 @@ func (e *Engine) flushEvents() {
 	}
 }
 
-func (e *Engine) building() error {
-	var err error
-	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+// utility to execute commands, such as cmd & pre_cmd
+func (e *Engine) runCommand(command string) error {
+	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}
@@ -423,7 +431,7 @@ func (e *Engine) building() error {
 	}()
 	_, _ = io.Copy(os.Stdout, stdout)
 	_, _ = io.Copy(os.Stderr, stderr)
-	// wait for building
+	// wait for command to finish
 	err = cmd.Wait()
 	if err != nil {
 		return err
@@ -431,30 +439,49 @@ func (e *Engine) building() error {
 	return nil
 }
 
-func (e *Engine) runBin() error {
-	// control killFunc should be kill or not
-	killCh := make(chan struct{})
-	wg := sync.WaitGroup{}
-	go func() {
-		// listen to binStopCh
-		// cleanup() will close binStopCh when engine stop
-		// start() will close binStopCh when file changed
-		<-e.binStopCh
-		close(killCh)
+// run cmd option in .air.toml
+func (e *Engine) building() error {
+	e.buildLog("building...")
+	err := e.runCommand(e.config.Build.Cmd)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-		select {
-		case <-e.exitCh:
-			wg.Wait()
-			close(e.canExit)
-		default:
+// run pre_cmd option in .air.toml
+func (e *Engine) runPreCmd() error {
+	for _, command := range e.config.Build.PreCmd {
+		e.runnerLog("> %s", command)
+		err := e.runCommand(command)
+		if err != nil {
+			return err
 		}
-	}()
+	}
+	return nil
+}
 
+// run post_cmd option in .air.toml
+func (e *Engine) runPostCmd() error {
+	for _, command := range e.config.Build.PostCmd {
+		e.runnerLog("> %s", command)
+		err := e.runCommand(command)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *Engine) runBin() error {
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
 		defer wg.Done()
 		select {
-		// the process haven't exited yet, kill it
-		case <-killCh:
+		// listen to binStopCh
+		// cleanup() will close binStopCh when engine stop
+		// start() will close binStopCh when file changed
+		case <-e.binStopCh:
+			close(killCh)
 			break
 
 		// the process is exited, return
@@ -487,6 +514,20 @@ func (e *Engine) runBin() error {
 
 	e.runnerLog("running...")
 	go func() {
+		wg := sync.WaitGroup{}
+
+		defer func() {
+			select {
+			case <-e.exitCh:
+				e.mainDebug("exit in runBin")
+				wg.Wait()
+				close(e.canExit)
+			default:
+			}
+		}()
+
+		// control killFunc should be kill or not
+		killCh := make(chan struct{})
 		for {
 			select {
 			case <-killCh:
@@ -499,7 +540,11 @@ func (e *Engine) runBin() error {
 
 				wg.Add(1)
 				atomic.AddUint64(&e.round, 1)
-				go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+				e.withLock(func() {
+					close(e.binStopCh)
+					e.binStopCh = make(chan bool)
+					go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+				})
 
 				_, _ = io.Copy(os.Stdout, stdout)
 				_, _ = io.Copy(os.Stderr, stderr)
@@ -557,5 +602,8 @@ func (e *Engine) cleanup() {
 
 // Stop the air
 func (e *Engine) Stop() {
+	if err := e.runPostCmd(); err != nil {
+		e.runnerLog("failed to execute post_cmd, error: %s", err.Error())
+	}
 	close(e.exitCh)
 }

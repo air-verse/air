@@ -34,7 +34,9 @@ type Config struct {
 }
 
 type cfgBuild struct {
+	PreCmd           []string      `toml:"pre_cmd"`
 	Cmd              string        `toml:"cmd"`
+	PostCmd          []string      `toml:"post_cmd"`
 	Bin              string        `toml:"bin"`
 	FullBin          string        `toml:"full_bin"`
 	ArgsBin          []string      `toml:"args_bin"`
@@ -212,12 +214,14 @@ func defaultConfig() Config {
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
+		PreCmd:       []string{},
+		PostCmd:      []string{},
 		ExcludeFile:  []string{},
 		IncludeFile:  []string{},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
-		Delay:        0,
+		Delay:        1000,
 		Rerun:        false,
 		RerunDelay:   500,
 	}
@@ -287,6 +291,9 @@ func (c *Config) preprocess() error {
 		c.Root = cwd
 	}
 	c.Root, err = expandPath(c.Root)
+	if err != nil {
+		return err
+	}
 	if c.TmpDir == "" {
 		c.TmpDir = "tmp"
 	}

@@ -1,6 +1,6 @@
 FROM golang:1.21 AS builder
 
-MAINTAINER Rick Yu <cosmtrek@gmail.com>
+LABEL maintainer="Rick Yu <cosmtrek@gmail.com>"
 
 ENV GOPATH /go
 ENV GO111MODULE on
