@@ -27,7 +27,6 @@ type Engine struct {
 	watcherStopCh  chan bool
 	buildRunCh     chan bool
 	buildRunStopCh chan bool
-	canExit        chan bool
 	binStopCh      chan bool
 	exitCh         chan bool
 
@@ -56,7 +55,6 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
 		buildRunStopCh: make(chan bool, 1),
-		canExit:        make(chan bool, 1),
 		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
 		fileChecksums:  &checksumMap{m: make(map[string]string)},
@@ -374,19 +372,16 @@ func (e *Engine) buildRun() {
 	select {
 	case <-e.buildRunStopCh:
 		return
-	case <-e.canExit:
 	default:
 	}
 	var err error
 	if err = e.runPreCmd(); err != nil {
-		e.canExit <- true
 		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
 		if e.config.Build.StopOnError {
 			return
 		}
 	}
 	if err = e.building(); err != nil {
-		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -399,7 +394,6 @@ func (e *Engine) buildRun() {
 		return
 	case <-e.exitCh:
 		e.mainDebug("exit in buildRun")
-		close(e.canExit)
 		return
 	default:
 	}
@@ -521,7 +515,6 @@ func (e *Engine) runBin() error {
 			case <-e.exitCh:
 				e.mainDebug("exit in runBin")
 				wg.Wait()
-				close(e.canExit)
 			default:
 			}
 		}()
@@ -595,7 +588,6 @@ func (e *Engine) cleanup() {
 
 	e.mainDebug("waiting for exit...")
 
-	<-e.canExit
 	e.running = false
 	e.mainDebug("exited")
 }

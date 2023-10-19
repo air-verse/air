@@ -339,6 +339,7 @@ func TestRebuild(t *testing.T) {
 	engine.Stop()
 	t.Logf("engine stopped")
 	wg.Wait()
+	time.Sleep(time.Second * 1)
 	assert.True(t, checkPortConnectionRefused(port))
 }
 
@@ -447,6 +448,41 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	assert.False(t, engine.running)
+}
+
+func TestCtrlCWithFailedBin(t *testing.T) {
+	timeout := 5 * time.Second
+	done := make(chan struct{})
+	go func() {
+		dir := initWithQuickExitGoCode(t)
+		chdir(t, dir)
+		engine, err := NewEngine("", true)
+		assert.NoError(t, err)
+		engine.config.Build.Bin = "<WRONGCOMAMND>"
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			engine.Run()
+			t.Logf("engine stopped")
+			wg.Done()
+		}()
+		go func() {
+			<-sigs
+			engine.Stop()
+			t.Logf("engine stopped")
+		}()
+		time.Sleep(time.Second * 1)
+		sigs <- syscall.SIGINT
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		t.Error("Test timed out")
+	}
 }
 
 func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
