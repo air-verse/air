@@ -14,17 +14,17 @@ jobs:
     steps:
       - name: check out code
         uses: actions/checkout@v2
-      - name: setup Go 1.20
+      - name: setup Go 1.21
         id: go
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.20
+          go-version: ^1.21
       - name: install
         run: make install
       - name: check rebuild
         id: check_rebuild
         working-directory: ./smoke_test/check_rebuild
-        run: | 
+        run: |
           nohup air > nohup.out 2> nohup.err < /dev/null &
           sleep 15
           echo "" >> main.go

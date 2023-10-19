@@ -241,7 +241,6 @@ func adaptToVariousPlatforms(c *Config) {
 		if 0 < len(c.Build.FullBin) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
-
 				c.Build.FullBin += extName
 			}
 			if !strings.HasPrefix(c.Build.FullBin, runName) {

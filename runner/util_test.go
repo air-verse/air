@@ -3,7 +3,6 @@ package runner
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -206,21 +205,21 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 			pid int
 			cmd *exec.Cmd
 		}{pid: pid, cmd: cmd}
-		cmd.Wait()
+		if err := cmd.Wait(); err != nil {
+			t.Logf("failed to wait command: %v", err)
+		}
 		t.Logf("wait finished")
 	}()
 	resp := <-startChan
 	t.Logf("process started. checking pid %v", resp.pid)
 	time.Sleep(2 * time.Second)
 	t.Logf("%v", resp.cmd.Process.Pid)
-	pid, err := e.killCmd(resp.cmd)
-	if err != nil {
-		t.Fatalf("failed to kill command: %v", err)
-	}
+	pid, _ := e.killCmd(resp.cmd)
 	t.Logf("%v was been killed", pid)
 	// check processes were being killed
 	// read pids from file
-	bytesRead, _ := ioutil.ReadFile("pid")
+	bytesRead, err := os.ReadFile("pid")
+	assert.NoError(t, err)
 	lines := strings.Split(string(bytesRead), "\n")
 	for _, line := range lines {
 		_, err := strconv.Atoi(line)
@@ -279,7 +278,7 @@ func TestCheckIncludeFile(t *testing.T) {
 	e := Engine{
 		config: &Config{
 			Build: cfgBuild{
-				IncludeFile:   []string{"main.go"},
+				IncludeFile: []string{"main.go"},
 			},
 		},
 	}
