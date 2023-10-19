@@ -31,8 +31,8 @@ jobs:
       - name: check rebuild
         id: check_rebuild
         working-directory: ./smoke_test
-        run: | 
-           python smoke_test.py
+        run: |
+          python smoke_test.py
       - uses: nick-invision/assert-action@v1
         with:
           expected: "PASS"
