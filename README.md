@@ -26,7 +26,7 @@ Note: This tool has nothing to do with hot-deploy for production.
 * Allow watching new directories after Air started
 * Better building process
 
-### Overwrite specify configuration from arguments:
+### Overwrite specify configuration from arguments
 
 Support air config fields as arguments:
 
@@ -80,7 +80,6 @@ go install github.com/cosmtrek/air@latest
 
 ### Docker/Podman
 
-
 Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
 ```bash
@@ -92,15 +91,17 @@ docker/podman run -it --rm \
     cosmtrek/air
     -c <CONF>
 ```
+
 #### Docker/Podman .${SHELL}rc
 
 if you want to use air continuously like a normal app, you can create a function in your ${SHELL}rc (bash,zsh,etc...)
+
 ```bash
 air() {
-    podman/docker run -it --rm \
-        -w "$PWD" -v "$PWD":"$PWD" \
-        -p "$AIR_PORT":"$AIR_PORT" \
-        docker.io/cosmtrek/air "$@"
+  podman/docker run -it --rm \
+    -w "$PWD" -v "$PWD":"$PWD" \
+    -p "$AIR_PORT":"$AIR_PORT" \
+    docker.io/cosmtrek/air "$@"
 }
 ```
 
@@ -110,21 +111,23 @@ if you want to enter the container, Please add --entrypoint=bash.
 <details>
   <summary>For example</summary>
 
-- One of my project runs in docker:
+One of my project runs in docker:
 
 ```bash
 docker run -it --rm \
-    -w "/go/src/github.com/cosmtrek/hub" \
-    -v $(pwd):/go/src/github.com/cosmtrek/hub \
-    -p 9090:9090 \
-    cosmtrek/air
+  -w "/go/src/github.com/cosmtrek/hub" \
+  -v $(pwd):/go/src/github.com/cosmtrek/hub \
+  -p 9090:9090 \
+  cosmtrek/air
 ```
   
-- Another example:
+Another example:
+
 ```bash
 cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
+
 this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the aplication itself for example -c
 
 </details>
@@ -296,7 +299,7 @@ git push origin v1.xx.x
 
 ## Sponsor
 
-<a href="https://www.buymeacoffee.com/cosmtrek" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/default-orange.png)](https://www.buymeacoffee.com/cosmtrek)
 
 Give huge thanks to lots of supporters. I've always been remembering your kindness.
 
