@@ -40,7 +40,7 @@ Use a comma to separate items for arguments that take a list as input:
 
 ## Installation
 
-### Prefer `go install` (Recommend)
+### Via `go install` (Recommended)
 
 With go 1.18 or higher:
 
@@ -68,14 +68,6 @@ curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
 
 # to put to a custom path
 curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
-```
-
-### Via `go install`
-
-With go 1.18 or higher:
-
-```bash
-go install github.com/cosmtrek/air@latest
 ```
 
 ### Docker/Podman
