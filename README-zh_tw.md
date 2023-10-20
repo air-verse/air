@@ -4,51 +4,47 @@
 
 ![air](docs/air.png)
 
-English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md)
+[English](README.md) | [简体中文](README-zh_cn.md) | 繁體中文
 
-## Motivation
+## 開發動機
 
-When I started developing websites in Go and using [gin](https://github.com/gin-gonic/gin) framework, it was a pity
-that gin lacked a live-reloading function. So I searched around and tried [fresh](https://github.com/pilu/fresh), it seems not much
-flexible, so I intended to rewrite it better. Finally, Air's born.
-In addition, great thanks to [pilu](https://github.com/pilu), no fresh, no air :)
+當我開始用 Go 開發網站並使用[gin](https://github.com/gin-gonic/gin)框架時，感到可惜的是 gin 缺乏自動重新編譯執行的方式。因此，我四處搜尋並嘗試使用[fresh](https://github.com/pilu/fresh)，但它似乎不夠彈性，所以我打算重新寫得更好。最後，Air 就這麼誕生了。另外，非常感謝[pilu](https://github.com/pilu)，如果沒有 fresh，就不會有 air :)
 
-Air is yet another live-reloading command line utility for developing Go applications. Run `air` in your project root directory, leave it alone,
-and focus on your code.
+Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 應用。在你的項目根目錄下運行 `air`，將它執行於背景中，並專注於你的程式碼。
 
-Note: This tool has nothing to do with hot-deploy for production.
+注意：此工具與生產環境的熱部署無關。
 
-## Features
+## 功能列表
 
-* Colorful log output
-* Customize build or any command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+* 彩色的日誌輸出
+* 自訂建立或任何命令
+* 支援排除子目錄
+* 允許在 Air 開始後監視新目錄
+* 更佳的建置過程
 
-### Overwrite specify configuration from arguments
+### 用參數覆寫指定的配置
 
-Support air config fields as arguments:
+支援將 air 做為參數的配置字段：
 
-If you want to config build command and run command, you can use like the following command without the config file:
+如果你想設定建置命令和執行命令，你可以在不需要配置檔案的情況下如下使用命令：
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
 
-Use a comma to separate items for arguments that take a list as input:
+對於需要輸入列表的參數，可以使用逗號將項目分隔：
 
 `air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
 
-## Installation
+## 安裝
 
-### Via `go install` (Recommended)
+### 使用 `go install` （推薦）
 
-With go 1.18 or higher:
+需要使用 go 1.18 或更高版本：
 
 ```bash
 go install github.com/cosmtrek/air@latest
 ```
 
-### Via install.sh
+### 透過 install.sh
 
 ```bash
 # binary will be $(go env GOPATH)/bin/air
@@ -60,7 +56,7 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 air -v
 ```
 
-### Via [goblin.run](https://goblin.run)
+### 透過 [goblin.run](https://goblin.run)
 
 ```sh
 # binary will be /usr/local/bin/air
@@ -70,9 +66,17 @@ curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
 curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
 ```
 
+### 透過 `go install`
+
+使用 go 1.18 或更高版本:
+
+```bash
+go install github.com/cosmtrek/air@latest
+```
+
 ### Docker/Podman
 
-Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
+請讀取 Docker 映像檔 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
 ```bash
 docker/podman run -it --rm \
@@ -86,7 +90,7 @@ docker/podman run -it --rm \
 
 #### Docker/Podman .${SHELL}rc
 
-if you want to use air continuously like a normal app, you can create a function in your ${SHELL}rc (bash,zsh,etc...)
+如果你想像常規應用程式一樣持續使用 air，你可以在你的 ${SHELL}rc (bash,zsh, etc...) 中創建一個函數。
 
 ```bash
 air() {
@@ -97,13 +101,12 @@ air() {
 }
 ```
 
-`<PROJECT>` is your project path in container, eg: /go/example
-if you want to enter the container, Please add --entrypoint=bash.
+`<PROJECT>` 是你的容器中的專案路徑，例如：/go/example 如果你想要進入容器，請加上 --entrypoint=bash。
 
 <details>
   <summary>For example</summary>
 
-One of my project runs in docker:
+我其中一個專案是在 docker 中運行
 
 ```bash
 docker run -it --rm \
@@ -113,51 +116,51 @@ docker run -it --rm \
   cosmtrek/air
 ```
   
-Another example:
+另一個例子
 
 ```bash
 cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
 
-this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the aplication itself for example -c
+這將會用當前目錄替換 `$PWD`，`$AIR_PORT` 是發佈的端口，`$@` 是用來接受應用程式本身的參數，例如 -c
 
 </details>
 
-## Usage
+## 使用方式
 
-For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
+為了減少輸入，你可以將 `alias air='~/.air'` 加到你的 `.bashrc` 或者 `.zshrc`。
 
-First enter into your project
+首先，進入你的專案目錄
 
 ```bash
 cd /path/to/your_project
 ```
 
-The simplest usage is run
+最簡單的使用方式是運行
 
 ```bash
 # firstly find `.air.toml` in current directory, if not found, use defaults
 air -c .air.toml
 ```
 
-You can initialize the `.air.toml` configuration file to the current directory with the default settings running the following command.
+你可以用以下命令初始化 `.air.toml` 配置檔到當前目錄，並使用預設設置。
 
 ```bash
 air init
 ```
 
-After this, you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
+此後，你可以只運行 `air` 命令，而不需要額外的參數，它將使用 `.air.toml` 檔案作為配置。
 
 ```bash
 air
 ```
 
-For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
+要修改配置，請參閱 [air_example.toml](air_example.toml) 檔案。
 
-### Runtime arguments
+### 運行時參數
 
-You can pass arguments for running the built binary by adding them after the air command.
+你可以在 air 命令後添加參數來運行已構建的二進制檔。
 
 ```bash
 # Will run ./tmp/main bench
@@ -167,7 +170,7 @@ air bench
 air server --port 8080
 ```
 
-You can separate the arguments passed for the air command and the built binary with `--` argument.
+你可以使用 `--` 參數來分隔傳遞給 air 命令和已建構的二進制檔的參數。
 
 ```bash
 # Will run ./tmp/main -h
@@ -195,11 +198,11 @@ services:
       - ./project-relative-path/:/project-package/
 ```
 
-### Debug
+### 除錯
 
 `air -d` prints all logs.
 
-## Installation and Usage for Docker users who don't want to use air image
+## 對於不想使用 air 映像的 Docker 使用者的安裝與使用方法
 
 `Dockerfile`
 
@@ -236,7 +239,7 @@ services:
 
 ## Q&A
 
-### "command not found: air" or "No such file or directory"
+### "找不到命令：air" 或者 "找不到檔案或目錄"
 
 ```zsh
 export GOPATH=$HOME/xxxxx
@@ -244,13 +247,13 @@ export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 ```
 
-### Error under wsl when ' is included in the bin
+### 當 bin 中包含 ' 時，在 wsl 下的錯誤
 
-Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/cosmtrek/air/issues/305)
+應該使用 `\` 來轉義 bin 中的 `'。相關議題：[#305](https://github.com/cosmtrek/air/issues/305)
 
-## Development
+## 開發
 
-Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
+請注意，由於我使用 `go mod` 來管理依賴，所以需要 Go 1.16+。
 
 ```bash
 # Fork this project
@@ -268,9 +271,9 @@ make ci
 make install
 ```
 
-Pull requests are welcome.
+歡迎提出 Pull Request
 
-### Release
+### 發佈版本
 
 ```bash
 # Checkout to master
@@ -285,16 +288,16 @@ git push origin v1.xx.x
 # The CI will process and release a new version. Wait about 5 min, and you can fetch the latest version
 ```
 
-## Star History
+## 星星歷史
 
 [![Star History Chart](https://api.star-history.com/svg?repos=cosmtrek/air&type=Date)](https://star-history.com/#cosmtrek/air&Date)
 
-## Sponsor
+## 贊助專案
 
 [![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/default-orange.png)](https://www.buymeacoffee.com/cosmtrek)
 
-Give huge thanks to lots of supporters. I've always been remembering your kindness.
+非常感謝大量的支持者。我一直記得你們的善意。
 
-## License
+## 授權
 
 [GNU General Public License v3.0](LICENSE)
