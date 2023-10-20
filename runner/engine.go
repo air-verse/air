@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -77,7 +78,11 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 // Run run run
 func (e *Engine) Run() {
 	if len(os.Args) > 1 && os.Args[1] == "init" {
-		writeDefaultConfig()
+		configName, err := writeDefaultConfig()
+		if err != nil {
+			log.Fatalf("Failed writing default config: %+v", err)
+		}
+		fmt.Printf("%s file created to the current directory with the default settings\n", configName)
 		return
 	}
 

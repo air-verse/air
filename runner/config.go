@@ -1,9 +1,9 @@
 package runner
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -141,39 +141,37 @@ func InitConfig(path string) (cfg *Config, err error) {
 	return ret, err
 }
 
-func writeDefaultConfig() {
+func writeDefaultConfig() (string, error) {
 	confFiles := []string{dftTOML, dftConf}
 
 	for _, fname := range confFiles {
 		fstat, err := os.Stat(fname)
 		if err != nil && !os.IsNotExist(err) {
-			log.Fatal("failed to check for existing configuration")
-			return
+			return "", fmt.Errorf("failed to check for existing configuration: %w", err)
 		}
 		if err == nil && fstat != nil {
-			log.Fatal("configuration already exists")
-			return
+			return "", errors.New("configuration already exists")
 		}
 	}
 
 	file, err := os.Create(dftTOML)
 	if err != nil {
-		log.Fatalf("failed to create a new configuration: %+v", err)
+		return "", fmt.Errorf("failed to create a new configuration: %w", err)
 	}
 	defer file.Close()
 
 	config := defaultConfig()
 	configFile, err := toml.Marshal(config)
 	if err != nil {
-		log.Fatalf("failed to marshal the default configuration: %+v", err)
+		return "", fmt.Errorf("failed to marshal the default configuration: %w", err)
 	}
 
 	_, err = file.Write(configFile)
 	if err != nil {
-		log.Fatalf("failed to write to %s: %+v", dftTOML, err)
+		return "", fmt.Errorf("failed to write to %s: %w", dftTOML, err)
 	}
 
-	fmt.Printf("%s file created to the current directory with the default settings\n", dftTOML)
+	return dftTOML, nil
 }
 
 func defaultPathConfig() (*Config, error) {

@@ -844,14 +844,17 @@ func TestWriteDefaultConfig(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	writeDefaultConfig()
+	configName, err := writeDefaultConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
 	// check the file is exist
-	if _, err := os.Stat(dftTOML); err != nil {
+	if _, err := os.Stat(configName); err != nil {
 		t.Fatal(err)
 	}
 
 	// check the file content is right
-	actual, err := readConfig(dftTOML)
+	actual, err := readConfig(configName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -906,7 +909,10 @@ func TestShouldIncludeGoTestFile(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	writeDefaultConfig()
+	_, err := writeDefaultConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// write go test file
 	file, err := os.Create("main_test.go")
