@@ -8,10 +8,9 @@
 
 ## 開發動機
 
-當我開始用 Go 開發網站並使用[gin](https://github.com/gin-gonic/gin)框架時，感到可惜的是 gin 缺乏活躍的重載函數。因此，我四處搜尋並嘗試使用[fresh](https://github.com/pilu/fresh)，但它似乎不夠彈性，所以我打算重新寫得更好。最後，Air 就這麼誕生了。
-另外，非常感謝[pilu](https://github.com/pilu)，如果沒有 fresh，就不會有 air :)
+當我開始用 Go 開發網站並使用[gin](https://github.com/gin-gonic/gin)框架時，感到可惜的是 gin 缺乏自動重新編譯執行的方式。因此，我四處搜尋並嘗試使用[fresh](https://github.com/pilu/fresh)，但它似乎不夠彈性，所以我打算重新寫得更好。最後，Air 就這麼誕生了。另外，非常感謝[pilu](https://github.com/pilu)，如果沒有 fresh，就不會有 air :)
 
-Air 是一個另類的活躍重載命令列工具，用於開發 Go 應用。在你的項目根目錄下運行 `air`，將它置於寂靜之中，並專注於你的程式碼。
+Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 應用。在你的項目根目錄下運行 `air`，將它執行於背景中，並專注於你的程式碼。
 
 注意：此工具與生產環境的熱部署無關。
 
@@ -37,7 +36,7 @@ Air 是一個另類的活躍重載命令列工具，用於開發 Go 應用。在
 
 ## 安裝
 
-### 偏好 `go install` （推薦）
+### 使用 `go install` （推薦）
 
 需要使用 go 1.18 或更高版本：
 
