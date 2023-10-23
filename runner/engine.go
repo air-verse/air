@@ -546,8 +546,13 @@ func (e *Engine) runBin() error {
 
 				_, _ = io.Copy(os.Stdout, stdout)
 				_, _ = io.Copy(os.Stderr, stderr)
-				_, _ = cmd.Process.Wait()
+				state, _ := cmd.Process.Wait()
 				close(processExit)
+				if state.ExitCode() == 0 {
+					e.runnerLog("Process Exit with Code 0")
+				} else {
+					e.runnerLog("Process Exit with an error: %v", state.ExitCode())
+				}
 
 				if !e.config.Build.Rerun {
 					return
