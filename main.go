@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/cosmtrek/air/runner"
+	"github.com/pelletier/go-toml"
 )
 
 var (
@@ -72,6 +73,20 @@ func GetVersionInfo() versionInfo {
 	}
 }
 
+func helpMessage() {
+	data, err := os.ReadFile("air_example.toml")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var cfg runner.Config
+	err = toml.Unmarshal(data, &cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("cfg: %+v\n", cfg)
+}
+
 func main() {
 	versionInfo := GetVersionInfo()
 	fmt.Printf(`
@@ -85,6 +100,7 @@ func main() {
 		return
 	}
 	if help {
+		helpMessage()
 		return
 	}
 
