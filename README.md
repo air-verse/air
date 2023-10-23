@@ -248,6 +248,15 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 
 Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/cosmtrek/air/issues/305)
 
+### Question: how to do hot compile only and do not run anything? 
+
+[#365](https://github.com/cosmtrek/air/issues/365)
+
+```toml
+[build]
+  cmd = "/usr/bin/true"
+```
+
 ## Development
 
 Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
