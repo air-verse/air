@@ -549,9 +549,9 @@ func (e *Engine) runBin() error {
 				state, _ := cmd.Process.Wait()
 				close(processExit)
 				if state.ExitCode() == 0 {
-					e.runnerLog("returned successfully")
+					e.runnerLog("Process Exit with Code 0")
 				} else {
-					e.runnerLog("returned exit code %d", state.ExitCode())
+					e.runnerLog("Process Exit with an error: %v", state.ExitCode())
 				}
 
 				if !e.config.Build.Rerun {
