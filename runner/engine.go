@@ -548,10 +548,13 @@ func (e *Engine) runBin() error {
 				_, _ = io.Copy(os.Stderr, stderr)
 				state, _ := cmd.Process.Wait()
 				close(processExit)
-				if state.ExitCode() == 0 {
+				switch state.ExitCode() {
+				case 0:
 					e.runnerLog("Process Exit with Code 0")
-				} else {
-					e.runnerLog("Process Exit with an error: %v", state.ExitCode())
+				case -1:
+					// because when we use ctrl + c to stop will return -1
+				default:
+					e.runnerLog("Process Exit with Code: %v", state.ExitCode())
 				}
 
 				if !e.config.Build.Rerun {
