@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
@@ -20,6 +21,9 @@ var (
 	showVersion bool
 	help        bool
 	cmdArgs     map[string]runner.TomlInfo
+
+	//go:embed air_example.toml
+	airExampleToml string
 )
 
 func usage() {
@@ -74,13 +78,8 @@ func GetVersionInfo() versionInfo {
 }
 
 func helpMessage() {
-	data, err := os.ReadFile("air_example.toml")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	var cfg runner.Config
-	err = toml.Unmarshal(data, &cfg)
+	err := toml.Unmarshal([]byte(airExampleToml), &cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
