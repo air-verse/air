@@ -1,10 +1,8 @@
+root = true
+
 [Makefile]
 indent_style = tab
 
 [*.go]
-indent_style = tab
-indent_size = 4
-
-[go.{mod,sum}]
 indent_style = tab
 indent_size = 4
