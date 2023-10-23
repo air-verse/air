@@ -300,6 +300,7 @@ type TomlInfo struct {
 	fieldPath string
 	field     reflect.StructField
 	Value     *string
+	Comment   string
 }
 
 func setValue2Struct(v reflect.Value, fieldName string, value string) {
@@ -350,22 +351,25 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 	}
 }
 
-// flatConfig ...
-func flatConfig(stut interface{}) map[string]TomlInfo {
+// FlatConfig ...
+func FlatConfig(stut interface{}) map[string]TomlInfo {
 	m := make(map[string]TomlInfo)
-	t := reflect.TypeOf(stut)
+	t := reflect.ValueOf(stut)
 	setTage2Map("", t, m, "")
 	return m
 }
 
-func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath string) {
+func setTage2Map(root string, v reflect.Value, m map[string]TomlInfo, fieldPath string) {
+	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+		value := v.Field(i)
 		tomlVal := field.Tag.Get("toml")
+		comment := field.Tag.Get("comment")
 		switch field.Type.Kind() {
 		case reflect.Struct:
 			path := fieldPath + field.Name + "."
-			setTage2Map(root+tomlVal+".", field.Type, m, path)
+			setTage2Map(root+tomlVal+".", value, m, path)
 		default:
 			if tomlVal == "" {
 				continue
@@ -375,7 +379,7 @@ func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath s
 			var v *string
 			str := ""
 			v = &str
-			m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path}
+			m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path, Comment: comment}
 		}
 	}
 }

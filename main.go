@@ -84,6 +84,8 @@ func helpMessage() {
 		log.Fatal(err)
 	}
 	fmt.Printf("cfg: %+v\n", cfg)
+	m := runner.FlatConfig(cfg)
+	fmt.Printf("m: %+v\n", m)
 }
 
 func main() {
