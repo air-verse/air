@@ -17,10 +17,11 @@ var (
 	cfgPath     string
 	debugMode   bool
 	showVersion bool
+	help        bool
 	cmdArgs     map[string]runner.TomlInfo
 )
 
-func helpMessage() {
+func usage() {
 	fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n\n", os.Args[0])
 	fmt.Printf("If no command is provided %s will start the runner with the provided flags\n\n", os.Args[0])
 	fmt.Println("Commands:")
@@ -35,10 +36,11 @@ func init() {
 }
 
 func parseFlag(args []string) {
-	flag.Usage = helpMessage
+	flag.Usage = usage
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
+	flag.BoolVar(&help, "h", false, "help")
 	cmd := flag.CommandLine
 	cmdArgs = runner.ParseConfigFlag(cmd)
 	if err := flag.CommandLine.Parse(args); err != nil {
@@ -80,6 +82,9 @@ func main() {
 `, versionInfo.airVersion, versionInfo.goVersion)
 
 	if showVersion {
+		return
+	}
+	if help {
 		return
 	}
 
