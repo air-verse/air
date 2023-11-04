@@ -402,8 +402,12 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
-	if err = e.runBin(); err != nil {
-		e.runnerLog("failed to run, error: %s", err.Error())
+	if e.config.Build.SkipRun {
+		e.runnerLog("skipping run step")
+	} else {
+		if err = e.runBin(); err != nil {
+			e.runnerLog("failed to run, error: %s", err.Error())
+		}
 	}
 }
 

@@ -57,6 +57,7 @@ type cfgBuild struct {
 	KillDelay        time.Duration `toml:"kill_delay"`
 	Rerun            bool          `toml:"rerun"`
 	RerunDelay       int           `toml:"rerun_delay"`
+	SkipRun          bool          `toml:"skip_run"`
 	regexCompiled    []*regexp.Regexp
 }
 

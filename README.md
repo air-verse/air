@@ -250,11 +250,9 @@ Should use `\` to escape the `' in the bin. related issue: [#305](https://github
 
 ### Question: how to do hot compile only and do not run anything? 
 
-[#365](https://github.com/cosmtrek/air/issues/365)
-
 ```toml
 [build]
-  cmd = "/usr/bin/true"
+  skip_run = true
 ```
 
 ## Development

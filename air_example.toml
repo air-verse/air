@@ -52,6 +52,8 @@ rerun = false
 rerun_delay = 500
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
 args_bin = ["hello", "world"]
+# Skips the run step so it's only builds
+skip_run = false
 
 [log]
 # Show log time
