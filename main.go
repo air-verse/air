@@ -51,7 +51,7 @@ type versionInfo struct {
 	goVersion  string
 }
 
-func GetVersionInfo() versionInfo {
+func GetVersionInfo() versionInfo { //revive:disable:unexported-return
 	if len(airVersion) != 0 && len(goVersion) != 0 {
 		return versionInfo{
 			airVersion: airVersion,

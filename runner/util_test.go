@@ -237,6 +237,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 func TestGetStructureFieldTagMap(t *testing.T) {
 	c := Config{}
 	tagMap := flatConfig(c)
+	assert.NotEmpty(t, tagMap)
 	for _, i2 := range tagMap {
 		fmt.Printf("%v\n", i2.fieldPath)
 	}
