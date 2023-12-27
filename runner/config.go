@@ -345,6 +345,17 @@ func (c *Config) rerunDelay() time.Duration {
 	return time.Duration(c.Build.RerunDelay) * time.Millisecond
 }
 
+func (c *Config) killDelay() time.Duration {
+	// kill_delay can be specified as an integer or duration string
+	// interpret as milliseconds if less than the value of 1 millisecond
+	if c.Build.KillDelay < time.Millisecond {
+		return c.Build.KillDelay * time.Millisecond
+	} else {
+		// normalize kill delay to milliseconds
+		return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
+	}
+}
+
 func (c *Config) binPath() string {
 	return filepath.Join(c.Root, c.Build.Bin)
 }
