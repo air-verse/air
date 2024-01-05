@@ -927,6 +927,9 @@ func Test(t *testing.T) {
 	t.Log("testing")
 }
 `)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// run sed
 	// check the file is exist
 	if _, err := os.Stat(dftTOML); err != nil {
