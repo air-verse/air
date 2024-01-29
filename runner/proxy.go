@@ -59,12 +59,14 @@ func (p *Proxy) injectLiveReload(origURL string, respBody io.ReadCloser) string 
 	if _, err := buf.ReadFrom(respBody); err != nil {
 		log.Fatalf("failed to convert request body to bytes buffer, err: %+v\n", err)
 	}
-	s := buf.String()
+	original := buf.String()
 
-	body := strings.LastIndex(s, "</body>")
+	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped without an error to ensure that a page with partial reloads only has at most one injected script.
+	body := strings.LastIndex(original, "</body>")
 	if body == -1 {
-		log.Fatal("invalid html page, missing the body tag")
+		return original
 	}
+
 	script := `
 	<script>
 	const parser = new DOMParser();
@@ -78,9 +80,7 @@ func (p *Proxy) injectLiveReload(origURL string, respBody io.ReadCloser) string 
 	</script>
 	`
 	parsedScript := fmt.Sprintf(script, p.config.ProxyPort, origURL)
-
-	s = s[:body] + parsedScript + s[body:]
-	return s
+	return original[:body] + parsedScript + original[body:]
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
