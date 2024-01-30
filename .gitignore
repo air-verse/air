@@ -14,3 +14,10 @@ tmp/
 
 # build output
 air
+
+# Dev evnrionment files 
+.devenv
+.direnv
+.envrc
+.pre-commit-config.yaml
+result 
