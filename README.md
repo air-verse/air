@@ -120,7 +120,7 @@ cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
 
-this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the aplication itself for example -c
+this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the application itself for example -c
 
 </details>
 
