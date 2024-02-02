@@ -943,3 +943,62 @@ include_file = ["main.sh"]
 	}
 	assert.Equal(t, []byte("modified"), bytes)
 }
+
+func TestShouldIncludeIncludedFileWihtoutIncludedExt(t *testing.T) {
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+
+	chdir(t, tmpDir)
+
+	config := `
+[build]
+cmd = "true" # do nothing
+full_bin = "sh main.sh"
+include_ext = ["go"]
+include_dir = ["nonexist"] # prevent default "." watch from taking effect
+include_file = ["main.sh"]
+`
+	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf original > output"), 0o755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	engine, err := NewEngine(dftTOML, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		engine.Run()
+	}()
+
+	time.Sleep(time.Second * 1)
+
+	bytes, err := os.ReadFile("output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []byte("original"), bytes)
+
+	t.Logf("start change main.sh")
+	go func() {
+		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
+		if err != nil {
+			log.Fatalf("Error updating file: %s.", err)
+		}
+	}()
+
+	time.Sleep(time.Second * 3)
+
+	bytes, err = os.ReadFile("output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, []byte("modified"), bytes)
+}
