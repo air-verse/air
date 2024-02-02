@@ -22,6 +22,7 @@ type Reloader interface {
 
 type Proxy struct {
 	server *http.Server
+	client *http.Client
 	config *cfgProxy
 	stream Reloader
 }
@@ -32,6 +33,7 @@ func NewProxy(cfg *cfgProxy) *Proxy {
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%d", cfg.ProxyPort),
 		},
+		client: &http.Client{},
 		stream: NewProxyStream(),
 	}
 	return p
@@ -84,28 +86,47 @@ func (p *Proxy) injectLiveReload(origURL string, respBody io.ReadCloser) string 
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
-	url := fmt.Sprintf("http://localhost:%d%s", p.config.AppPort, r.URL.Path)
-	req, err := http.NewRequest(r.Method, url, r.Body)
+	appURL := r.URL
+	appURL.Scheme = "http"
+	appURL.Host = fmt.Sprintf("localhost:%d", p.config.AppPort)
+
+	if err := r.ParseForm(); err != nil {
+		log.Fatalf("failed to read form data from request, err: %+v\n", err)
+	}
+	var body io.Reader
+	if len(r.Form) > 0 {
+		body = strings.NewReader(r.Form.Encode())
+	} else {
+		body = r.Body
+	}
+	req, err := http.NewRequest(r.Method, appURL.String(), body)
 	if err != nil {
 		log.Fatalf("proxy could not create request, err: %+v\n", err)
 	}
+
+	// Copy the headers from the original request
+	for name, values := range r.Header {
+		for _, value := range values {
+			req.Header.Add(name, value)
+		}
+	}
 	req.Header.Set("X-Forwarded-For", r.RemoteAddr)
 
-	client := &http.Client{}
+	// retry on connection refused error since after a file change air will restart the server and it may take a few milliseconds for the server to be up-and-running.
 	var resp *http.Response
 	for i := 0; i < 10; i++ {
-		resp, err = client.Do(req)
+		resp, err = p.client.Do(req)
 		if err == nil {
 			break
 		}
 		if !errors.Is(err, syscall.ECONNREFUSED) {
-			log.Fatalf("proxy failed to call %s, err: %+v\n", url, err)
+			log.Fatalf("proxy failed to call %s, err: %+v\n", appURL.String(), err)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	defer resp.Body.Close()
 
-	// copy all headers except Content-Length
+	// Copy the headers from the proxy response except Content-Length
 	for k, vv := range resp.Header {
 		for _, v := range vv {
 			if k == "Content-Length" {
@@ -125,7 +146,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
 		if _, err := io.Copy(w, resp.Body); err != nil {
-			log.Fatalf("proxy failed to forward request, err: %+v\n", err)
+			log.Fatalf("proxy failed to forward the response body, err: %+v\n", err)
 		}
 	}
 }
