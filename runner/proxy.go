@@ -56,7 +56,7 @@ func (p *Proxy) Reload() {
 	p.stream.Reload()
 }
 
-func (p *Proxy) injectLiveReload(origURL string, respBody io.ReadCloser) string {
+func (p *Proxy) injectLiveReload(respBody io.ReadCloser) string {
 	buf := new(bytes.Buffer)
 	if _, err := buf.ReadFrom(respBody); err != nil {
 		log.Fatalf("failed to convert request body to bytes buffer, err: %+v\n", err)
@@ -69,20 +69,11 @@ func (p *Proxy) injectLiveReload(origURL string, respBody io.ReadCloser) string 
 		return original
 	}
 
-	script := `
-	<script>
-	const parser = new DOMParser();
-	const proxyURL = "http://localhost:%d";
-	new EventSource(proxyURL + "/internal/reload").onmessage = () => {
-		fetch(proxyURL + "%s").then(res => res.text()).then(resStr => {
-			const newPage = parser.parseFromString(resStr, "text/html");
-			document.replaceChild(newPage.documentElement, document.documentElement);
-		});
-	};
-	</script>
-	`
-	parsedScript := fmt.Sprintf(script, p.config.ProxyPort, origURL)
-	return original[:body] + parsedScript + original[body:]
+	script := fmt.Sprintf(
+		`<script>new EventSource("http://localhost:%d/internal/reload").onmessage = () => { location.reload() }</script>`,
+		p.config.ProxyPort,
+	)
+	return original[:body] + script + original[body:]
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -138,9 +129,9 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 
 	if strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		s := p.injectLiveReload(r.URL.String(), resp.Body)
-		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(s)))))
-		if _, err := io.WriteString(w, s); err != nil {
+		newPage := p.injectLiveReload(resp.Body)
+		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(newPage)))))
+		if _, err := io.WriteString(w, newPage); err != nil {
 			log.Fatalf("proxy failed injected live reloading script, err: %+v\n", err)
 		}
 	} else {
