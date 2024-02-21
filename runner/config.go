@@ -350,10 +350,9 @@ func (c *Config) killDelay() time.Duration {
 	// interpret as milliseconds if less than the value of 1 millisecond
 	if c.Build.KillDelay < time.Millisecond {
 		return c.Build.KillDelay * time.Millisecond
-	} else {
-		// normalize kill delay to milliseconds
-		return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 	}
+	// normalize kill delay to milliseconds
+	return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 }
 
 func (c *Config) binPath() string {

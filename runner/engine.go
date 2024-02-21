@@ -113,7 +113,7 @@ func (e *Engine) checkRunEnv() error {
 }
 
 func (e *Engine) watching(root string) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, _ error) error {
 		// NOTE: path is absolute
 		if info != nil && !info.IsDir() {
 			if e.checkIncludeFile(path) {
