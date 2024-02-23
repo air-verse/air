@@ -54,6 +54,8 @@ rerun_delay = 500
 args_bin = ["hello", "world"]
 # Open URL in browser when the build is finished
 app_url = "http://localhost:8080"
+# Delay after build before open URL
+app_url_open_delay = 500
 
 [log]
 # Show log time

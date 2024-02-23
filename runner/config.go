@@ -58,6 +58,7 @@ type cfgBuild struct {
 	Rerun            bool          `toml:"rerun"`
 	RerunDelay       int           `toml:"rerun_delay"`
 	AppUrl           string        `toml:"app_url"`
+	AppUrlOpenDelay  int           `toml:"app_url_open_delay"`
 	regexCompiled    []*regexp.Regexp
 }
 

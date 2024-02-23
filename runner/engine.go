@@ -409,10 +409,13 @@ func (e *Engine) buildRun() {
 	}
 
 	if e.config.Build.AppUrl != "" {
-		e.runnerLog("opening browser: %s", e.config.Build.AppUrl)
-		if err = e.openBrowser(); err != nil {
-			e.runnerLog("failed to open browser: %s", err.Error())
-		}
+		go func() {
+			time.Sleep(time.Duration(e.config.Build.AppUrlOpenDelay) * time.Millisecond)
+			e.runnerLog("opening browser: %s", e.config.Build.AppUrl)
+			if err = e.openBrowser(); err != nil {
+				e.runnerLog("failed to open browser: %s", err.Error())
+			}
+		}()
 	}
 }
 
