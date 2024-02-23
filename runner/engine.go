@@ -2,6 +2,7 @@ package runner
 
 import (
 	"fmt"
+	"github.com/pkg/browser"
 	"io"
 	"log"
 	"os"
@@ -404,7 +405,22 @@ func (e *Engine) buildRun() {
 	}
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
+		return
 	}
+
+	if e.config.Build.AppUrl != "" {
+		go func() {
+			time.Sleep(time.Duration(e.config.Build.AppUrlOpenDelay) * time.Millisecond)
+			e.runnerLog("opening browser: %s", e.config.Build.AppUrl)
+			if err = e.openBrowser(); err != nil {
+				e.runnerLog("failed to open browser: %s", err.Error())
+			}
+		}()
+	}
+}
+
+func (e *Engine) openBrowser() error {
+	return browser.OpenURL(e.config.Build.AppUrl)
 }
 
 func (e *Engine) flushEvents() {
