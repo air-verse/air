@@ -52,6 +52,8 @@ rerun = false
 rerun_delay = 500
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
 args_bin = ["hello", "world"]
+# Open URL in browser when the build is finished
+app_url = "http://localhost:8080"
 
 [log]
 # Show log time

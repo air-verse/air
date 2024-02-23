@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -404,7 +405,33 @@ func (e *Engine) buildRun() {
 	}
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
+		return
 	}
+
+	if e.config.Build.AppUrl != "" {
+		e.runnerLog("opening browser: %s", e.config.Build.AppUrl)
+		if err = e.openBrowser(); err != nil {
+			e.runnerLog("failed to open browser: %s", err.Error())
+		}
+	}
+}
+
+func (e *Engine) openBrowser() error {
+	var err error
+
+	url := e.config.Build.AppUrl
+	switch runtime.GOOS {
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	default:
+		err = exec.Command("open", url).Start()
+	}
+
+	return err
 }
 
 func (e *Engine) flushEvents() {
