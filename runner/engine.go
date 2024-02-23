@@ -2,12 +2,12 @@ package runner
 
 import (
 	"fmt"
+	"github.com/pkg/browser"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -420,21 +420,7 @@ func (e *Engine) buildRun() {
 }
 
 func (e *Engine) openBrowser() error {
-	var err error
-
-	url := e.config.Build.AppUrl
-	switch runtime.GOOS {
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	default:
-		err = exec.Command("open", url).Start()
-	}
-
-	return err
+	return browser.OpenURL(e.config.Build.AppUrl)
 }
 
 func (e *Engine) flushEvents() {
