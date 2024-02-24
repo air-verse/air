@@ -38,7 +38,7 @@ Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 
 
 ### 使用 `go install` （推薦）
 
-需要使用 go 1.18 或更高版本：
+需要使用 go 1.22 或更高版本：
 
 ```bash
 go install github.com/cosmtrek/air@latest

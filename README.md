@@ -42,7 +42,7 @@ Use a comma to separate items for arguments that take a list as input:
 
 ### Via `go install` (Recommended)
 
-With go 1.18 or higher:
+With go 1.22 or higher:
 
 ```bash
 go install github.com/cosmtrek/air@latest
