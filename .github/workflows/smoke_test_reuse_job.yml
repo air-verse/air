@@ -1,4 +1,4 @@
-name: Reusable smoke_test
+name: Reusable smoke test
 
 on:
   workflow_call:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   smoke_test:
-    name: smoke_test
+    name: Smoke test
     runs-on: ${{ inputs.run_on }}
     steps:
       - name: Check out code
