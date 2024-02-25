@@ -31,7 +31,7 @@ jobs:
           sleep 5
           cat nohup.out
           grep "running" nohup.out | wc -l | if [ "$(cat -)" -eq "2" ]; then echo "::set-output name=value::PASS"; else echo "::set-output name=value::FAIL"; fi
-      - uses: nick-invision/assert-action@v1
+      - uses: nick-invision/assert-action@v2
         with:
           expected: "PASS"
           actual: ${{ steps.check_rebuild.outputs.value }}
