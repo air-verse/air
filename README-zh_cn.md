@@ -52,7 +52,7 @@ P.S. 非常感谢 mattn 的 [PR](https://github.com/cosmtrek/air/pull/1)，使�
 
 ### 使用 `go install`
 
-使用 Go 的版本为 1.16 或更高:
+使用 Go 的版本为 1.22 或更高:
 
 ```bash
 go install github.com/cosmtrek/air@latest
