@@ -19,7 +19,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ^1.22
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -34,7 +33,7 @@ jobs:
         working-directory: ./smoke_test
         run: |
           python smoke_test.py
-      - uses: nick-invision/assert-action@v1
+      - uses: nick-invision/assert-action@v2
         with:
           expected: "PASS"
           actual: ${{ steps.check_rebuild.outputs.value }}
