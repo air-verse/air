@@ -30,6 +30,7 @@ type Engine struct {
 	buildRunStopCh chan bool
 	binStopCh      chan bool
 	exitCh         chan bool
+	procKilledCh   chan bool
 
 	mu            sync.RWMutex
 	watchers      uint
@@ -58,6 +59,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		buildRunStopCh: make(chan bool, 1),
 		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
+		procKilledCh:   make(chan bool, 1),
 		fileChecksums:  &checksumMap{m: make(map[string]string)},
 		watchers:       0,
 	}
@@ -504,11 +506,13 @@ func (e *Engine) runBin() error {
 		}
 		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
 		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
+			close(e.procKilledCh)
 			return
 		}
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
+		close(e.procKilledCh)
 	}
 
 	e.runnerLog("running...")
@@ -604,6 +608,13 @@ func (e *Engine) cleanup() {
 		if err = os.RemoveAll(e.config.tmpPath()); err != nil {
 			e.mainLog("failed to delete tmp dir, err: %+v", err)
 		}
+	}
+
+	e.mainDebug("waiting for process to be killed...")
+	select {
+	case <-e.procKilledCh:
+	case <-time.After(time.Second * 1):
+		os.Exit(1)
 	}
 
 	e.mainDebug("waiting for exit...")
