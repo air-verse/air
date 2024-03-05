@@ -30,6 +30,21 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
+	if e.config.Screen.NoPTY {
+		stderr, err := c.StderrPipe()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		stdout, err := c.StdoutPipe()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		err = c.Start()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return c, stdout, stderr, err
+	}
 	f, err := pty.Start(c)
 	return c, f, f, err
 }

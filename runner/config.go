@@ -94,6 +94,7 @@ type cfgMisc struct {
 type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
 	KeepScroll     bool `toml:"keep_scroll"`
+	NoPTY          bool `toml:"no_pty"`
 }
 
 type sliceTransformer struct{}
