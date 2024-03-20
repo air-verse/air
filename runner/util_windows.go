@@ -40,7 +40,6 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
 	err = c.Start()
 	if err != nil {
 		return nil, nil, nil, err
