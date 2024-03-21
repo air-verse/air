@@ -194,7 +194,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 		cmd *exec.Cmd
 	})
 	go func() {
-		cmd, _, _, err := e.startCmd("sh _testdata/run-many-processes.sh")
+		cmd, err := e.startCmd("sh _testdata/run-many-processes.sh")
 		if err != nil {
 			t.Errorf("failed to start command: %v", err)
 			return

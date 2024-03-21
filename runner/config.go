@@ -298,9 +298,6 @@ func (c *Config) preprocess() error {
 	if c.TestDataDir == "" {
 		c.TestDataDir = "testdata"
 	}
-	if err != nil {
-		return err
-	}
 	ed := c.Build.ExcludeDir
 	for i := range ed {
 		ed[i] = cleanPath(ed[i])

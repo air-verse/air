@@ -2,7 +2,6 @@ package runner
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -420,17 +419,11 @@ func (e *Engine) flushEvents() {
 
 // utility to execute commands, such as cmd & pre_cmd
 func (e *Engine) runCommand(command string) error {
-	cmd, stdout, stderr, err := e.startCmd(command)
+	cmd, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		stdout.Close()
-		stderr.Close()
-	}()
-	_, _ = io.Copy(os.Stdout, stdout)
-	_, _ = io.Copy(os.Stderr, stderr)
-	// wait for command to finish
+
 	err = cmd.Wait()
 	if err != nil {
 		return err
@@ -473,7 +466,7 @@ func (e *Engine) runPostCmd() error {
 }
 
 func (e *Engine) runBin() error {
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
+	killFunc := func(cmd *exec.Cmd, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
 		defer wg.Done()
 		select {
 		// listen to binStopCh
@@ -489,10 +482,6 @@ func (e *Engine) runBin() error {
 		}
 
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
-		defer func() {
-			stdout.Close()
-			stderr.Close()
-		}()
 		pid, err := e.killCmd(cmd)
 		if err != nil {
 			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
@@ -532,7 +521,7 @@ func (e *Engine) runBin() error {
 				return
 			default:
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-				cmd, stdout, stderr, _ := e.startCmd(command)
+				cmd, _ := e.startCmd(command)
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
 
@@ -541,16 +530,14 @@ func (e *Engine) runBin() error {
 				e.withLock(func() {
 					close(e.binStopCh)
 					e.binStopCh = make(chan bool)
-					go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+					go killFunc(cmd, killCh, processExit, &wg)
 				})
 
 				go func() {
-					_, _ = io.Copy(os.Stdout, stdout)
 					_, _ = cmd.Process.Wait()
 				}()
 
 				go func() {
-					_, _ = io.Copy(os.Stderr, stderr)
 					_, _ = cmd.Process.Wait()
 				}()
 				state, _ := cmd.Process.Wait()
