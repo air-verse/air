@@ -1,6 +1,6 @@
 module github.com/cosmtrek/air
 
-go 1.22
+go 1.22.0
 
 require (
 	dario.cat/mergo v1.0.0
