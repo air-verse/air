@@ -332,7 +332,7 @@ func (e *Engine) start() {
 				}
 			}
 
-			// cannot set buldDelay to 0, because when the write mutiple events received in short time
+			// cannot set buldDelay to 0, because when the write multiple events received in short time
 			// it will start Multiple buildRuns: https://github.com/cosmtrek/air/issues/473
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
@@ -583,7 +583,7 @@ func (e *Engine) cleanup() {
 		close(e.binStopCh)
 		e.binStopCh = make(chan bool)
 	})
-	e.mainDebug("wating for	close watchers..")
+	e.mainDebug("waiting for	close watchers..")
 
 	e.withLock(func() {
 		for i := 0; i < int(e.watchers); i++ {

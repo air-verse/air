@@ -614,7 +614,7 @@ func TestRun(t *testing.T) {
 	engine.Stop()
 	time.Sleep(time.Second * 1)
 	assert.False(t, checkPortHaveBeenUsed(port))
-	t.Logf("stoped")
+	t.Logf("stopped")
 }
 
 func checkPortConnectionRefused(port int) bool {
