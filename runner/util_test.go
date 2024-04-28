@@ -224,7 +224,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	for _, line := range lines {
 		_, err := strconv.Atoi(line)
 		if err != nil {
-			t.Logf("failed to covert str to int %v", err)
+			t.Logf("failed to convert str to int %v", err)
 			continue
 		}
 		_, err = exec.Command("ps", "-p", line, "-o", "comm= ").Output()
