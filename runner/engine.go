@@ -574,8 +574,6 @@ func (e *Engine) runBin() error {
 					e.runnerLog("Process Exit with Code: %v", state.ExitCode())
 				}
 
-				e.procKilledCh <- true
-
 				if !e.config.Build.Rerun {
 					return
 				}
