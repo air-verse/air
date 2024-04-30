@@ -497,6 +497,7 @@ func (e *Engine) runBin() error {
 
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
+			e.procKilledCh <- true
 			stdout.Close()
 			stderr.Close()
 		}()
@@ -511,13 +512,11 @@ func (e *Engine) runBin() error {
 		}
 		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
 		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-			e.procKilledCh <- true
 			return
 		}
 		if err = os.Remove(cmdBinPath); err != nil {
 			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
 		}
-		e.procKilledCh <- true
 	}
 
 	e.runnerLog("running...")
