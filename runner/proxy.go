@@ -43,7 +43,7 @@ func (p *Proxy) Run() {
 	http.HandleFunc("/", p.proxyHandler)
 	http.HandleFunc("/internal/reload", p.reloadHandler)
 	if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+		log.Fatalf("failed to start proxy server: %v", err)
 	}
 }
 
