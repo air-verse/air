@@ -614,7 +614,7 @@ func TestRun(t *testing.T) {
 	engine.Stop()
 	time.Sleep(time.Second * 1)
 	assert.False(t, checkPortHaveBeenUsed(port))
-	t.Logf("stoped")
+	t.Logf("stopped")
 }
 
 func checkPortConnectionRefused(port int) bool {
@@ -927,6 +927,9 @@ func Test(t *testing.T) {
 	t.Log("testing")
 }
 `)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// run sed
 	// check the file is exist
 	if _, err := os.Stat(dftTOML); err != nil {

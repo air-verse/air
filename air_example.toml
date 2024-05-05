@@ -73,3 +73,9 @@ clean_on_exit = true
 [screen]
 clear_on_rebuild = true
 keep_scroll = true
+
+# Enable live-reloading on the browser.
+[proxy]
+  enabled = true
+  proxy_port = 8090
+  app_port = 8080
