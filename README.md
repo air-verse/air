@@ -257,6 +257,20 @@ Should use `\` to escape the `' in the bin. related issue: [#305](https://github
   cmd = "/usr/bin/true"
 ```
 
+### How to Reload the Browser Automatically on Static File Changes
+
+Refer to issue #512 for additional details.
+
+* Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
+* Activate the proxy by configuring the following config:
+
+```toml
+[proxy]
+  enabled = true
+  proxy_port = <air proxy port>
+  app_port = <your server port>
+```
+
 ## Development
 
 Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
