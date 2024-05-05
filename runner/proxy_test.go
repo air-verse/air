@@ -126,7 +126,7 @@ func TestProxy_proxyHandler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 				tt.assert(r)
 			}))
 			defer srv.Close()
@@ -142,7 +142,7 @@ func TestProxy_proxyHandler(t *testing.T) {
 }
 
 func TestProxy_reloadHandler(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprint(w, "thin air")
 	}))
 	srvPort := getServerPort(t, srv)
