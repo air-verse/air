@@ -66,6 +66,12 @@ watcher = "cyan"
 build = "yellow"
 runner = "green"
 
+[keybindings]
+# Customize keybindings
+enabled = true # Enabled by default
+reload_key = "r"
+quit_key = "q"
+
 [misc]
 # Delete tmp directory on exit
 clean_on_exit = true

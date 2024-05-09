@@ -23,15 +23,16 @@ const (
 
 // Config is the main configuration structure for Air.
 type Config struct {
-	Root        string    `toml:"root"`
-	TmpDir      string    `toml:"tmp_dir"`
-	TestDataDir string    `toml:"testdata_dir"`
-	Build       cfgBuild  `toml:"build"`
-	Color       cfgColor  `toml:"color"`
-	Log         cfgLog    `toml:"log"`
-	Misc        cfgMisc   `toml:"misc"`
-	Screen      cfgScreen `toml:"screen"`
-	Proxy       cfgProxy  `toml:"proxy"`
+	Root        string         `toml:"root"`
+	TmpDir      string         `toml:"tmp_dir"`
+	TestDataDir string         `toml:"testdata_dir"`
+	Build       cfgBuild       `toml:"build"`
+	Color       cfgColor       `toml:"color"`
+	Log         cfgLog         `toml:"log"`
+	Keybindings cfgKeybindings `toml:"keybindings"`
+	Misc        cfgMisc        `toml:"misc"`
+	Screen      cfgScreen      `toml:"screen"`
+	Proxy       cfgProxy       `toml:"proxy"`
 }
 
 type cfgBuild struct {
@@ -90,6 +91,12 @@ type cfgColor struct {
 
 type cfgMisc struct {
 	CleanOnExit bool `toml:"clean_on_exit"`
+}
+
+type cfgKeybindings struct {
+	Enabled   bool   `toml:"enabled"`
+	ReloadKey string `toml:"reload_key"`
+	QuitKey   string `toml:"quit_key"`
 }
 
 type cfgScreen struct {
@@ -244,6 +251,11 @@ func defaultConfig() Config {
 		Build:   "yellow",
 		Runner:  "green",
 	}
+	keybindings := cfgKeybindings{
+		Enabled:   true,
+		ReloadKey: "r",
+		QuitKey:   "q",
+	}
 	misc := cfgMisc{
 		CleanOnExit: false,
 	}
@@ -254,6 +266,7 @@ func defaultConfig() Config {
 		Build:       build,
 		Color:       color,
 		Log:         log,
+		Keybindings: keybindings,
 		Misc:        misc,
 		Screen: cfgScreen{
 			ClearOnRebuild: false,

@@ -81,33 +81,35 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 
 // Run run run
 func (e *Engine) Run() {
-	go func() {
-		err := keyboard.Listen(func(key keys.Key) (stop bool, err error) {
-			switch key.Code {
-			case keys.CtrlC, keys.Escape:
-				return true, nil
-			case keys.Space:
-				e.mainLog("Manual reload")
-				e.buildRun()
-			case keys.RuneKey:
-				switch key.String() {
-				case "r":
+	if e.config.Keybindings.Enabled {
+		go func() {
+			err := keyboard.Listen(func(key keys.Key) (stop bool, err error) {
+				switch key.Code {
+				case keys.CtrlC, keys.Escape:
+					return true, nil
+				case keys.Space:
 					e.mainLog("Manual reload")
 					e.buildRun()
-				case "q":
-					return true, nil
+				case keys.RuneKey:
+					switch key.String() {
+					case e.config.Keybindings.ReloadKey:
+						e.mainLog("Manual reload")
+						e.buildRun()
+					case e.config.Keybindings.QuitKey:
+						return true, nil
+					}
+				default:
+					fmt.Printf("\rYou pressed: %s\n", key)
 				}
-			default:
-				fmt.Printf("\rYou pressed: %s\n", key)
-			}
 
-			return false, nil
-		})
-		if err != nil {
-			log.Fatalf("failed to listen to keyboard: %+v", err)
-		}
-		e.Stop()
-	}()
+				return false, nil
+			})
+			if err != nil {
+				log.Fatalf("failed to listen to keyboard: %+v", err)
+			}
+			e.Stop()
+		}()
+	}
 
 	if len(os.Args) > 1 && os.Args[1] == "init" {
 		configName, err := writeDefaultConfig()
