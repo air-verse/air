@@ -591,7 +591,9 @@ func (e *Engine) cleanup() {
 
 	if e.config.Proxy.Enabled {
 		e.mainDebug("powering down the proxy...")
-		e.proxy.Stop()
+		if err := e.proxy.Stop(); err != nil {
+			e.mainLog("failed to stop proxy: %+v", err)
+		}
 	}
 
 	e.withLock(func() {
