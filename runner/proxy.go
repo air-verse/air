@@ -43,46 +43,44 @@ func (p *Proxy) Run() {
 	http.HandleFunc("/", p.proxyHandler)
 	http.HandleFunc("/internal/reload", p.reloadHandler)
 	if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("failed to start proxy server: %v", err)
+		log.Fatal(p.Stop())
 	}
-}
-
-func (p *Proxy) Stop() {
-	p.server.Close()
-	p.stream.Stop()
 }
 
 func (p *Proxy) Reload() {
 	p.stream.Reload()
 }
 
-func (p *Proxy) injectLiveReload(respBody io.ReadCloser) string {
+func (p *Proxy) injectLiveReload(respBody io.ReadCloser) (string, error) {
 	buf := new(bytes.Buffer)
 	if _, err := buf.ReadFrom(respBody); err != nil {
-		log.Fatalf("failed to convert request body to bytes buffer, err: %+v\n", err)
+		return "", fmt.Errorf("proxy inject: failed to read body response: %v", err)
 	}
 	original := buf.String()
 
 	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped without an error to ensure that a page with partial reloads only has at most one injected script.
 	body := strings.LastIndex(original, "</body>")
 	if body == -1 {
-		return original
+		return original, nil
 	}
 
 	script := fmt.Sprintf(
 		`<script>new EventSource("http://localhost:%d/internal/reload").onmessage = () => { location.reload() }</script>`,
 		p.config.ProxyPort,
 	)
-	return original[:body] + script + original[body:]
+	modified := original[:body] + script + original[body:]
+	return modified, nil
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	appURL := r.URL
 	appURL.Scheme = "http"
 	appURL.Host = fmt.Sprintf("localhost:%d", p.config.AppPort)
 
 	if err := r.ParseForm(); err != nil {
-		log.Fatalf("failed to read form data from request, err: %+v\n", err)
+		http.Error(w, "proxy handler: bad form", http.StatusInternalServerError)
 	}
 	var body io.Reader
 	if len(r.Form) > 0 {
@@ -92,7 +90,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req, err := http.NewRequest(r.Method, appURL.String(), body)
 	if err != nil {
-		log.Fatalf("proxy could not create request, err: %+v\n", err)
+		http.Error(w, "proxy handler: unable to create request", http.StatusInternalServerError)
 	}
 
 	// Copy the headers from the original request
@@ -111,7 +109,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if !errors.Is(err, syscall.ECONNREFUSED) {
-			log.Fatalf("proxy failed to call %s, err: %+v\n", appURL.String(), err)
+			http.Error(w, "proxy handler: unable to reach app", http.StatusInternalServerError)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -129,15 +127,18 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 
 	if strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		newPage := p.injectLiveReload(resp.Body)
+		newPage, err := p.injectLiveReload(resp.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(newPage)))))
 		if _, err := io.WriteString(w, newPage); err != nil {
-			log.Fatalf("proxy failed injected live reloading script, err: %+v\n", err)
+			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
 		}
 	} else {
 		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
 		if _, err := io.Copy(w, resp.Body); err != nil {
-			log.Fatalf("proxy failed to forward the response body, err: %+v\n", err)
+			http.Error(w, "proxy handler: failed to forward the response body", http.StatusInternalServerError)
 		}
 	}
 }
@@ -145,10 +146,11 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
 	flusher, err := w.(http.Flusher)
 	if !err {
-		http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
+		http.Error(w, "reload handler: streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -166,4 +168,9 @@ func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "data: reload\n\n")
 		flusher.Flush()
 	}
+}
+
+func (p *Proxy) Stop() error {
+	p.stream.Stop()
+	return p.server.Close()
 }
