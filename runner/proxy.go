@@ -15,7 +15,7 @@ import (
 
 type Reloader interface {
 	AddSubscriber() *Subscriber
-	RemoveSubscriber(id int)
+	RemoveSubscriber(id int32)
 	Reload()
 	Stop()
 }

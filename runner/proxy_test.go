@@ -27,7 +27,7 @@ func (r *reloader) AddSubscriber() *Subscriber {
 	return &Subscriber{reloadCh: r.reloadCh}
 }
 
-func (r *reloader) RemoveSubscriber(_ int) {
+func (r *reloader) RemoveSubscriber(_ int32) {
 	close(r.subCh)
 }
 
