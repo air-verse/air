@@ -18,6 +18,7 @@ import (
 // Engine ...
 type Engine struct {
 	config    *Config
+	proxy     *Proxy
 	logger    *logger
 	watcher   filenotify.FileWatcher
 	debugMode bool
@@ -49,6 +50,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	}
 	e := Engine{
 		config:         cfg,
+		proxy:          NewProxy(&cfg.Proxy),
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
@@ -312,6 +314,11 @@ func (e *Engine) isModified(filename string) bool {
 
 // Endless loop and never return
 func (e *Engine) start() {
+	if e.config.Proxy.Enabled {
+		go e.proxy.Run()
+		e.mainLog("Proxy server listening on http://localhost%s", e.proxy.server.Addr)
+	}
+
 	e.running = true
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
@@ -538,6 +545,9 @@ func (e *Engine) runBin() error {
 				cmd, stdout, stderr, _ := e.startCmd(command)
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
+				if e.config.Proxy.Enabled {
+					e.proxy.Reload()
+				}
 
 				wg.Add(1)
 				atomic.AddUint64(&e.round, 1)
@@ -581,6 +591,11 @@ func (e *Engine) runBin() error {
 func (e *Engine) cleanup() {
 	e.mainLog("cleaning...")
 	defer e.mainLog("see you again~")
+
+	if e.config.Proxy.Enabled {
+		e.mainDebug("powering down the proxy...")
+		e.proxy.Stop()
+	}
 
 	e.withLock(func() {
 		close(e.binStopCh)
