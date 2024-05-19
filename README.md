@@ -263,6 +263,7 @@ Should use `\` to escape the `' in the bin. related issue: [#305](https://github
 Refer to issue [#512](https://github.com/cosmtrek/air/issues/512) for additional details.
 
 * Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
+* Ensure your html has a `</body>` tag
 * Activate the proxy by configuring the following config:
 
 ```toml
