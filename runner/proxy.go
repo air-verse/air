@@ -51,25 +51,28 @@ func (p *Proxy) Reload() {
 	p.stream.Reload()
 }
 
-func (p *Proxy) injectLiveReload(respBody io.ReadCloser) (string, error) {
-	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(respBody); err != nil {
-		return "", fmt.Errorf("proxy inject: failed to read body response: %v", err)
+func (p *Proxy) injectLiveReload(resp *http.Response) (page string, modified bool) {
+	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
+		return page, false
 	}
-	original := buf.String()
 
-	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped without an error to ensure that a page with partial reloads only has at most one injected script.
-	body := strings.LastIndex(original, "</body>")
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(resp.Body); err != nil {
+		return page, false
+	}
+	page = buf.String()
+
+	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped.
+	body := strings.LastIndex(page, "</body>")
 	if body == -1 {
-		return original, nil
+		return page, false
 	}
 
 	script := fmt.Sprintf(
 		`<script>new EventSource("http://localhost:%d/internal/reload").onmessage = () => { location.reload() }</script>`,
 		p.config.ProxyPort,
 	)
-	modified := original[:body] + script + original[body:]
-	return modified, nil
+	return page[:body] + script + page[body:], true
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -126,13 +129,10 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	if strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		newPage, err := p.injectLiveReload(resp.Body)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(newPage)))))
-		if _, err := io.WriteString(w, newPage); err != nil {
+	page, modified := p.injectLiveReload(resp)
+	if modified {
+		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
+		if _, err := io.WriteString(w, page); err != nil {
 			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
 		}
 	} else {
