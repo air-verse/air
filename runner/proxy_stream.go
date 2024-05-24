@@ -6,7 +6,7 @@ import (
 )
 
 type ProxyStream struct {
-	mu          sync.RWMutex
+	mu          sync.Mutex
 	subscribers map[int32]*Subscriber
 	count       atomic.Int32
 }
