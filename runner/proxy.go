@@ -33,7 +33,11 @@ func NewProxy(cfg *cfgProxy) *Proxy {
 		server: &http.Server{
 			Addr: fmt.Sprintf(":%d", cfg.ProxyPort),
 		},
-		client: &http.Client{},
+		client: &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		},
 		stream: NewProxyStream(),
 	}
 	return p
