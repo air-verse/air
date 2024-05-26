@@ -27,7 +27,7 @@ func (r *reloader) AddSubscriber() *Subscriber {
 	return &Subscriber{reloadCh: r.reloadCh}
 }
 
-func (r *reloader) RemoveSubscriber(_ int) {
+func (r *reloader) RemoveSubscriber(_ int32) {
 	close(r.subCh)
 }
 
@@ -48,7 +48,7 @@ func getServerPort(t *testing.T, srv *httptest.Server) int {
 	return port
 }
 
-func TestNewProxy(t *testing.T) {
+func TestProxy_run(t *testing.T) {
 	_ = os.Unsetenv(airWd)
 	cfg := &cfgProxy{
 		Enabled:   true,
@@ -62,6 +62,12 @@ func TestNewProxy(t *testing.T) {
 	if proxy.server.Addr == "" {
 		t.Fatal("server address should not be nil")
 	}
+	go func() {
+		proxy.Run()
+	}()
+	if err := proxy.Stop(); err != nil {
+		t.Errorf("failed stopping the proxy: %v", err)
+	}
 }
 
 func TestProxy_proxyHandler(t *testing.T) {
@@ -72,13 +78,13 @@ func TestProxy_proxyHandler(t *testing.T) {
 	}{
 		{
 			name: "get_request_with_headers",
-			assert: func(resp *http.Request) {
-				assert.Equal(t, "bar", resp.Header.Get("foo"))
-			},
 			req: func() *http.Request {
 				req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d", proxyPort), nil)
 				req.Header.Set("foo", "bar")
 				return req
+			},
+			assert: func(resp *http.Request) {
+				assert.Equal(t, "bar", resp.Header.Get("foo"))
 			},
 		},
 		{
@@ -137,6 +143,66 @@ func TestProxy_proxyHandler(t *testing.T) {
 				AppPort:   srvPort,
 			})
 			proxy.proxyHandler(httptest.NewRecorder(), tt.req())
+		})
+	}
+}
+
+func TestProxy_injectLiveReload(t *testing.T) {
+	tests := []struct {
+		name   string
+		given  *http.Response
+		expect string
+	}{
+		{
+			name: "when_no_body_should_not_be_injected",
+			given: &http.Response{
+				Proto:      "HTTP/1.1",
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				StatusCode: http.StatusOK,
+				Body:       http.NoBody,
+			},
+			expect: "",
+		},
+		{
+			name: "when_missing_body_should_not_be_injected",
+			given: &http.Response{
+				Proto:      "HTTP/1.1",
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				StatusCode: http.StatusOK,
+				Header: http.Header{
+					"Content-Type": []string{"text/html"},
+				},
+				Body: io.NopCloser(strings.NewReader(`<h1>test</h1>`)),
+			},
+			expect: "<h1>test</h1>",
+		},
+		{
+			name: "when_text_html_and_body_is_present_should_be_injected",
+			given: &http.Response{
+				Proto:      "HTTP/1.1",
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				StatusCode: http.StatusOK,
+				Header: http.Header{
+					"Content-Type": []string{"text/html"},
+				},
+				Body: io.NopCloser(strings.NewReader(`<body><h1>test</h1></body>`)),
+			},
+			expect: `<body><h1>test</h1><script>new EventSource("http://localhost:1111/internal/reload").onmessage = () => { location.reload() }</script></body>`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := NewProxy(&cfgProxy{
+				Enabled:   true,
+				ProxyPort: 1111,
+				AppPort:   2222,
+			})
+			if got, _ := proxy.injectLiveReload(tt.given); got != tt.expect {
+				t.Errorf("expected page %+v, got %v", tt.expect, got)
+			}
 		})
 	}
 }

@@ -2,10 +2,11 @@ package runner
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
-func find(s map[int]*Subscriber, id int) bool {
+func find(s map[int32]*Subscriber, id int32) bool {
 	for _, sub := range s {
 		if sub.id == id {
 			return true
@@ -28,39 +29,43 @@ func TestProxyStream(t *testing.T) {
 	wg.Wait()
 
 	if got, exp := len(stream.subscribers), 10; got != exp {
-		t.Errorf("expected %d but got %d", exp, got)
+		t.Errorf("expect subscribers count to be %d, got %d", exp, got)
 	}
 
+	doneCh := make(chan struct{})
 	go func() {
 		stream.Reload()
+		doneCh <- struct{}{}
 	}()
 
-	reloadCount := 0
+	var reloadCount atomic.Int32
 	for _, sub := range stream.subscribers {
 		wg.Add(1)
 		go func(sub *Subscriber) {
 			defer wg.Done()
 			<-sub.reloadCh
-			reloadCount++
+			reloadCount.Add(1)
 		}(sub)
 	}
 	wg.Wait()
+	<-doneCh
 
-	if got, exp := reloadCount, 10; got != exp {
-		t.Errorf("expected %d but got %d", exp, got)
+	if got, exp := reloadCount.Load(), int32(10); got != exp {
+		t.Errorf("expect reloadCount %d, got %d", exp, got)
 	}
 
 	stream.RemoveSubscriber(2)
-	stream.AddSubscriber()
-	if got, exp := find(stream.subscribers, 2), false; got != exp {
-		t.Errorf("expected subscriber found to be %t but got %t", exp, got)
+	if find(stream.subscribers, 2) {
+		t.Errorf("expected subscriber 2 not to be found")
 	}
-	if got, exp := find(stream.subscribers, 11), true; got != exp {
-		t.Errorf("expected subscriber found to be %t but got %t", exp, got)
+
+	stream.AddSubscriber()
+	if !find(stream.subscribers, 11) {
+		t.Errorf("expected subscriber 11 to be found")
 	}
 
 	stream.Stop()
 	if got, exp := len(stream.subscribers), 0; got != exp {
-		t.Errorf("expected %d but got %d", exp, got)
+		t.Errorf("expected subscribers count to be %d, got %d", exp, got)
 	}
 }
