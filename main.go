@@ -95,7 +95,13 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-	cfg.WithArgs(cmdArgs)
+
+	err = cfg.WithArgs(cmdArgs)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
 	r, err := runner.NewEngineWithConfig(cfg, debugMode)
 	if err != nil {
 		log.Fatal(err)
