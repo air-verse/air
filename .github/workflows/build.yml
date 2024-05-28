@@ -20,11 +20,14 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ^1.22
-
-      - name: Build
-        run: make build
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59
       - name: Install dependency
         run: if [ $(uname) == "Darwin" ]; then brew install gnu-sed ;fi
+      - name: Build
+        run: make build
       - name: Run unit tests
         run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -covermode=count -coverprofile=coverage.txt
       - name: Upload Coverage report to CodeCov
