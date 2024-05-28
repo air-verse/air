@@ -34,7 +34,7 @@ func NewProxy(cfg *cfgProxy) *Proxy {
 			Addr: fmt.Sprintf(":%d", cfg.ProxyPort),
 		},
 		client: &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
 		},
