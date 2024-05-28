@@ -1,6 +1,6 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![Codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
 ![air](docs/air.png)
 
@@ -72,7 +72,7 @@ curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
 
 ### Docker/Podman
 
-Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
+Please pull this Docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
 ```bash
 docker/podman run -it --rm \
@@ -86,7 +86,7 @@ docker/podman run -it --rm \
 
 #### Docker/Podman .${SHELL}rc
 
-if you want to use air continuously like a normal app, you can create a function in your ${SHELL}rc (bash,zsh,etc...)
+if you want to use air continuously like a normal app, you can create a function in your ${SHELL}rc (Bash, Zsh, etc…)
 
 ```bash
 air() {
@@ -103,7 +103,7 @@ if you want to enter the container, Please add --entrypoint=bash.
 <details>
   <summary>For example</summary>
 
-One of my project runs in docker:
+One of my project runs in Docker:
 
 ```bash
 docker run -it --rm \
@@ -177,7 +177,7 @@ air -- -h
 air -c .air.toml -- -h
 ```
 
-### Docker-compose
+### Docker Compose
 
 ```yaml
 services:
@@ -263,7 +263,7 @@ Should use `\` to escape the `' in the bin. related issue: [#305](https://github
 Refer to issue [#512](https://github.com/cosmtrek/air/issues/512) for additional details.
 
 * Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
-* Ensure your html has a `</body>` tag
+* Ensure your HTML has a `</body>` tag
 * Activate the proxy by configuring the following config:
 
 ```toml

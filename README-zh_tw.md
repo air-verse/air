@@ -1,6 +1,6 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![Codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
 ![air](docs/air.png)
 
@@ -90,7 +90,7 @@ docker/podman run -it --rm \
 
 #### Docker/Podman .${SHELL}rc
 
-如果你想像常規應用程式一樣持續使用 air，你可以在你的 ${SHELL}rc (bash,zsh, etc...) 中創建一個函數。
+如果你想像常規應用程式一樣持續使用 air，你可以在你的 ${SHELL}rc (Bash, Zsh, etc…) 中創建一個函數。
 
 ```bash
 air() {
@@ -106,7 +106,7 @@ air() {
 <details>
   <summary>For example</summary>
 
-我其中一個專案是在 docker 中運行
+我其中一個專案是在 Docker 中運行
 
 ```bash
 docker run -it --rm \
@@ -180,7 +180,7 @@ air -- -h
 air -c .air.toml -- -h
 ```
 
-### Docker-compose
+### Docker Compose
 
 ```yaml
 services:
