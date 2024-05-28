@@ -28,11 +28,15 @@ Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 
 
 如果你想設定建置命令和執行命令，你可以在不需要配置檔案的情況下如下使用命令：
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
+```
 
 對於需要輸入列表的參數，可以使用逗號將項目分隔：
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
+```
 
 ## 安裝
 
@@ -40,13 +44,13 @@ Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 
 
 需要使用 go 1.22 或更高版本：
 
-```bash
+```shell
 go install github.com/cosmtrek/air@latest
 ```
 
 ### 透過 install.sh
 
-```bash
+```shell
 # binary will be $(go env GOPATH)/bin/air
 curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
@@ -58,7 +62,7 @@ air -v
 
 ### 透過 [goblin.run](https://goblin.run)
 
-```sh
+```shell
 # binary will be /usr/local/bin/air
 curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
 
@@ -70,7 +74,7 @@ curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
 
 使用 go 1.18 或更高版本:
 
-```bash
+```shell
 go install github.com/cosmtrek/air@latest
 ```
 
@@ -78,7 +82,7 @@ go install github.com/cosmtrek/air@latest
 
 請讀取 Docker 映像檔 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
-```bash
+```shell
 docker/podman run -it --rm \
     -w "<PROJECT>" \
     -e "air_wd=<PROJECT>" \
@@ -92,7 +96,7 @@ docker/podman run -it --rm \
 
 如果你想像常規應用程式一樣持續使用 air，你可以在你的 ${SHELL}rc (Bash, Zsh, etc…) 中創建一個函數。
 
-```bash
+```shell
 air() {
   podman/docker run -it --rm \
     -w "$PWD" -v "$PWD":"$PWD" \
@@ -108,17 +112,17 @@ air() {
 
 我其中一個專案是在 Docker 中運行
 
-```bash
+```shell
 docker run -it --rm \
   -w "/go/src/github.com/cosmtrek/hub" \
   -v $(pwd):/go/src/github.com/cosmtrek/hub \
   -p 9090:9090 \
   cosmtrek/air
 ```
-  
+
 另一個例子
 
-```bash
+```shell
 cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
@@ -133,26 +137,26 @@ AIR_PORT=8080 air -c "config.toml"
 
 首先，進入你的專案目錄
 
-```bash
+```shell
 cd /path/to/your_project
 ```
 
 最簡單的使用方式是運行
 
-```bash
+```shell
 # firstly find `.air.toml` in current directory, if not found, use defaults
 air -c .air.toml
 ```
 
 你可以用以下命令初始化 `.air.toml` 配置檔到當前目錄，並使用預設設置。
 
-```bash
+```shell
 air init
 ```
 
 此後，你可以只運行 `air` 命令，而不需要額外的參數，它將使用 `.air.toml` 檔案作為配置。
 
-```bash
+```shell
 air
 ```
 
@@ -162,7 +166,7 @@ air
 
 你可以在 air 命令後添加參數來運行已構建的二進制檔。
 
-```bash
+```shell
 # Will run ./tmp/main bench
 air bench
 
@@ -172,7 +176,7 @@ air server --port 8080
 
 你可以使用 `--` 參數來分隔傳遞給 air 命令和已建構的二進制檔的參數。
 
-```bash
+```shell
 # Will run ./tmp/main -h
 air -- -h
 
@@ -241,7 +245,7 @@ services:
 
 ### "找不到命令：air" 或者 "找不到檔案或目錄"
 
-```zsh
+```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
@@ -255,7 +259,7 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 
 請注意，由於我使用 `go mod` 來管理依賴，所以需要 Go 1.16+。
 
-```bash
+```shell
 # Fork this project
 
 # Clone it
@@ -275,7 +279,7 @@ make install
 
 ### 發佈版本
 
-```bash
+```shell
 # Checkout to master
 git checkout master
 
