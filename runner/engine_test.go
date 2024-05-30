@@ -309,7 +309,7 @@ func TestRebuild(t *testing.T) {
 	}
 	t.Logf("port is ready")
 
-	// start rebuld
+	// start rebuild
 
 	t.Logf("start change main.go")
 	// change file of main.go

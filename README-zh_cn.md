@@ -1,4 +1,4 @@
-# Air [![Go](https://github.com/cosmtrek/air/workflows/Go/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+# Air [![Go](https://github.com/cosmtrek/air/workflows/Go/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![Codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
 
 :cloud: 热重载 Go 应用的工具
 
@@ -28,17 +28,21 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 
 如果你只是想配置构建命令和运行命令，您可以直接使用以下命令，而无需配置文件:
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"
+```
 
 对于以列表形式输入的参数，使用逗号来分隔项目:
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
+```
 
 ## 安装
 
 ### 推荐使用 install.sh
 
-```bash
+```shell
 # binary 文件会是在 $(go env GOPATH)/bin/air
 curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
@@ -54,7 +58,7 @@ P.S. 非常感谢 mattn 的 [PR](https://github.com/cosmtrek/air/pull/1)，使�
 
 使用 Go 的版本为 1.22 或更高:
 
-```bash
+```shell
 go install github.com/cosmtrek/air@latest
 ```
 
@@ -62,7 +66,7 @@ go install github.com/cosmtrek/air@latest
 
 请拉取这个 Docker 镜像 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
-```bash
+```shell
 docker run -it --rm \
     -w "<PROJECT>" \
     -e "air_wd=<PROJECT>" \
@@ -74,7 +78,7 @@ docker run -it --rm \
 
 例如，我的项目之一是在 Docker 上运行的：
 
-```bash
+```shell
 docker run -it --rm \
     -w "/go/src/github.com/cosmtrek/hub" \
     -v $(pwd):/go/src/github.com/cosmtrek/hub \
@@ -88,26 +92,26 @@ docker run -it --rm \
 
 首先，进入你的项目文件夹
 
-```bash
+```shell
 cd /path/to/your_project
 ```
 
 最简单的方法是执行
 
-```bash
+```shell
 # 优先在当前路径查找 `.air.toml` 后缀的文件，如果没有找到，则使用默认的
 air -c .air.toml
 ```
 
 您可以运行以下命令初始化，把默认配置添加到当前路径下的`.air.toml` 文件。
 
-```bash
+```shell
 air init
 ```
 
 在这之后，你只需执行 `air` 命令，无需添加额外的变量，它就能使用 `.air.toml` 文件中的配置了。
 
-```bash
+```shell
 air
 ```
 
@@ -117,7 +121,7 @@ air
 
 您可以通过把变量添加在 air 命令之后来传递参数。
 
-```bash
+```shell
 # 会执行 ./tmp/main bench
 air bench
 
@@ -127,7 +131,7 @@ air server --port 8080
 
 You can separate the arguments passed for the air command and the built binary with `--` argument.
 
-```bash
+```shell
 # 会运行 ./tmp/main -h
 air -- -h
 
@@ -135,7 +139,7 @@ air -- -h
 air -c .air.toml -- -h
 ```
 
-### Docker-compose
+### Docker Compose
 
 ```yaml
 services:
@@ -161,7 +165,7 @@ services:
 
 ### 遇到 "command not found: air" 或 "No such file or directory" 该怎么办？
 
-```zsh
+```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 export PATH=$PATH:$(go env GOPATH)/bin <---- 请确认这行在您的配置信息中！！！
@@ -171,7 +175,7 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- 请确认这行在您的配置信�
 
 请注意：这需要 Go 1.16+ ，因为我使用 `go mod` 来管理依赖。
 
-```bash
+```shell
 # 1. 首先复刻（fork）这个项目
 
 # 2. 其次克隆（clone）它
@@ -191,7 +195,7 @@ make install
 
 ### 发布新版本
 
-```bash
+```shell
 # 1. checkout 到 master 分支
 git checkout master
 
