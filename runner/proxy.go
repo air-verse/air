@@ -55,7 +55,7 @@ func (p *Proxy) Reload() {
 	p.stream.Reload()
 }
 
-func (p *Proxy) injectLiveReload(resp *http.Response) (page string, modified bool) {
+func (p *Proxy) injectLiveReload(resp *http.Response) (page string, didReadBody bool) {
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
 		return page, false
 	}
@@ -66,17 +66,17 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (page string, modified boo
 	}
 	page = buf.String()
 
-	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped.
-	body := strings.LastIndex(page, "</body>")
-	if body == -1 {
-		return page, false
+	// the script will be injected before the end of the head tag. In case the tag is missing, the injection will be skipped.
+	injectIdx := strings.LastIndex(page, "</head>")
+	if injectIdx == -1 {
+		return page, true
 	}
 
 	script := fmt.Sprintf(
 		`<script>new EventSource("http://localhost:%d/internal/reload").onmessage = () => { location.reload() }</script>`,
 		p.config.ProxyPort,
 	)
-	return page[:body] + script + page[body:], true
+	return page[:injectIdx] + script + page[injectIdx:], true
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -133,9 +133,10 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	page, modified := p.injectLiveReload(resp)
-	if modified {
-		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
+	page, didReadBody := p.injectLiveReload(resp)
+	if didReadBody {
+		// injectLiveReload() did read the response body, so we have to use 'page', whether it was modified or not
+		w.Header().Set("Content-Length", strconv.Itoa(len([]byte(page))))
 		if _, err := io.WriteString(w, page); err != nil {
 			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
 		}
@@ -145,6 +146,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "proxy handler: failed to forward the response body", http.StatusInternalServerError)
 		}
 	}
+
 }
 
 func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
