@@ -4,7 +4,7 @@
 
 ![air](docs/air.png)
 
-[English](README.md) | 简体中文
+[English](README.md) | 简体中文 | [繁體中文](README-zh_tw.md)
 
 ## 开发动机
 
@@ -22,7 +22,7 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 * 在 Air 启动之后，允许监听新创建的路径
 * 更棒的构建过程
 
-### ✨ beta 版本的特性
+### 从参数覆盖指定配置
 
 支持使用参数来配置 air 字段:
 
@@ -40,7 +40,15 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ## 安装
 
-### 推荐使用 install.sh
+### 使用 `go install` （推荐）
+
+使用 go 1.22 或更高版本:
+
+```shell
+go install github.com/cosmtrek/air@latest
+```
+
+### 使用 install.sh
 
 ```shell
 # binary 文件会是在 $(go env GOPATH)/bin/air
@@ -52,17 +60,17 @@ curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh
 air -v
 ```
 
-P.S. 非常感谢 mattn 的 [PR](https://github.com/cosmtrek/air/pull/1)，使得 Air 支持 Windows 平台。
-
-### 使用 `go install`
-
-使用 Go 的版本为 1.22 或更高:
+### 使用 [goblin.run](https://goblin.run)
 
 ```shell
-go install github.com/cosmtrek/air@latest
+# binary 将会安装到 /usr/local/bin/air
+curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
+
+# 自定义路径安装
+curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
 ```
 
-### Docker
+### Docker/Podman
 
 请拉取这个 Docker 镜像 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
@@ -76,6 +84,8 @@ docker run -it --rm \
     -c <CONF>
 ```
 
+#### Docker/Podman .${SHELL}rc
+
 例如，我的项目之一是在 Docker 上运行的：
 
 ```shell
@@ -86,9 +96,48 @@ docker run -it --rm \
     cosmtrek/air
 ```
 
+#### Docker/Podman .${SHELL}rc
+
+如果你想像正常应用程序一样连续使用 air，你可以在你的 ${SHELL}rc（Bash, Zsh 等）中创建一个函数
+
+```shell
+air() {
+  podman/docker run -it --rm \
+    -w "$PWD" -v "$PWD":"$PWD" \
+    -p "$AIR_PORT":"$AIR_PORT" \
+    docker.io/cosmtrek/air "$@"
+}
+```
+
+`<PROJECT>` 是容器中的项目路径，例如：`/go/example`
+如果你想进入容器，请添加 `--entrypoint=bash`。
+
+<details>
+  <summary>例如</summary>
+
+我的一个项目运行在 Docker 中：
+
+```shell
+docker run -it --rm \
+  -w "/go/src/github.com/cosmtrek/hub" \
+  -v $(pwd):/go/src/github.com/cosmtrek/hub \
+  -p 9090:9090 \
+  cosmtrek/air
+```
+
+另一个例子：
+
+```shell
+cd /go/src/github.com/cosmtrek/hub
+AIR_PORT=8080 air -c "config.toml"
+```
+
+这将用当前目录替换 `$PWD`，`$AIR_PORT` 是要发布的端口，而 `$@` 用于接受应用程序本身的参数，例如 `-c`
+</details>
+
 ## 使用方法
 
-您可以添加 `alias air='~/.air'` 到您的 `.bashrc` 或 `.zshrc` 后缀的文件.
+为了减少输入，您可以添加 `alias air='~/.air'` 到您的 `.bashrc` 或 `.zshrc` 文件中.
 
 首先，进入你的项目文件夹
 
@@ -103,13 +152,13 @@ cd /path/to/your_project
 air -c .air.toml
 ```
 
-您可以运行以下命令初始化，把默认配置添加到当前路径下的`.air.toml` 文件。
+您可以运行以下命令，将具有默认设置的 `.air.toml` 配置文件初始化到当前目录。
 
 ```shell
 air init
 ```
 
-在这之后，你只需执行 `air` 命令，无需添加额外的变量，它就能使用 `.air.toml` 文件中的配置了。
+在这之后，你只需执行 `air` 命令，无需额外参数，它就能使用 `.air.toml` 文件中的配置了。
 
 ```shell
 air
@@ -129,7 +178,7 @@ air bench
 air server --port 8080
 ```
 
-You can separate the arguments passed for the air command and the built binary with `--` argument.
+你可以使用 `--` 参数分隔传递给 air 命令和已构建二进制文件的参数。
 
 ```shell
 # 会运行 ./tmp/main -h
@@ -159,7 +208,42 @@ services:
 
 ### 调试
 
-运行 `air -d` 命令能打印所有日志。
+`air -d` 命令能打印所有日志。
+
+## Docker 用户安装和使用指南（如果不想使用 air 镜像）
+
+`Dockerfile`
+
+```Dockerfile
+# 选择你想要的版本，>= 1.16
+FROM golang:1.22-alpine
+
+WORKDIR /app
+
+RUN go install github.com/cosmtrek/air@latest
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+CMD ["air", "-c", ".air.toml"]
+```
+
+`docker-compose.yaml`
+
+```yaml
+version: "3.8"
+services:
+  web:
+    build:
+      context: .
+      # 修改为你的 Dockerfile 路径
+      dockerfile: Dockerfile
+    ports:
+      - 8080:3000
+    # 为了实时重载，将代码目录绑定到 /app 目录是很重要的
+    volumes:
+      - ./:/app
+```
 
 ## Q&A
 
@@ -171,7 +255,36 @@ export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 export PATH=$PATH:$(go env GOPATH)/bin <---- 请确认这行在您的配置信息中！！！
 ```
 
-## 部署
+### 在 wsl 下 bin 中包含 ' 时的错误
+
+应该使用 `\` 来转义 bin 中的 `'`。相关问题：[#305](https://github.com/cosmtrek/air/issues/305)
+
+### 问题：如何只进行热编译而不运行？
+
+[#365](https://github.com/cosmtrek/air/issues/365)
+
+```toml
+[build]
+  cmd = "/usr/bin/true"
+```
+
+### 如何在静态文件更改时自动重新加载浏览器?
+
+
+请参考 [#512](https://github.com/cosmtrek/air/issues/512).
+
+* 确保你的静态文件在 `include_dir`、`include_ext` 或 `include_file` 中。
+* 确保你的 HTML 有一个 `</body>` 标签。
+* 通过配置以下内容激活代理：
+
+```toml
+[proxy]
+  enabled = true
+  proxy_port = <air proxy port>
+  app_port = <your server port>
+```
+
+## 开发
 
 请注意：这需要 Go 1.16+ ，因为我使用 `go mod` 来管理依赖。
 
@@ -183,7 +296,7 @@ mkdir -p $GOPATH/src/github.com/cosmtrek
 cd $GOPATH/src/github.com/cosmtrek
 git clone git@github.com:<YOUR USERNAME>/air.git
 
-# 3. 再次安装依赖
+# 3. 安装依赖
 cd air
 make ci
 
@@ -205,18 +318,18 @@ git tag v1.xx.x
 # 3. 推送到远程
 git push origin v1.xx.x
 
-ci 会加工和处理，然后会发布新版本。等待大约五分钟，你就能获取到新版本了。
+CI 将处理并发布新版本。等待大约 5 分钟，你就可以获取最新版本了。
 ```
+
+## Star 历史
+
+[![Star History Chart](https://api.star-history.com/svg?repos=cosmtrek/air&type=Date)](https://star-history.com/#cosmtrek/air&Date)
 
 ## 赞助
 
-<a href="https://www.buymeacoffee.com/36lcNbW" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" style="height: 51px !important;width: 217px !important;" ></a>
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/default-orange.png)](https://www.buymeacoffee.com/cosmtrek)
 
-衷心感谢以下的支持者。我一直铭记着你们的善意。
-
-* Peter Aba
-* Apostolis Anastasiou
-* keita koga
+非常感谢众多支持者。我一直铭记你们的善意。
 
 ## 许可证
 
