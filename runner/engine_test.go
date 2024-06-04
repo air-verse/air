@@ -365,7 +365,7 @@ func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration)
 }
 
 func TestCtrlCWhenHaveKillDelay(t *testing.T) {
-	// fix https://github.com/air-verse/air/issues/278
+	// fix https://github.com/cosmtrek/air/issues/278
 	// generate a random port
 	data := []byte("[build]\n  kill_delay = \"2s\"")
 	c := Config{}
@@ -486,7 +486,7 @@ func TestCtrlCWithFailedBin(t *testing.T) {
 }
 
 func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
-	// fix https://github.com/air-verse/air/issues/294
+	// fix https://github.com/cosmtrek/air/issues/294
 	dir := initWithBuildFailedCode(t)
 	chdir(t, dir)
 	engine, err := NewEngine("", true)
@@ -529,7 +529,7 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 }
 
 func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
-	// fix https://github.com/air-verse/air/issues/294
+	// fix https://github.com/cosmtrek/air/issues/294
 	// happens after two failed builds
 	dir := initWithBuildFailedCode(t)
 	// change dir to tmpDir
