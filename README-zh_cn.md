@@ -22,7 +22,7 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 * 在 Air 启动之后，允许监听新创建的路径
 * 更棒的构建过程
 
-### 从参数覆盖指定配置
+### 使用参数覆盖指定配置
 
 支持使用参数来配置 air 字段:
 
@@ -86,18 +86,6 @@ docker run -it --rm \
 
 #### Docker/Podman .${SHELL}rc
 
-例如，我的项目之一是在 Docker 上运行的：
-
-```shell
-docker run -it --rm \
-    -w "/go/src/github.com/cosmtrek/hub" \
-    -v $(pwd):/go/src/github.com/cosmtrek/hub \
-    -p 9090:9090 \
-    cosmtrek/air
-```
-
-#### Docker/Podman .${SHELL}rc
-
 如果你想像正常应用程序一样连续使用 air，你可以在你的 ${SHELL}rc（Bash, Zsh 等）中创建一个函数
 
 ```shell
@@ -137,7 +125,7 @@ AIR_PORT=8080 air -c "config.toml"
 
 ## 使用方法
 
-为了减少输入，您可以添加 `alias air='~/.air'` 到您的 `.bashrc` 或 `.zshrc` 文件中.
+为了方便输入，您可以添加 `alias air='~/.air'` 到您的 `.bashrc` 或 `.zshrc` 文件中.
 
 首先，进入你的项目文件夹
 
@@ -275,7 +263,7 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- 请确认这行在您的配置信�
 
 * 确保你的静态文件在 `include_dir`、`include_ext` 或 `include_file` 中。
 * 确保你的 HTML 有一个 `</body>` 标签。
-* 通过配置以下内容激活代理：
+* 通过配置以下内容开启代理：
 
 ```toml
 [proxy]
