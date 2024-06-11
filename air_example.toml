@@ -1,4 +1,4 @@
-# Config file for [Air](https://github.com/cosmtrek/air) in TOML format
+# Config file for [Air](https://github.com/air-verse/air) in TOML format
 
 # Working directory
 # . or absolute path, please note that the directories following must be under root.
