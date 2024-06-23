@@ -55,28 +55,24 @@ func (p *Proxy) Reload() {
 	p.stream.Reload()
 }
 
-func (p *Proxy) injectLiveReload(resp *http.Response) (page string, modified bool) {
-	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		return page, false
-	}
-
+func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 	buf := new(bytes.Buffer)
 	if _, err := buf.ReadFrom(resp.Body); err != nil {
-		return page, false
+		return "", fmt.Errorf("proxy inject: failed to read body from http response")
 	}
-	page = buf.String()
+	page := buf.String()
 
-	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped.
+	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped with no error.
 	body := strings.LastIndex(page, "</body>")
 	if body == -1 {
-		return page, false
+		return page, nil
 	}
 
 	script := fmt.Sprintf(
 		`<script>new EventSource("http://localhost:%d/internal/reload").onmessage = () => { location.reload() }</script>`,
 		p.config.ProxyPort,
 	)
-	return page[:body] + script + page[body:], true
+	return page[:body] + script + page[body:], nil
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +84,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "proxy handler: bad form", http.StatusInternalServerError)
+		return
 	}
 	var body io.Reader
 	if len(r.Form) > 0 {
@@ -98,6 +95,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	req, err := http.NewRequest(r.Method, appURL.String(), body)
 	if err != nil {
 		http.Error(w, "proxy handler: unable to create request", http.StatusInternalServerError)
+		return
 	}
 
 	// Copy the headers from the original request
@@ -117,6 +115,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if !errors.Is(err, syscall.ECONNREFUSED) {
 			http.Error(w, "proxy handler: unable to reach app", http.StatusInternalServerError)
+			return
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -133,16 +132,22 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	page, modified := p.injectLiveReload(resp)
-	if modified {
-		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
-		if _, err := io.WriteString(w, page); err != nil {
-			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
-		}
-	} else {
+	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
 		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
 		if _, err := io.Copy(w, resp.Body); err != nil {
 			http.Error(w, "proxy handler: failed to forward the response body", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		page, err := p.injectLiveReload(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
+		if _, err := io.WriteString(w, page); err != nil {
+			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
+			return
 		}
 	}
 }
