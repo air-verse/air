@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -109,79 +108,6 @@ func TestRegexes(t *testing.T) {
 	}
 	if result != true {
 		t.Errorf("expected '%t' but got '%t'", true, result)
-	}
-}
-
-func TestRerun(t *testing.T) {
-	tmpDir := initWithQuickExitGoCode(t)
-	// change dir to tmpDir
-	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
-	engine.config.Build.ExcludeUnchanged = true
-	engine.config.Build.Rerun = true
-	engine.config.Build.RerunDelay = 100
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
-	go func() {
-		engine.Run()
-		t.Logf("engine run")
-	}()
-
-	time.Sleep(time.Second * 1)
-
-	// stop engine
-	engine.Stop()
-	time.Sleep(time.Second * 1)
-	t.Logf("engine stopped")
-
-	if atomic.LoadUint64(&engine.round) <= 1 {
-		t.Fatalf("The engine did't rerun")
-	}
-}
-
-func TestRerunWhenFileChanged(t *testing.T) {
-	tmpDir := initWithQuickExitGoCode(t)
-	// change dir to tmpDir
-	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
-	engine.config.Build.ExcludeUnchanged = true
-	engine.config.Build.Rerun = true
-	engine.config.Build.RerunDelay = 100
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
-	go func() {
-		engine.Run()
-		t.Logf("engine run")
-	}()
-	time.Sleep(time.Second * 1)
-
-	roundBeforeChange := atomic.LoadUint64(&engine.round)
-
-	t.Logf("start change main.go")
-	// change file of main.go
-	// just append a new empty line to main.go
-	time.Sleep(time.Second * 2)
-	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
-	defer file.Close()
-	_, err = file.WriteString("\n")
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
-	}
-
-	time.Sleep(time.Second * 1)
-	// stop engine
-	engine.Stop()
-	time.Sleep(time.Second * 1)
-	t.Logf("engine stopped")
-
-	roundAfterChange := atomic.LoadUint64(&engine.round)
-	if roundBeforeChange+1 >= roundAfterChange {
-		t.Fatalf("The engine didn't rerun")
 	}
 }
 

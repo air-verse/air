@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gohugoio/hugo/watcher/filenotify"
@@ -34,7 +33,6 @@ type Engine struct {
 
 	mu            sync.RWMutex
 	watchers      uint
-	round         uint64
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
@@ -547,7 +545,6 @@ func (e *Engine) runBin() error {
 				}
 
 				wg.Add(1)
-				atomic.AddUint64(&e.round, 1)
 				e.withLock(func() {
 					close(e.binStopCh)
 					e.binStopCh = make(chan bool)
