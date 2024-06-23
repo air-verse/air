@@ -31,8 +31,8 @@ type Engine struct {
 	buildRunStopCh chan bool
 	binStopCh      chan bool
 	exitCh         chan bool
-	procKilledCh   chan bool
 
+	cleanupWg     sync.WaitGroup
 	mu            sync.RWMutex
 	watchers      uint
 	round         uint64
@@ -61,7 +61,6 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		buildRunStopCh: make(chan bool, 1),
 		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
-		procKilledCh:   make(chan bool),
 		fileChecksums:  &checksumMap{m: make(map[string]string)},
 		watchers:       0,
 	}
@@ -482,6 +481,7 @@ func (e *Engine) runPostCmd() error {
 }
 
 func (e *Engine) runBin() error {
+	e.cleanupWg.Add(1)
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
 		defer wg.Done()
 		select {
@@ -499,7 +499,6 @@ func (e *Engine) runBin() error {
 
 		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
 		defer func() {
-			e.procKilledCh <- true
 			stdout.Close()
 			stderr.Close()
 		}()
@@ -576,6 +575,7 @@ func (e *Engine) runBin() error {
 				default:
 					e.runnerLog("Process Exit with Code: %v", state.ExitCode())
 				}
+				e.cleanupWg.Done()
 
 				if !e.config.Build.Rerun {
 					return
@@ -625,8 +625,7 @@ func (e *Engine) cleanup() {
 	}
 
 	e.mainDebug("waiting for exit...")
-	<-e.procKilledCh
-	close(e.procKilledCh)
+	e.cleanupWg.Wait()
 	e.running = false
 	e.mainDebug("exited")
 }
