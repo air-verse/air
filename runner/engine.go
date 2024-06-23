@@ -32,7 +32,7 @@ type Engine struct {
 	binStopCh      chan bool
 	exitCh         chan bool
 
-	cleanupWg     sync.WaitGroup
+	procKillWg    sync.WaitGroup
 	mu            sync.RWMutex
 	watchers      uint
 	round         uint64
@@ -481,7 +481,6 @@ func (e *Engine) runPostCmd() error {
 }
 
 func (e *Engine) runBin() error {
-	e.cleanupWg.Add(1)
 	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
 		defer wg.Done()
 		select {
@@ -540,6 +539,7 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
+				e.procKillWg.Add(1)
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
 				cmd, stdout, stderr, _ := e.startCmd(command)
 				processExit := make(chan struct{})
@@ -575,7 +575,7 @@ func (e *Engine) runBin() error {
 				default:
 					e.runnerLog("Process Exit with Code: %v", state.ExitCode())
 				}
-				e.cleanupWg.Done()
+				e.procKillWg.Done()
 
 				if !e.config.Build.Rerun {
 					return
@@ -625,7 +625,7 @@ func (e *Engine) cleanup() {
 	}
 
 	e.mainDebug("waiting for exit...")
-	e.cleanupWg.Wait()
+	e.procKillWg.Wait()
 	e.running = false
 	e.mainDebug("exited")
 }
