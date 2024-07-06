@@ -146,6 +146,7 @@ air -c .air.toml
 ```
 
 You can initialize the `.air.toml` configuration file to the current directory with the default settings running the following command.
+You can also create a global default for `.air.toml` in `~/.air.toml`. 
 
 ```shell
 air init
