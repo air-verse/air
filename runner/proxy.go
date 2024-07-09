@@ -68,7 +68,7 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 		return page, nil
 	}
 
-	script := `<script>new EventSource(window.location.protocol + "//" + window.location.host + "/internal/reload").onmessage = () => { location.reload() }</script>`
+	script := `<script>new EventSource("/internal/reload").onmessage = () => { location.reload() }</script>`
 	return page[:body] + script + page[body:], nil
 }
 
