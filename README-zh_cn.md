@@ -45,7 +45,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 使用 go 1.22 或更高版本:
 
 ```shell
-go install github.com/cosmtrek/air@latest
+go install github.com/air-verse/air@latest
 ```
 
 ### 使用 install.sh
