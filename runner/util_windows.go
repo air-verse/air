@@ -2,6 +2,7 @@ package runner
 
 import (
 	"io"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -29,6 +30,10 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+
 	err = c.Start()
 	if err != nil {
 		return nil, nil, nil, err
