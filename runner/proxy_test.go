@@ -190,7 +190,7 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				},
 				Body: io.NopCloser(strings.NewReader(`<body><h1>test</h1></body>`)),
 			},
-			expect: `<body><h1>test</h1><script>new EventSource("http://localhost:1111/internal/reload").onmessage = () => { location.reload() }</script></body>`,
+			expect: `<body><h1>test</h1><script>new EventSource("/internal/reload").onmessage = () => { location.reload() }</script></body>`,
 		},
 	}
 	for _, tt := range tests {
