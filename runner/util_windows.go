@@ -25,6 +25,10 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	err = e.modifyEnvironment(c)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	stdout, err := c.StdoutPipe()
 	if err != nil {
 		return nil, nil, nil, err
