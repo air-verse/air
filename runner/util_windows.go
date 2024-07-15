@@ -5,13 +5,24 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	pid = cmd.Process.Pid
 	// https://stackoverflow.com/a/44551450
 	kill := exec.Command("TASKKILL", "/T", "/F", "/PID", strconv.Itoa(pid))
-	return pid, kill.Run()
+
+	if e.config.Build.SendInterrupt {
+		if err = kill.Run(); err != nil {
+			return
+		}
+		time.Sleep(e.config.killDelay())
+	}
+	err = kill.Run()
+	// Wait releases any resources associated with the Process.
+	_, _ = cmd.Process.Wait()
+	return pid, err
 }
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
