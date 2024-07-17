@@ -20,7 +20,7 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	if !strings.Contains(cmd, ".exe") {
 		e.runnerLog("CMD will not recognize non .exe file for execution, path: %s", cmd)
 	}
-	c := exec.Command("cmd", "/c", cmd)
+	c := exec.Command("cmd", "/c", "@chcp 65001 >nul && "+cmd)
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err
