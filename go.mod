@@ -3,6 +3,7 @@ module github.com/air-verse/air
 go 1.22
 
 require (
+	atomicgo.dev/keyboard v0.2.9
 	dario.cat/mergo v1.0.0
 	github.com/creack/pty v1.1.21
 	github.com/fatih/color v1.16.0
@@ -17,6 +18,7 @@ require (
 	github.com/bep/godartsass/v2 v2.0.0 // indirect
 	github.com/bep/golibsass v1.1.1 // indirect
 	github.com/cli/safeexec v1.0.1 // indirect
+	github.com/containerd/console v1.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

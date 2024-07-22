@@ -25,6 +25,7 @@ Note: This tool has nothing to do with hot-deploy for production.
 * Support excluding subdirectories
 * Allow watching new directories after Air started
 * Better building process
+* Keybinds for manual reload and quitting
 
 ### Overwrite specify configuration from arguments
 
@@ -158,6 +159,18 @@ air
 ```
 
 For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
+
+### Keybinds
+
+Once `air` is running, you can use the following keybinds:
+
+* `q` to quit (configurable)
+* `esc` to quit
+* `ctrl+c` to quit
+* `r` to reload manually (configurable)
+* `space` to clear the screen
+
+Keybind support is enabled by default, but can be disabled in the configuration file.
 
 ### Runtime arguments
 
