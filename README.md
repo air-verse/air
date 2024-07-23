@@ -128,6 +128,15 @@ this will replace `$PWD` with the current directory, `$AIR_PORT` is the port whe
 
 </details>
 
+
+### Nix flake input
+
+Add air as a Nix flake input in `flake.nix`
+
+```nix
+inputs.air.url = "github:cosmtrek/air";
+```
+
 ## Usage
 
 For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
@@ -298,6 +307,14 @@ make install
 ```
 
 Pull requests are welcome.
+
+### Nix users 
+
+Start a development shell with all `air`'s dependencies present.
+
+```bash
+nix develop --impure 
+```
 
 ### Release
 
