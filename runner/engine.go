@@ -507,12 +507,14 @@ func (e *Engine) runBin() error {
 		} else {
 			e.mainDebug("cmd killed, pid: %d", pid)
 		}
-		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
-		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-			return
-		}
-		if err = os.Remove(cmdBinPath); err != nil {
-			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+		if e.config.Build.StopOnError {
+			cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
+			if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
+				return
+			}
+			if err = os.Remove(cmdBinPath); err != nil {
+				e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+			}
 		}
 	}
 
