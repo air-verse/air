@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"dario.cat/mergo"
@@ -327,6 +328,9 @@ func (c *Config) preprocess() error {
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+
+	// escape spaces
+	c.Build.Bin = strings.Replace(c.Build.Bin, " ", "\\ ", -1)
 
 	return err
 }
