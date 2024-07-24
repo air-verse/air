@@ -136,7 +136,7 @@ func TestProxy_proxyHandler(t *testing.T) {
 				return req
 			},
 			assert: func(resp *http.Request) {
-				assert.Equal(t, fmt.Sprintf("HTTP/1.1 localhost:%d air", proxyPort), resp.Header.Get("Via"))
+				assert.Equal(t, fmt.Sprintf("HTTP/1.1 localhost:%d", proxyPort), resp.Header.Get("Via"))
 			},
 		},
 	}
