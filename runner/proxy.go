@@ -106,6 +106,10 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("X-Forwarded-For", r.RemoteAddr)
 
+	// set the via header
+	viaHeaderValue := fmt.Sprintf("%s %s air", r.Proto, r.Host)
+	req.Header.Set("Via", viaHeaderValue)
+
 	// retry on connection refused error since after a file change air will restart the server and it may take a few milliseconds for the server to be up-and-running.
 	var resp *http.Response
 	for i := 0; i < 10; i++ {
@@ -130,6 +134,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+	w.Header().Add("Via", viaHeaderValue)
 	w.WriteHeader(resp.StatusCode)
 
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {

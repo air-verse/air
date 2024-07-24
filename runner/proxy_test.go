@@ -129,6 +129,16 @@ func TestProxy_proxyHandler(t *testing.T) {
 				assert.Equal(t, r.Foo, "bar")
 			},
 		},
+		{
+			name: "set_via_header",
+			req: func() *http.Request {
+				req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d", proxyPort), nil)
+				return req
+			},
+			assert: func(resp *http.Request) {
+				assert.Equal(t, fmt.Sprintf("HTTP/1.1 localhost:%d air", proxyPort), resp.Header.Get("Via"))
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
