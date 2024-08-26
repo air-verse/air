@@ -2,14 +2,12 @@ package runner
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -106,18 +104,20 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("X-Forwarded-For", r.RemoteAddr)
 
-	// retry on connection refused error since after a file change air will restart the server and it may take a few milliseconds for the server to be up-and-running.
+	// air will restart the server. it may take a few milliseconds for it to start back up.
+	// therefore, we retry until the server becomes available or this retry loop exits with an error.
 	var resp *http.Response
+	resp, err = p.client.Do(req)
 	for i := 0; i < 10; i++ {
-		resp, err = p.client.Do(req)
 		if err == nil {
 			break
 		}
-		if !errors.Is(err, syscall.ECONNREFUSED) {
-			http.Error(w, "proxy handler: unable to reach app", http.StatusInternalServerError)
-			return
-		}
 		time.Sleep(100 * time.Millisecond)
+		resp, err = p.client.Do(req)
+	}
+	if err != nil {
+		http.Error(w, "proxy handler: unable to reach app", http.StatusInternalServerError)
+		return
 	}
 	defer resp.Body.Close()
 
