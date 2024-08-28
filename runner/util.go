@@ -75,7 +75,7 @@ func isHiddenDirectory(path string) bool {
 }
 
 func cleanPath(path string) string {
-	return strings.TrimSuffix(strings.TrimSpace(path), "/")
+	return strings.TrimSuffix(filepath.ToSlash(strings.TrimSpace(path)), "/")
 }
 
 func (e *Engine) isExcludeDir(path string) bool {
