@@ -19,7 +19,7 @@ jobs:
         id: go
         uses: actions/setup-go@v4
         with:
-          go-version: ^1.22
+          go-version-file: 'go.mod'
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
