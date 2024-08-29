@@ -3,12 +3,12 @@ package runner
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gohugoio/hugo/watcher/filenotify"
@@ -17,6 +17,7 @@ import (
 // Engine ...
 type Engine struct {
 	config    *Config
+	proxy     *Proxy
 	logger    *logger
 	watcher   filenotify.FileWatcher
 	debugMode bool
@@ -27,13 +28,12 @@ type Engine struct {
 	watcherStopCh  chan bool
 	buildRunCh     chan bool
 	buildRunStopCh chan bool
-	canExit        chan bool
 	binStopCh      chan bool
 	exitCh         chan bool
 
+	procKillWg    sync.WaitGroup
 	mu            sync.RWMutex
 	watchers      uint
-	round         uint64
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
@@ -48,6 +48,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	}
 	e := Engine{
 		config:         cfg,
+		proxy:          NewProxy(&cfg.Proxy),
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
@@ -56,7 +57,6 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
 		buildRunStopCh: make(chan bool, 1),
-		canExit:        make(chan bool, 1),
 		binStopCh:      make(chan bool),
 		exitCh:         make(chan bool),
 		fileChecksums:  &checksumMap{m: make(map[string]string)},
@@ -79,7 +79,11 @@ func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
 // Run run run
 func (e *Engine) Run() {
 	if len(os.Args) > 1 && os.Args[1] == "init" {
-		writeDefaultConfig()
+		configName, err := writeDefaultConfig()
+		if err != nil {
+			log.Fatalf("Failed writing default config: %+v", err)
+		}
+		fmt.Printf("%s file created to the current directory with the default settings\n", configName)
 		return
 	}
 
@@ -110,7 +114,7 @@ func (e *Engine) checkRunEnv() error {
 }
 
 func (e *Engine) watching(root string) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, _ error) error {
 		// NOTE: path is absolute
 		if info != nil && !info.IsDir() {
 			if e.checkIncludeFile(path) {
@@ -307,6 +311,11 @@ func (e *Engine) isModified(filename string) bool {
 
 // Endless loop and never return
 func (e *Engine) start() {
+	if e.config.Proxy.Enabled {
+		go e.proxy.Run()
+		e.mainLog("Proxy server listening on http://localhost%s", e.proxy.server.Addr)
+	}
+
 	e.running = true
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
@@ -329,6 +338,8 @@ func (e *Engine) start() {
 				}
 			}
 
+			// cannot set buldDelay to 0, because when the write multiple events received in short time
+			// it will start Multiple buildRuns: https://github.com/air-verse/air/issues/473
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
 
@@ -372,12 +383,16 @@ func (e *Engine) buildRun() {
 	select {
 	case <-e.buildRunStopCh:
 		return
-	case <-e.canExit:
 	default:
 	}
 	var err error
+	if err = e.runPreCmd(); err != nil {
+		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
+		if e.config.Build.StopOnError {
+			return
+		}
+	}
 	if err = e.building(); err != nil {
-		e.canExit <- true
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -390,7 +405,6 @@ func (e *Engine) buildRun() {
 		return
 	case <-e.exitCh:
 		e.mainDebug("exit in buildRun")
-		close(e.canExit)
 		return
 	default:
 	}
@@ -410,10 +424,9 @@ func (e *Engine) flushEvents() {
 	}
 }
 
-func (e *Engine) building() error {
-	var err error
-	e.buildLog("building...")
-	cmd, stdout, stderr, err := e.startCmd(e.config.Build.Cmd)
+// utility to execute commands, such as cmd & pre_cmd
+func (e *Engine) runCommand(command string) error {
+	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}
@@ -423,7 +436,7 @@ func (e *Engine) building() error {
 	}()
 	_, _ = io.Copy(os.Stdout, stdout)
 	_, _ = io.Copy(os.Stderr, stderr)
-	// wait for building
+	// wait for command to finish
 	err = cmd.Wait()
 	if err != nil {
 		return err
@@ -431,30 +444,48 @@ func (e *Engine) building() error {
 	return nil
 }
 
+// run cmd option in .air.toml
+func (e *Engine) building() error {
+	e.buildLog("building...")
+	err := e.runCommand(e.config.Build.Cmd)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// run pre_cmd option in .air.toml
+func (e *Engine) runPreCmd() error {
+	for _, command := range e.config.Build.PreCmd {
+		e.runnerLog("> %s", command)
+		err := e.runCommand(command)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// run post_cmd option in .air.toml
+func (e *Engine) runPostCmd() error {
+	for _, command := range e.config.Build.PostCmd {
+		e.runnerLog("> %s", command)
+		err := e.runCommand(command)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *Engine) runBin() error {
-	// control killFunc should be kill or not
-	killCh := make(chan struct{})
-	wg := sync.WaitGroup{}
-	go func() {
+	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}) {
+		select {
 		// listen to binStopCh
 		// cleanup() will close binStopCh when engine stop
 		// start() will close binStopCh when file changed
-		<-e.binStopCh
-		close(killCh)
-
-		select {
-		case <-e.exitCh:
-			wg.Wait()
-			close(e.canExit)
-		default:
-		}
-	}()
-
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
-		defer wg.Done()
-		select {
-		// the process haven't exited yet, kill it
-		case <-killCh:
+		case <-e.binStopCh:
+			close(killCh)
 			break
 
 		// the process is exited, return
@@ -487,24 +518,57 @@ func (e *Engine) runBin() error {
 
 	e.runnerLog("running...")
 	go func() {
+
+		defer func() {
+			select {
+			case <-e.exitCh:
+				e.mainDebug("exit in runBin")
+			default:
+			}
+		}()
+
+		// control killFunc should be kill or not
+		killCh := make(chan struct{})
 		for {
 			select {
 			case <-killCh:
 				return
 			default:
+				e.procKillWg.Add(1)
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
 				cmd, stdout, stderr, _ := e.startCmd(command)
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
+				if e.config.Proxy.Enabled {
+					e.proxy.Reload()
+				}
 
-				wg.Add(1)
-				atomic.AddUint64(&e.round, 1)
-				go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+				e.withLock(func() {
+					close(e.binStopCh)
+					e.binStopCh = make(chan bool)
+					go killFunc(cmd, stdout, stderr, killCh, processExit)
+				})
 
-				_, _ = io.Copy(os.Stdout, stdout)
-				_, _ = io.Copy(os.Stderr, stderr)
-				_, _ = cmd.Process.Wait()
+				go func() {
+					_, _ = io.Copy(os.Stdout, stdout)
+					_, _ = cmd.Process.Wait()
+				}()
+
+				go func() {
+					_, _ = io.Copy(os.Stderr, stderr)
+					_, _ = cmd.Process.Wait()
+				}()
+				state, _ := cmd.Process.Wait()
 				close(processExit)
+				switch state.ExitCode() {
+				case 0:
+					e.runnerLog("Process Exit with Code 0")
+				case -1:
+					// because when we use ctrl + c to stop will return -1
+				default:
+					e.runnerLog("Process Exit with Code: %v", state.ExitCode())
+				}
+				e.procKillWg.Done()
 
 				if !e.config.Build.Rerun {
 					return
@@ -521,11 +585,18 @@ func (e *Engine) cleanup() {
 	e.mainLog("cleaning...")
 	defer e.mainLog("see you again~")
 
+	if e.config.Proxy.Enabled {
+		e.mainDebug("powering down the proxy...")
+		if err := e.proxy.Stop(); err != nil {
+			e.mainLog("failed to stop proxy: %+v", err)
+		}
+	}
+
 	e.withLock(func() {
 		close(e.binStopCh)
 		e.binStopCh = make(chan bool)
 	})
-	e.mainDebug("wating for	close watchers..")
+	e.mainDebug("waiting for	close watchers..")
 
 	e.withLock(func() {
 		for i := 0; i < int(e.watchers); i++ {
@@ -549,13 +620,15 @@ func (e *Engine) cleanup() {
 	}
 
 	e.mainDebug("waiting for exit...")
-
-	<-e.canExit
+	e.procKillWg.Wait()
 	e.running = false
 	e.mainDebug("exited")
 }
 
 // Stop the air
 func (e *Engine) Stop() {
+	if err := e.runPostCmd(); err != nil {
+		e.runnerLog("failed to execute post_cmd, error: %s", err.Error())
+	}
 	close(e.exitCh)
 }

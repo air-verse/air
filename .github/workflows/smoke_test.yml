@@ -1,18 +1,19 @@
-name: smoke_test
+name: Smoke test
 
 on:
   push:
+  pull_request:
 
 jobs:
   smoke_test_ubuntu:
-    uses: cosmtrek/air/.github/workflows/smoke_test_reuse_job.yml@add_smoke_test
-    with: 
+    uses: air-verse/air/.github/workflows/smoke_test_reuse_job.yml@master
+    with:
       run_on: ubuntu-latest
   smoke_test_macos:
-    uses: cosmtrek/air/.github/workflows/smoke_test_reuse_job.yml@add_smoke_test
-    with: 
+    uses: air-verse/air/.github/workflows/smoke_test_reuse_job.yml@master
+    with:
       run_on: macos-latest
   smoke_test_windows:
-    uses: cosmtrek/air/.github/workflows/smoke_test_window_reust_job.yml@fix_window_arg_bug
-    with: 
+    uses: air-verse/air/.github/workflows/smoke_test_reuse_job_windows.yml@master
+    with:
       run_on: windows-latest

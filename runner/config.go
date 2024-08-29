@@ -1,9 +1,9 @@
 package runner
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -31,10 +31,13 @@ type Config struct {
 	Log         cfgLog    `toml:"log"`
 	Misc        cfgMisc   `toml:"misc"`
 	Screen      cfgScreen `toml:"screen"`
+	Proxy       cfgProxy  `toml:"proxy"`
 }
 
 type cfgBuild struct {
+	PreCmd           []string      `toml:"pre_cmd"`
 	Cmd              string        `toml:"cmd"`
+	PostCmd          []string      `toml:"post_cmd"`
 	Bin              string        `toml:"bin"`
 	FullBin          string        `toml:"full_bin"`
 	ArgsBin          []string      `toml:"args_bin"`
@@ -94,6 +97,12 @@ type cfgScreen struct {
 	KeepScroll     bool `toml:"keep_scroll"`
 }
 
+type cfgProxy struct {
+	Enabled   bool `toml:"enabled"`
+	ProxyPort int  `toml:"proxy_port"`
+	AppPort   int  `toml:"app_port"`
+}
+
 type sliceTransformer struct{}
 
 func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Value) error {
@@ -139,39 +148,37 @@ func InitConfig(path string) (cfg *Config, err error) {
 	return ret, err
 }
 
-func writeDefaultConfig() {
+func writeDefaultConfig() (string, error) {
 	confFiles := []string{dftTOML, dftConf}
 
 	for _, fname := range confFiles {
 		fstat, err := os.Stat(fname)
 		if err != nil && !os.IsNotExist(err) {
-			log.Fatal("failed to check for existing configuration")
-			return
+			return "", fmt.Errorf("failed to check for existing configuration: %w", err)
 		}
 		if err == nil && fstat != nil {
-			log.Fatal("configuration already exists")
-			return
+			return "", errors.New("configuration already exists")
 		}
 	}
 
 	file, err := os.Create(dftTOML)
 	if err != nil {
-		log.Fatalf("failed to create a new configuration: %+v", err)
+		return "", fmt.Errorf("failed to create a new configuration: %w", err)
 	}
 	defer file.Close()
 
 	config := defaultConfig()
 	configFile, err := toml.Marshal(config)
 	if err != nil {
-		log.Fatalf("failed to marshal the default configuration: %+v", err)
+		return "", fmt.Errorf("failed to marshal the default configuration: %w", err)
 	}
 
 	_, err = file.Write(configFile)
 	if err != nil {
-		log.Fatalf("failed to write to %s: %+v", dftTOML, err)
+		return "", fmt.Errorf("failed to write to %s: %w", dftTOML, err)
 	}
 
-	fmt.Printf("%s file created to the current directory with the default settings\n", dftTOML)
+	return dftTOML, nil
 }
 
 func defaultPathConfig() (*Config, error) {
@@ -212,12 +219,14 @@ func defaultConfig() Config {
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
+		PreCmd:       []string{},
+		PostCmd:      []string{},
 		ExcludeFile:  []string{},
 		IncludeFile:  []string{},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
 		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
-		Delay:        0,
+		Delay:        1000,
 		Rerun:        false,
 		RerunDelay:   500,
 	}
@@ -287,6 +296,9 @@ func (c *Config) preprocess() error {
 		c.Root = cwd
 	}
 	c.Root, err = expandPath(c.Root)
+	if err != nil {
+		return err
+	}
 	if c.TmpDir == "" {
 		c.TmpDir = "tmp"
 	}
@@ -338,6 +350,16 @@ func (c *Config) buildDelay() time.Duration {
 
 func (c *Config) rerunDelay() time.Duration {
 	return time.Duration(c.Build.RerunDelay) * time.Millisecond
+}
+
+func (c *Config) killDelay() time.Duration {
+	// kill_delay can be specified as an integer or duration string
+	// interpret as milliseconds if less than the value of 1 millisecond
+	if c.Build.KillDelay < time.Millisecond {
+		return c.Build.KillDelay * time.Millisecond
+	}
+	// normalize kill delay to milliseconds
+	return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 }
 
 func (c *Config) binPath() string {
