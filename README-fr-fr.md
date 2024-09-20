@@ -171,7 +171,7 @@ Vous pouvez séparer les arguments passés à air et les arguments passés au bi
 # Exécutera ./tmp/main -h
 air -- -h
 
-# Exécutera air avec un configuration personnalisée et passera -h en argument du binaire compilé.
+# Exécutera air avec une configuration personnalisée et passera -h en argument du binaire compilé.
 air -c .air.toml -- -h
 ```
 
