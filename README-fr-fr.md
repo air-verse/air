@@ -255,7 +255,7 @@ Vous devez utiliser `\` pour échapper le `'` dans le binaire. Problème associ�
   cmd = "/usr/bin/true"
 ```
 
-### Comment recharger le navigateur web lorsqu'un fichier static change ?
+### Comment recharger le navigateur web lorsqu'un fichier statique change ?
 
 Féférez-vous à [#512](https://github.com/air-verse/air/issues/512) pour plus d'informations.
 
