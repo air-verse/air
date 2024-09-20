@@ -197,7 +197,7 @@ services:
 
 `air -d` affiche tous les logs.
 
-## Installation et utilisation pour les utilisateurs qui ne veulent pas utiliser l'image air
+## Installation et usage pour les utilisateurs ne souhaitant pas recourir à l'image Air
 
 `Dockerfile`
 
