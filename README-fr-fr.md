@@ -165,7 +165,7 @@ air bench
 air server --port 8080
 ```
 
-Vous pouvez séparé les arguments passé à air est les arguments passé au binaire compilé en utilisant `--`.
+Vous pouvez séparer les arguments passés à air et les arguments passés au binaire compilé en utilisant `--`.
 
 ```shell
 # Exécutera ./tmp/main -h
