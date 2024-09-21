@@ -1,6 +1,6 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=air-verse/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
+[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=air-verse/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
 
 ![air](docs/air.png)
 
@@ -20,11 +20,11 @@ Note: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
-* Colorful log output
-* Customize build or any command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+- Colorful log output
+- Customize build or any command
+- Support excluding subdirectories
+- Allow watching new directories after Air started
+- Better building process
 
 ### Overwrite specify configuration from arguments
 
@@ -46,7 +46,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### Via `go install` (Recommended)
 
-With go 1.22 or higher:
+With go 1.23 or higher:
 
 ```bash
 go install github.com/air-verse/air@latest
@@ -209,7 +209,7 @@ services:
 
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
@@ -263,12 +263,11 @@ Should use `\` to escape the `' in the bin. related issue: [#305](https://github
 
 ### How to Reload the Browser Automatically on Static File Changes
 
-
 Refer to issue [#512](https://github.com/air-verse/air/issues/512) for additional details.
 
-* Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
-* Ensure your HTML has a `</body>` tag
-* Activate the proxy by configuring the following config:
+- Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
+- Ensure your HTML has a `</body>` tag
+- Activate the proxy by configuring the following config:
 
 ```toml
 [proxy]

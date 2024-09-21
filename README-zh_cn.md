@@ -1,4 +1,4 @@
-# Air [![Go](https://github.com/air-verse/air/workflows/Go/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=air-verse/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
+# Air [![Go](https://github.com/air-verse/air/workflows/Go/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=air-verse/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
 
 :cloud: 热重载 Go 应用的工具
 
@@ -16,11 +16,11 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 
 ## 特色
 
-* 彩色的日志输出
-* 自定义构建或必要的命令
-* 支持外部子目录
-* 在 Air 启动之后，允许监听新创建的路径
-* 更棒的构建过程
+- 彩色的日志输出
+- 自定义构建或必要的命令
+- 支持外部子目录
+- 在 Air 启动之后，允许监听新创建的路径
+- 更棒的构建过程
 
 ### 使用参数覆盖指定配置
 
@@ -42,7 +42,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### 使用 `go install` （推荐）
 
-使用 go 1.22 或更高版本:
+使用 go 1.23 或更高版本:
 
 ```shell
 go install github.com/air-verse/air@latest
@@ -59,7 +59,6 @@ curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | s
 
 air -v
 ```
-
 
 ### 使用 [goblin.run](https://goblin.run)
 
@@ -122,6 +121,7 @@ AIR_PORT=8080 air -c "config.toml"
 ```
 
 这将用当前目录替换 `$PWD`，`$AIR_PORT` 是要发布的端口，而 `$@` 用于接受应用程序本身的参数，例如 `-c`
+
 </details>
 
 ## 使用方法
@@ -205,7 +205,7 @@ services:
 
 ```Dockerfile
 # 选择你想要的版本，>= 1.16
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
@@ -259,12 +259,11 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- 请确认这行在您的配置信�
 
 ### 如何在静态文件更改时自动重新加载浏览器?
 
-
 请参考 [#512](https://github.com/cosmtrek/air/issues/512).
 
-* 确保你的静态文件在 `include_dir`、`include_ext` 或 `include_file` 中。
-* 确保你的 HTML 有一个 `</body>` 标签。
-* 通过配置以下内容开启代理：
+- 确保你的静态文件在 `include_dir`、`include_ext` 或 `include_file` 中。
+- 确保你的 HTML 有一个 `</body>` 标签。
+- 通过配置以下内容开启代理：
 
 ```toml
 [proxy]
