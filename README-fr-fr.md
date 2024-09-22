@@ -282,7 +282,7 @@ mkdir -p $GOPATH/src/github.com/cosmtrek
 cd $GOPATH/src/github.com/cosmtrek
 git clone git@github.com:<VOTRE USERNAME>/air.git
 
-# installez les dépendences
+# installez les dépendances
 cd air
 make ci
 
