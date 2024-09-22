@@ -31,7 +31,7 @@ Prise en charge des champs de configuration d'Air via des arguments :
 air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"
 ```
 
-Utilisez une virgule pour séparer les éléments des arguments qui prennent un liste comme valeur :
+Utilisez une virgule pour séparer les éléments des arguments qui prennent une liste comme valeur :
 
 ```shell
 air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
