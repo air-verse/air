@@ -1,4 +1,4 @@
-# Config file for [Air](https://github.com/cosmtrek/air) in TOML format
+# Config file for [Air](https://github.com/air-verse/air) in TOML format
 
 # Working directory
 # . or absolute path, please note that the directories following must be under root.
@@ -73,3 +73,9 @@ clean_on_exit = true
 [screen]
 clear_on_rebuild = true
 keep_scroll = true
+
+[proxy]
+# Enable live-reloading on the browser.
+enabled = true
+proxy_port = 8090
+app_port = 8080

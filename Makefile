@@ -4,7 +4,7 @@ LDFLAGS += -X "main.airVersion=$(AIRVER)"
 LDFLAGS += -X "main.goVersion=$(shell go version | sed -r 's/go version go(.*)\ .*/\1/')"
 
 GO := GO111MODULE=on CGO_ENABLED=0 go
-GOLANGCI_LINT_VERSION = v1.56.2
+GOLANGCI_LINT_VERSION = v1.61.0
 
 .PHONY: init
 init: install-golangci-lint
