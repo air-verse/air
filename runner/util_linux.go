@@ -36,8 +36,14 @@ func (e *Engine) startCmd(cmd string) (c *exec.Cmd, err error) {
 		return nil, err
 	}
 
-	_, _ = io.Copy(os.Stdin, f)
-	_, _ = io.Copy(os.Stdout, f)
-	_, _ = io.Copy(os.Stderr, f)
+	go func() {
+		_, _ = io.Copy(os.Stdin, f)
+	}()
+	go func() {
+		_, _ = io.Copy(os.Stdout, f)
+	}()
+	go func() {
+		_, _ = io.Copy(os.Stderr, f)
+	}()
 	return c, nil
 }
