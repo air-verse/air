@@ -472,8 +472,7 @@ func (e *Engine) runPostCmd() error {
 }
 
 func (e *Engine) runBin() error {
-	killFunc := func(cmd *exec.Cmd, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
-		defer wg.Done()
+	killFunc := func(cmd *exec.Cmd, killCh chan struct{}, processExit chan struct{}) {
 		select {
 		// listen to binStopCh
 		// cleanup() will close binStopCh when engine stop
@@ -538,7 +537,7 @@ func (e *Engine) runBin() error {
 				e.withLock(func() {
 					close(e.binStopCh)
 					e.binStopCh = make(chan bool)
-					go killFunc(cmd, killCh, processExit, &wg)
+					go killFunc(cmd, killCh, processExit)
 				})
 
 				go func() {
