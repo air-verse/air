@@ -132,7 +132,7 @@ Entrez dans votre projet
 cd /path/to/your/project
 ```
 
-L'utilisation la plus simple est d'éxécuter la commande
+L'utilisation la plus simple est d'exécuter la commande
 
 ```shell
 # Tout d'abord, trouvez `.air.toml` dans le dossier courant. S'il n'est pas trouvé, utilisez les valeurs par défaut.
