@@ -257,7 +257,7 @@ Vous devez utiliser `\` pour échapper le `'` dans le binaire. Problème associ�
 
 ### Comment recharger le navigateur web lorsqu'un fichier statique change ?
 
-Féférez-vous à [#512](https://github.com/air-verse/air/issues/512) pour plus d'informations.
+Référez-vous à [#512](https://github.com/air-verse/air/issues/512) pour plus d'informations.
 
 * Assurez-vous que vos fichiers statiques sont dans `include_dir`, `include_ext` ou `include_file`.
 * Assurez-vous que votre HTML contient une balise `</body>`.
