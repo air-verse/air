@@ -101,6 +101,10 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("X-Forwarded-For", r.RemoteAddr)
 
+	// set the via header
+	viaHeaderValue := fmt.Sprintf("%s %s", r.Proto, r.Host)
+	req.Header.Set("Via", viaHeaderValue)
+
 	// air will restart the server. it may take a few milliseconds for it to start back up.
 	// therefore, we retry until the server becomes available or this retry loop exits with an error.
 	var resp *http.Response
@@ -127,6 +131,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+	w.Header().Add("Via", viaHeaderValue)
 	w.WriteHeader(resp.StatusCode)
 
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
