@@ -540,13 +540,6 @@ func (e *Engine) runBin() error {
 					go killFunc(cmd, killCh, processExit)
 				})
 
-				go func() {
-					_, _ = cmd.Process.Wait()
-				}()
-
-				go func() {
-					_, _ = cmd.Process.Wait()
-				}()
 				state, _ := cmd.Process.Wait()
 				close(processExit)
 				switch state.ExitCode() {
