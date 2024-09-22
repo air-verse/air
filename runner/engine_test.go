@@ -721,7 +721,10 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	dlvPort, f := GetPort()
 	f()
 	engine.config.Build.FullBin = fmt.Sprintf("dlv exec --accept-multiclient --log --headless --continue --listen :%d --api-version 2 ./tmp/main", dlvPort)
-	_ = engine.config.preprocess()
+	err = engine.config.preprocess()
+	if err != nil {
+		t.Fatal("config preprocess fialed! - Error: ", err)
+	}
 	go func() {
 		engine.Run()
 	}()
