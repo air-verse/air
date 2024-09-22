@@ -1011,7 +1011,7 @@ include_ext = ["go"]
 include_dir = ["nonexist"] # prevent default "." watch from taking effect
 include_file = ["main.sh"]
 `
-	if err := ioutil.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
+	if err := os.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
