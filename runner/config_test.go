@@ -203,6 +203,29 @@ func TestKillDelay(t *testing.T) {
 	}
 }
 
+func TestWithArgs(t *testing.T) {
+	testData := []struct {
+		bin string
+	}{{
+		bin: "bin\\main.exe",
+	}, {bin: "bin/main.exe"}}
+
+	for _, test := range testData {
+		config := Config{}
+		args := map[string]TomlInfo{
+			"build.bin": {
+				Value: &test.bin,
+			},
+		}
+		err := config.WithArgs(args)
+
+		if err != nil {
+			t.Fatal("Test shouldn't have failed, found: ", err)
+		}
+	}
+
+}
+
 func contains(sl []string, target string) bool {
 	for _, c := range sl {
 		if c == target {

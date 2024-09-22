@@ -383,11 +383,20 @@ func (c *Config) rel(path string) string {
 }
 
 // WithArgs returns a new config with the given arguments added to the configuration.
-func (c *Config) WithArgs(args map[string]TomlInfo) {
-	for _, value := range args {
+func (c *Config) WithArgs(args map[string]TomlInfo) error {
+	for key, value := range args {
 		if value.Value != nil && *value.Value != unsetDefault {
+			// To avoid path resolving problems on Windows.
+			if key == "build.bin" {
+				abs, err := filepath.Abs(*value.Value)
+				if err != nil {
+					return err
+				}
+				value.Value = &abs
+			}
 			v := reflect.ValueOf(c)
 			setValue2Struct(v, value.fieldPath, *value.Value)
 		}
 	}
+	return nil
 }
