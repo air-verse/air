@@ -183,15 +183,18 @@ func writeDefaultConfig() (string, error) {
 
 func defaultPathConfig() (*Config, error) {
 	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-	for _, name := range []string{dftTOML, dftConf} {
-		cfg, err := readConfByName(name)
-		if err == nil {
-			if name == dftConf {
-				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
-			}
-			return cfg, nil
-		}
+	cfg, err := readConfByName(dftTOML)
+	if err == nil {
+		return cfg, nil
 	}
+	fmt.Printf("could not read .air.toml {%v}, trying .air.conf\n", err)
+
+	cfg, err = readConfByName(dftConf)
+	if err == nil {
+		fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
+		return cfg, nil
+	}
+	fmt.Printf("could not read .air.conf {%v}, using default config\n", err)
 
 	dftCfg := defaultConfig()
 	return &dftCfg, nil
