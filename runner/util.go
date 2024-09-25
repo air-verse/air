@@ -21,18 +21,27 @@ const (
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
+	if e.config.Log.Silent {
+		return
+	}
 	e.logWithLock(func() {
 		e.logger.main()(format, v...)
 	})
 }
 
 func (e *Engine) mainDebug(format string, v ...interface{}) {
+	if e.config.Log.Silent {
+		return
+	}
 	if e.debugMode {
 		e.mainLog(format, v...)
 	}
 }
 
 func (e *Engine) buildLog(format string, v ...interface{}) {
+	if e.config.Log.Silent {
+		return
+	}
 	if e.debugMode || !e.config.Log.MainOnly {
 		e.logWithLock(func() {
 			e.logger.build()(format, v...)
@@ -41,6 +50,9 @@ func (e *Engine) buildLog(format string, v ...interface{}) {
 }
 
 func (e *Engine) runnerLog(format string, v ...interface{}) {
+	if e.config.Log.Silent {
+		return
+	}
 	if e.debugMode || !e.config.Log.MainOnly {
 		e.logWithLock(func() {
 			e.logger.runner()(format, v...)
@@ -49,6 +61,9 @@ func (e *Engine) runnerLog(format string, v ...interface{}) {
 }
 
 func (e *Engine) watcherLog(format string, v ...interface{}) {
+	if e.config.Log.Silent {
+		return
+	}
 	if e.debugMode || !e.config.Log.MainOnly {
 		e.logWithLock(func() {
 			e.logger.watcher()(format, v...)
@@ -57,6 +72,9 @@ func (e *Engine) watcherLog(format string, v ...interface{}) {
 }
 
 func (e *Engine) watcherDebug(format string, v ...interface{}) {
+	if e.config.Log.Silent {
+		return
+	}
 	if e.debugMode {
 		e.watcherLog(format, v...)
 	}

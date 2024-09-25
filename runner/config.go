@@ -78,6 +78,7 @@ func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 type cfgLog struct {
 	AddTime  bool `toml:"time"`
 	MainOnly bool `toml:"main_only"`
+	Silent   bool `toml:"silent"`
 }
 
 type cfgColor struct {
@@ -186,7 +187,7 @@ func defaultPathConfig() (*Config, error) {
 	for _, name := range []string{dftTOML, dftConf} {
 		cfg, err := readConfByName(name)
 		if err == nil {
-			if name == dftConf {
+			if name == dftConf && !cfg.Log.Silent {
 				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
 			}
 			return cfg, nil
@@ -237,6 +238,7 @@ func defaultConfig() Config {
 	log := cfgLog{
 		AddTime:  false,
 		MainOnly: false,
+		Silent:   false,
 	}
 	color := cfgColor{
 		Main:    "magenta",
@@ -304,9 +306,6 @@ func (c *Config) preprocess() error {
 	}
 	if c.TestDataDir == "" {
 		c.TestDataDir = "testdata"
-	}
-	if err != nil {
-		return err
 	}
 	ed := c.Build.ExcludeDir
 	for i := range ed {
