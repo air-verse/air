@@ -287,3 +287,33 @@ func TestCheckIncludeFile(t *testing.T) {
 	assert.Equal(t, e.checkIncludeFile("no.go"), false)
 	assert.Equal(t, e.checkIncludeFile("."), false)
 }
+
+func TestJoinPathRelative(t *testing.T) {
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, "x")
+
+	assert.Equal(t, result, filepath.Join(root, "x"))
+}
+
+func TestJoinPathAbsolute(t *testing.T) {
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	path, err := filepath.Abs("x")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, path)
+
+	assert.Equal(t, result, path)
+}

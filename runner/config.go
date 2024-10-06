@@ -340,7 +340,7 @@ func (c *Config) colorInfo() map[string]string {
 }
 
 func (c *Config) buildLogPath() string {
-	return filepath.Join(c.tmpPath(), c.Build.Log)
+	return joinPath(c.tmpPath(), c.Build.Log)
 }
 
 func (c *Config) buildDelay() time.Duration {
@@ -362,15 +362,15 @@ func (c *Config) killDelay() time.Duration {
 }
 
 func (c *Config) binPath() string {
-	return filepath.Join(c.Root, c.Build.Bin)
+	return joinPath(c.Root, c.Build.Bin)
 }
 
 func (c *Config) tmpPath() string {
-	return filepath.Join(c.Root, c.TmpDir)
+	return joinPath(c.Root, c.TmpDir)
 }
 
 func (c *Config) testDataPath() string {
-	return filepath.Join(c.Root, c.TestDataDir)
+	return joinPath(c.Root, c.TestDataDir)
 }
 
 func (c *Config) rel(path string) string {
