@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"dario.cat/mergo"
@@ -307,6 +308,7 @@ func (c *Config) preprocess() error {
 	if c.TestDataDir == "" {
 		c.TestDataDir = "testdata"
 	}
+
 	ed := c.Build.ExcludeDir
 	for i := range ed {
 		ed[i] = cleanPath(ed[i])
@@ -326,6 +328,9 @@ func (c *Config) preprocess() error {
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+
+	// Account for spaces in filepath
+	c.Build.Bin = fmt.Sprintf("%q", c.Build.Bin)
 
 	return err
 }
@@ -362,7 +367,8 @@ func (c *Config) killDelay() time.Duration {
 }
 
 func (c *Config) binPath() string {
-	return filepath.Join(c.Root, c.Build.Bin)
+	bin := strings.Trim(c.Build.Bin, "\"")
+	return fmt.Sprintf("%q", filepath.Join(c.Root, bin))
 }
 
 func (c *Config) tmpPath() string {
