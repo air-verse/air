@@ -33,6 +33,10 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	c.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
+	err := e.modifyEnvironment(c)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	stderr, err := c.StderrPipe()
 	if err != nil {
