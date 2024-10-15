@@ -330,7 +330,10 @@ func (c *Config) preprocess() error {
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	// Account for spaces in filepath
-	c.Build.Bin = fmt.Sprintf("%q", c.Build.Bin)
+
+	if runtime.GOOS != "windows" {
+		c.Build.Bin = fmt.Sprintf("'%s'", c.Build.Bin)
+	}
 
 	return err
 }
@@ -367,8 +370,14 @@ func (c *Config) killDelay() time.Duration {
 }
 
 func (c *Config) binPath() string {
-	bin := strings.Trim(c.Build.Bin, "\"")
-	return fmt.Sprintf("%q", filepath.Join(c.Root, bin))
+
+	if runtime.GOOS != "windows" {
+		bin := strings.Trim(c.Build.Bin, "'")
+		return fmt.Sprintf("'%s'", filepath.Join(c.Root, bin))
+	}
+
+	return filepath.Join(c.Root, c.Build.Bin)
+
 }
 
 func (c *Config) tmpPath() string {
