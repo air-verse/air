@@ -330,7 +330,7 @@ func (c *Config) preprocess() error {
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	// Account for spaces in filepath
-	c.Build.Bin = fmt.Sprintf("%q", c.Build.Bin)
+	// c.Build.Bin = fmt.Sprintf("'%s'", c.Build.Bin)
 
 	return err
 }
@@ -367,8 +367,8 @@ func (c *Config) killDelay() time.Duration {
 }
 
 func (c *Config) binPath() string {
-	bin := strings.Trim(c.Build.Bin, "\"")
-	return fmt.Sprintf("%q", filepath.Join(c.Root, bin))
+	bin := strings.Trim(c.Build.Bin, "'")
+	return fmt.Sprintf("'%s'", filepath.Join(c.Root, bin))
 }
 
 func (c *Config) tmpPath() string {

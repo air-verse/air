@@ -125,12 +125,12 @@ func TestConfPreprocess(t *testing.T) {
 		{
 			name:   "no spaces",
 			space:  false,
-			suffix: "/_testdata/toml/tmp/main\"",
+			suffix: "/_testdata/toml/tmp/main'",
 		},
 		{
 			name:   "with spaces",
 			space:  true,
-			suffix: "/_testdata/toml/tmp space/main\"",
+			suffix: "/_testdata/toml/tmp space/main'",
 		},
 	}
 
@@ -153,7 +153,7 @@ func TestConfPreprocess(t *testing.T) {
 
 		binPath := df.Build.Bin
 		if !strings.HasSuffix(binPath, tt.suffix) {
-			t.Fatalf("%s: bin path is %s, but not have suffix  %s.", tt.name, binPath, tt.suffix)
+			t.Fatalf("%s: bin path is %q, but not have suffix  %q", tt.name, binPath, tt.suffix)
 		}
 
 		err = os.Chdir(oWD)
