@@ -126,11 +126,14 @@ func TestConfPreprocess(t *testing.T) {
 			name:   "no spaces",
 			space:  false,
 			suffix: "/_testdata/toml/tmp/main'",
+
+
 		},
 		{
 			name:   "with spaces",
 			space:  true,
 			suffix: "/_testdata/toml/tmp space/main'",
+
 		},
 	}
 
