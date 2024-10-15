@@ -330,7 +330,7 @@ func (c *Config) preprocess() error {
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	// Account for spaces in filepath
-	// c.Build.Bin = fmt.Sprintf("'%s'", c.Build.Bin)
+	c.Build.Bin = fmt.Sprintf("'%s'", c.Build.Bin)
 
 	return err
 }
