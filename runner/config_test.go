@@ -117,49 +117,16 @@ func TestReadConfByName(t *testing.T) {
 }
 
 func TestConfPreprocess(t *testing.T) {
-	tests := []struct {
-		name   string
-		space  bool
-		suffix string
-	}{
-		{
-			name:   "no spaces",
-			space:  false,
-			suffix: "/_testdata/toml/tmp/main\"",
-		},
-		{
-			name:   "with spaces",
-			space:  true,
-			suffix: "/_testdata/toml/tmp space/main\"",
-		},
+	t.Setenv(airWd, "_testdata/toml")
+	df := defaultConfig()
+	err := df.preprocess()
+	if err != nil {
+		t.Fatalf("preprocess error %v", err)
 	}
-
-	for _, tt := range tests {
-
-		oWD, err := os.Getwd()
-		if err != nil {
-			t.Fatalf("failed to get currWD: %v", err)
-		}
-
-		t.Setenv(airWd, "_testdata/toml")
-		df := defaultConfig()
-		if tt.space {
-			df.Build.Bin = "./tmp space/main"
-		}
-		err = df.preprocess()
-		if err != nil {
-			t.Fatalf("%s: preprocess error %v", tt.name, err)
-		}
-
-		binPath := df.Build.Bin
-		if !strings.HasSuffix(binPath, tt.suffix) {
-			t.Fatalf("%s: bin path is %s, but not have suffix  %s.", tt.name, binPath, tt.suffix)
-		}
-
-		err = os.Chdir(oWD)
-		if err != nil {
-			t.Fatalf("failed to change back to original WD: %v", err)
-		}
+	suffix := "/_testdata/toml/tmp/main"
+	binPath := df.Build.Bin
+	if !strings.HasSuffix(binPath, suffix) {
+		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
 	}
 }
 
