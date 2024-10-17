@@ -69,6 +69,25 @@ func TestBinCmdPath(t *testing.T) {
 	}
 }
 
+func TestBinPathSpaceEscape(t *testing.T) {
+	c := &Config{
+		Build: cfgBuild{
+			Bin: "./with spaces/main",
+		},
+	}
+
+	err := c.preprocess()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(c.Build.Bin, "with spaces") {
+		t.Fatalf("should escape spaces in bin path")
+	}
+	if !strings.Contains(c.Build.Bin, "with\\ spaces") {
+		t.Fatalf("should escape spaces in bin path")
+	}
+}
+
 func TestDefaultPathConfig(t *testing.T) {
 	tests := []struct {
 		name string
