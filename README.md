@@ -260,7 +260,7 @@ export PATH=$PATH:$(go env GOPATH)/bin #Confirm this line in your .profile and m
 
 ### Error under wsl when ' is included in the bin
 
-Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/air-verse/air/issues/305)
+Should use `\` to escape the `'` in the bin. related issue: [#305](https://github.com/air-verse/air/issues/305)
 
 ### Question: how to do hot compile only and do not run anything?
 
