@@ -165,7 +165,8 @@ func Test_killCmd_no_process(t *testing.T) {
 		t.Errorf("expected error but got none")
 	}
 	if !errors.Is(err, syscall.ESRCH) {
-		t.Errorf("expected '%s' but got '%s'", syscall.ESRCH, errors.Unwrap(err))
+		err = errors.Unwrap(err)
+		t.Errorf("expected '%s' but got '%s'", syscall.ESRCH, err.Error())
 	}
 }
 

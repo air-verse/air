@@ -4,6 +4,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -28,12 +29,6 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		e.mainDebug("setting a kill timer for %s", killDelay.String())
 	}
 
-	waitResult := make(chan error)
-	go func() {
-		defer close(waitResult)
-		_, _ = cmd.Process.Wait()
-	}()
-
 	// prepare a cancel context that can stop the killing if it is not needed
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -51,10 +46,29 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		}
 	}()
 
+	waitResult := make(chan error)
+	go func() {
+		_, err := cmd.Process.Wait()
+		waitResult <- err
+	}()
+
+	results := make([]error, 0, 2)
+
 	for {
+		// collect the responses from the kill and wait goroutines
 		select {
 		case err = <-killResult:
-		case <-waitResult:
+			results = append(results, err)
+		case err = <-waitResult:
+			results = append(results, err)
+			// if we have a kill delay, we ignore the kill result
+			if killDelay > 0 {
+				results = append(results, nil)
+			}
+		}
+
+		if len(results) == 2 {
+			err = errors.Join(results...)
 			return
 		}
 	}
