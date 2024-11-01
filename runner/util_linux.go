@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 	"os/exec"
+	"syscall"
 	"time"
 
 	"github.com/creack/pty"
@@ -24,8 +24,8 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 	if e.config.Build.SendInterrupt {
 		e.mainDebug("sending interrupt to process %d", pid)
-		// Sending a signal to make it clear to the process that it is time to turn off
-		if err = cmd.Process.Signal(os.Interrupt); err != nil {
+		// Sending a signal to make it clear to the process group that it is time to turn off
+		if err = syscall.Kill(-pid, syscall.SIGINT); err != nil {
 			return
 		}
 		// the kill delay is 0 by default unless the user has configured send_interrupt=true
@@ -45,7 +45,8 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		select {
 		case <-time.After(killDelay):
 			e.mainDebug("kill timer expired")
-			killResult <- cmd.Process.Kill()
+			// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
+			killResult <- syscall.Kill(-pid, syscall.SIGKILL)
 		case <-ctx.Done():
 			e.mainDebug("kill timer canceled")
 			return
