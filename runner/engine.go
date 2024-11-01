@@ -434,14 +434,12 @@ func (e *Engine) runCommand(command string) error {
 		stdout.Close()
 		stderr.Close()
 	}()
-	_, _ = io.Copy(os.Stdout, stdout)
-	_, _ = io.Copy(os.Stderr, stderr)
+
+	go copyOutput(os.Stdout, stdout)
+	go copyOutput(os.Stderr, stderr)
+
 	// wait for command to finish
-	err = cmd.Wait()
-	if err != nil {
-		return err
-	}
-	return nil
+	return cmd.Wait()
 }
 
 // run cmd option in .air.toml
@@ -551,15 +549,9 @@ func (e *Engine) runBin() error {
 					go killFunc(cmd, stdout, stderr, killCh, processExit)
 				})
 
-				go func() {
-					_, _ = io.Copy(os.Stdout, stdout)
-					_, _ = cmd.Process.Wait()
-				}()
+				go copyOutput(os.Stdout, stdout)
+				go copyOutput(os.Stderr, stderr)
 
-				go func() {
-					_, _ = io.Copy(os.Stderr, stderr)
-					_, _ = cmd.Process.Wait()
-				}()
 				state, _ := cmd.Process.Wait()
 				close(processExit)
 				switch state.ExitCode() {
