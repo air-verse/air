@@ -17,10 +17,16 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 	var killDelay time.Duration
 
+	waitResult := make(chan error)
+	go func() {
+		defer close(waitResult)
+		_, _ = cmd.Process.Wait()
+	}()
+
 	if e.config.Build.SendInterrupt {
 		e.mainDebug("sending interrupt to process %d", pid)
 		// Sending a signal to make it clear to the process that it is time to turn off
-		if err = syscall.Kill(-pid, syscall.SIGINT); err != nil {
+		if err = cmd.Process.Signal(os.Interrupt); err != nil {
 			return
 		}
 		// the kill delay is 0 by default unless the user has configured send_interrupt=true
@@ -39,17 +45,12 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	go func() {
 		select {
 		case <-time.After(killDelay):
-			// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
-			killResult <- syscall.Kill(-pid, syscall.SIGKILL)
+			e.mainDebug("kill timer expired")
+			killResult <- cmd.Process.Kill()
 		case <-ctx.Done():
+			e.mainDebug("kill timer canceled")
 			return
 		}
-	}()
-
-	waitResult := make(chan error)
-	go func() {
-		_, err := cmd.Process.Wait()
-		waitResult <- err
 	}()
 
 	results := make([]error, 0, 2)
@@ -62,7 +63,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		case err = <-waitResult:
 			results = append(results, err)
 			// if we have a kill delay, we ignore the kill result
-			if killDelay > 0 {
+			if killDelay > 0 && len(results) == 1 {
 				results = append(results, nil)
 			}
 		}
