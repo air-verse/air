@@ -435,8 +435,8 @@ func (e *Engine) runCommand(command string) error {
 		stderr.Close()
 	}()
 
-	go copyOutput(os.Stdout, stdout)
-	go copyOutput(os.Stderr, stderr)
+	copyOutput(os.Stdout, stdout)
+	copyOutput(os.Stderr, stderr)
 
 	// wait for command to finish
 	return cmd.Wait()
