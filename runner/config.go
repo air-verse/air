@@ -31,6 +31,7 @@ type Config struct {
 	Log         cfgLog    `toml:"log"`
 	Misc        cfgMisc   `toml:"misc"`
 	Screen      cfgScreen `toml:"screen"`
+	Proxy       cfgProxy  `toml:"proxy"`
 }
 
 type cfgBuild struct {
@@ -77,6 +78,7 @@ func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 type cfgLog struct {
 	AddTime  bool `toml:"time"`
 	MainOnly bool `toml:"main_only"`
+	Silent   bool `toml:"silent"`
 }
 
 type cfgColor struct {
@@ -94,6 +96,12 @@ type cfgMisc struct {
 type cfgScreen struct {
 	ClearOnRebuild bool `toml:"clear_on_rebuild"`
 	KeepScroll     bool `toml:"keep_scroll"`
+}
+
+type cfgProxy struct {
+	Enabled   bool `toml:"enabled"`
+	ProxyPort int  `toml:"proxy_port"`
+	AppPort   int  `toml:"app_port"`
 }
 
 type sliceTransformer struct{}
@@ -179,7 +187,7 @@ func defaultPathConfig() (*Config, error) {
 	for _, name := range []string{dftTOML, dftConf} {
 		cfg, err := readConfByName(name)
 		if err == nil {
-			if name == dftConf {
+			if name == dftConf && !cfg.Log.Silent {
 				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
 			}
 			return cfg, nil
@@ -230,6 +238,7 @@ func defaultConfig() Config {
 	log := cfgLog{
 		AddTime:  false,
 		MainOnly: false,
+		Silent:   false,
 	}
 	color := cfgColor{
 		Main:    "magenta",
@@ -298,9 +307,6 @@ func (c *Config) preprocess() error {
 	if c.TestDataDir == "" {
 		c.TestDataDir = "testdata"
 	}
-	if err != nil {
-		return err
-	}
 	ed := c.Build.ExcludeDir
 	for i := range ed {
 		ed[i] = cleanPath(ed[i])
@@ -350,10 +356,9 @@ func (c *Config) killDelay() time.Duration {
 	// interpret as milliseconds if less than the value of 1 millisecond
 	if c.Build.KillDelay < time.Millisecond {
 		return c.Build.KillDelay * time.Millisecond
-	} else {
-		// normalize kill delay to milliseconds
-		return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 	}
+	// normalize kill delay to milliseconds
+	return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 }
 
 func (c *Config) binPath() string {
