@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFlag(t *testing.T) {
@@ -54,7 +55,7 @@ func TestFlag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
-			assert.NoError(t, flag.Parse(tc.args))
+			require.NoError(t, flag.Parse(tc.args))
 			assert.Equal(t, tc.expected, *cmdArgs[tc.key].Value)
 		})
 	}
@@ -98,7 +99,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			args: []string{"--build.exclude_unchanged", "true"},
 			key:  "build.exclude_unchanged",
 			check: func(t *testing.T, conf *Config) {
-				assert.Equal(t, true, conf.Build.ExcludeUnchanged)
+				assert.True(t, conf.Build.ExcludeUnchanged)
 			},
 		},
 		{
@@ -121,7 +122,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			assert.NoError(t, os.Chdir(dir))
+			require.NoError(t, os.Chdir(dir))
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			_ = flag.Parse(tc.args)

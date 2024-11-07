@@ -13,5 +13,6 @@ linters:
     - revive # configurable linter for Go. Drop-in replacement of golint
     - staticcheck # go vet on steroids
     - stylecheck # static analysis, finds bugs and performance issues, offers simplifications, and enforces style rules
+    - testifylint # checks usage of github.com/stretchr/testify
     - unconvert # Remove unnecessary type conversions
     - unused # Checks Go code for unused constants, variables, functions and types
