@@ -130,7 +130,7 @@ this will replace `$PWD` with the current directory, `$AIR_PORT` is the port whe
 
 ## Usage
 
-For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
+For less typing, you could add `alias air='~/air'` or `alias air='~/go/bin/air' to your `.bashrc` or `.zshrc`.
 
 First enter into your project
 
