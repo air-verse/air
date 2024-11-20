@@ -128,6 +128,14 @@ this will replace `$PWD` with the current directory, `$AIR_PORT` is the port whe
 
 </details>
 
+### [Flox](https://flox.dev)
+
+Air can easily be installed into a Flox environment as follows.
+
+```shell
+flox install air
+```
+
 ## Usage
 
 For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
