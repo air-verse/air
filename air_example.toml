@@ -34,7 +34,7 @@ exclude_regex = ["_test\\.go"]
 exclude_unchanged = true
 # Follow symlink for directories
 follow_symlink = true
-# This log file places in your tmp_dir.
+# This log file is placed in your tmp_dir.
 log = "air.log"
 # Poll files for changes instead of using fsnotify.
 poll = false
