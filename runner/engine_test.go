@@ -337,7 +337,7 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	time.Sleep(time.Second * 3)
-	assert.False(t, engine.running)
+	assert.False(t, engine.running.Load())
 }
 
 func TestCtrlCWhenREngineIsRunning(t *testing.T) {
@@ -373,7 +373,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	assert.False(t, engine.running)
+	assert.False(t, engine.running.Load())
 }
 
 func TestCtrlCWithFailedBin(t *testing.T) {
@@ -451,7 +451,7 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	if err := waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	assert.False(t, engine.running)
+	assert.False(t, engine.running.Load())
 }
 
 func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
@@ -494,7 +494,7 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	// ctrl + c
 	sigs <- syscall.SIGINT
 	time.Sleep(time.Second * 1)
-	assert.False(t, engine.running)
+	assert.False(t, engine.running.Load())
 }
 
 // waitingPortReady waits until the port is ready to be used.
@@ -863,15 +863,17 @@ func Test(t *testing.T) {
 	}
 	// check is MacOS
 	var cmd *exec.Cmd
+	var toolName string = "sed"
+
 	if runtime.GOOS == "darwin" {
-		cmd = exec.Command("gsed", "-i", "s/\"_test.*go\"//g", ".air.toml")
-	} else {
-		cmd = exec.Command("sed", "-i", "s/\"_test.*go\"//g", ".air.toml")
+		toolName = "gsed"
 	}
+
+	cmd = exec.Command(toolName, "-i", "s/\"_test.*go\"//g", ".air.toml")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
+		t.Skipf("unable to run %s, make sure the tool is installed to run this test", toolName)
 	}
 
 	time.Sleep(time.Second * 2)
