@@ -62,16 +62,6 @@ type cfgBuild struct {
 }
 
 func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
-	if len(c.ExcludeRegex) > 0 && len(c.regexCompiled) == 0 {
-		c.regexCompiled = make([]*regexp.Regexp, 0, len(c.ExcludeRegex))
-		for _, s := range c.ExcludeRegex {
-			re, err := regexp.Compile(s)
-			if err != nil {
-				return nil, err
-			}
-			c.regexCompiled = append(c.regexCompiled, re)
-		}
-	}
 	return c.regexCompiled, nil
 }
 
@@ -317,6 +307,19 @@ func (c *Config) preprocess() error {
 	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()
 	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
+
+	// Compile the exclude regexes if there are any patterns in the config file
+	if len(c.Build.ExcludeRegex) > 0 {
+		regexCompiled := make([]*regexp.Regexp, len(c.Build.ExcludeRegex))
+		for idx, expr := range c.Build.ExcludeRegex {
+			re, err := regexp.Compile(expr)
+			if err != nil {
+				return fmt.Errorf("failed to compile regex %s", expr)
+			}
+			regexCompiled[idx] = re
+		}
+		c.Build.regexCompiled = regexCompiled
+	}
 
 	c.Build.ExcludeDir = ed
 	if len(c.Build.FullBin) > 0 {
