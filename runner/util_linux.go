@@ -31,5 +31,8 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
 	f, err := pty.Start(c)
-	return c, f, f, err
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return c, f, f, nil
 }
