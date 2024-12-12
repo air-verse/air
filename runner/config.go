@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	cfgTOML = ".config/air.toml"
 	dftTOML = ".air.toml"
 	airWd   = "air_wd"
 
@@ -299,16 +300,17 @@ func writeDefaultConfig() (string, error) {
 }
 
 func defaultPathConfig() (*Config, error) {
-	// when path is blank, first find `.air.toml` in `air_wd` and current working directory, if not found, use defaults
-	cfg, err := readConfByName(dftTOML)
-	if err == nil {
-		return cfg, nil
-	}
-
-	// If the config file exists but failed to parse, report the error
-	// Only use defaults if no config file exists
-	if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to parse %s: %w", dftTOML, err)
+	// when path is blank, first find `.air.toml` in `air_wd` and current working directory or .config/air.toml, if not found, use defaults
+	for _, name := range []string{dftTOML, cfgTOML} {
+		cfg, err := readConfByName(name)
+		if err == nil {
+			return cfg, nil
+		}
+		// If the config file exists but failed to parse, report the error
+		// Only use defaults if no config file exists
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to parse %s: %w", name, err)
+		}
 	}
 
 	dftCfg := defaultConfig()
