@@ -254,7 +254,7 @@ services:
 ```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+export PATH=$PATH:$(go env GOPATH)/bin #Confirm this line in your .profile and make sure to source the .profile if you add it!!!
 ```
 
 ### Error under wsl when ' is included in the bin
