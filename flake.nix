@@ -5,7 +5,7 @@
     devenv.url = "github:cachix/devenv/v0.6.3";
 
     gomod2nix = {
-      url = "github:nix-community/gomod2nix";
+      url = "github:nix-community/gomod2nix/v1.6.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -42,7 +42,7 @@
           {
             packages = with pkgs; [
               gnumake
-              go_1_21
+              go_1_23
               gomod2nix.legacyPackages.${system}.gomod2nix
               gotools
               go-tools
