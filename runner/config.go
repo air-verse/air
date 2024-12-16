@@ -23,8 +23,8 @@ const (
 
 // Config is the main configuration structure for Air.
 type Config struct {
-	Root        string    `toml:"root"`
-	TmpDir      string    `toml:"tmp_dir"`
+	Root        string    `toml:"root" usage:"Working directory, . or absolute path, please note that the directories following must be under root"`
+	TmpDir      string    `toml:"tmp_dir" usage:"Temporary directory for air"`
 	TestDataDir string    `toml:"testdata_dir"`
 	Build       cfgBuild  `toml:"build"`
 	Color       cfgColor  `toml:"color"`
@@ -35,29 +35,29 @@ type Config struct {
 }
 
 type cfgBuild struct {
-	PreCmd           []string      `toml:"pre_cmd"`
-	Cmd              string        `toml:"cmd"`
-	PostCmd          []string      `toml:"post_cmd"`
-	Bin              string        `toml:"bin"`
-	FullBin          string        `toml:"full_bin"`
-	ArgsBin          []string      `toml:"args_bin"`
-	Log              string        `toml:"log"`
-	IncludeExt       []string      `toml:"include_ext"`
-	ExcludeDir       []string      `toml:"exclude_dir"`
-	IncludeDir       []string      `toml:"include_dir"`
-	ExcludeFile      []string      `toml:"exclude_file"`
-	IncludeFile      []string      `toml:"include_file"`
-	ExcludeRegex     []string      `toml:"exclude_regex"`
-	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
-	FollowSymlink    bool          `toml:"follow_symlink"`
-	Poll             bool          `toml:"poll"`
-	PollInterval     int           `toml:"poll_interval"`
-	Delay            int           `toml:"delay"`
-	StopOnError      bool          `toml:"stop_on_error"`
-	SendInterrupt    bool          `toml:"send_interrupt"`
-	KillDelay        time.Duration `toml:"kill_delay"`
-	Rerun            bool          `toml:"rerun"`
-	RerunDelay       int           `toml:"rerun_delay"`
+	PreCmd           []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
+	Cmd              string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
+	PostCmd          []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
+	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd'"`
+	FullBin          string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
+	ArgsBin          []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
+	Log              string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
+	IncludeExt       []string      `toml:"include_ext" usage:"Watch these filename extensions"`
+	ExcludeDir       []string      `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
+	IncludeDir       []string      `toml:"include_dir" usage:"Watch these directories if you specified"`
+	ExcludeFile      []string      `toml:"exclude_file" usage:"Exclude files"`
+	IncludeFile      []string      `toml:"include_file" usage:"Watch these files"`
+	ExcludeRegex     []string      `toml:"exclude_regex" usage:"Exclude specific regular expressions"`
+	ExcludeUnchanged bool          `toml:"exclude_unchanged" usage:"Exclude unchanged files"`
+	FollowSymlink    bool          `toml:"follow_symlink" usage:"Follow symlink for directories"`
+	Poll             bool          `toml:"poll" usage:"Poll files for changes instead of using fsnotify"`
+	PollInterval     int           `toml:"poll_interval" usage:"Poll interval (defaults to the minimum interval of 500ms)"`
+	Delay            int           `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
+	StopOnError      bool          `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
+	SendInterrupt    bool          `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
+	KillDelay        time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
+	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
+	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
 	regexCompiled    []*regexp.Regexp
 }
 
@@ -66,32 +66,32 @@ func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 }
 
 type cfgLog struct {
-	AddTime  bool `toml:"time"`
-	MainOnly bool `toml:"main_only"`
-	Silent   bool `toml:"silent"`
+	AddTime  bool `toml:"time" usage:"Show log time"`
+	MainOnly bool `toml:"main_only" usage:"Only show main log (silences watcher, build, runner)"`
+	Silent   bool `toml:"silent" usage:"silence all logs produced by air"`
 }
 
 type cfgColor struct {
-	Main    string `toml:"main"`
-	Watcher string `toml:"watcher"`
-	Build   string `toml:"build"`
-	Runner  string `toml:"runner"`
+	Main    string `toml:"main" usage:"Customize main part's color. If no color found, use the raw app log"`
+	Watcher string `toml:"watcher" usage:"Customize watcher part's color"`
+	Build   string `toml:"build" usage:"Customize build part's color"`
+	Runner  string `toml:"runner" usage:"Customize runner part's color"`
 	App     string `toml:"app"`
 }
 
 type cfgMisc struct {
-	CleanOnExit bool `toml:"clean_on_exit"`
+	CleanOnExit bool `toml:"clean_on_exit" usage:"Delete tmp directory on exit"`
 }
 
 type cfgScreen struct {
-	ClearOnRebuild bool `toml:"clear_on_rebuild"`
-	KeepScroll     bool `toml:"keep_scroll"`
+	ClearOnRebuild bool `toml:"clear_on_rebuild" usage:"Clear screen on rebuild"`
+	KeepScroll     bool `toml:"keep_scroll" usage:"Keep scroll position after rebuild"`
 }
 
 type cfgProxy struct {
-	Enabled   bool `toml:"enabled"`
-	ProxyPort int  `toml:"proxy_port"`
-	AppPort   int  `toml:"app_port"`
+	Enabled   bool `toml:"enabled" usage:"Enable live-reloading on the browser"`
+	ProxyPort int  `toml:"proxy_port" usage:"Port for proxy server"`
+	AppPort   int  `toml:"app_port" usage:"Port for your app"`
 }
 
 type sliceTransformer struct{}
