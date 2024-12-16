@@ -35,7 +35,6 @@ type Config struct {
 }
 
 type cfgBuild struct {
-
 	PreCmd           []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
 	Cmd              string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
 	PostCmd          []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
@@ -59,7 +58,7 @@ type cfgBuild struct {
 	KillDelay        time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
 	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
-  SkipRun          bool          `toml:"skip_run" usage:"Only build the application, do not run"`
+	SkipRun          bool          `toml:"skip_run" usage:"Only build the application, do not run"`
 	regexCompiled    []*regexp.Regexp
 }
 
