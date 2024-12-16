@@ -538,7 +538,13 @@ func (e *Engine) runBin() error {
 			default:
 				e.procKillWg.Add(1)
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-				cmd, stdout, stderr, _ := e.startCmd(command)
+				cmd, stdout, stderr, err := e.startCmd(command)
+				if err != nil {
+					e.mainLog("failed to start %s, error: %s", e.config.rel(e.config.binPath()), err.Error())
+					close(killCh)
+					continue
+				}
+
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
 				if e.config.Proxy.Enabled {
