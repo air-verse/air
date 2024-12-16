@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gohugoio/hugo/watcher/filenotify"
@@ -18,6 +17,7 @@ import (
 // Engine ...
 type Engine struct {
 	config    *Config
+	proxy     *Proxy
 	logger    *logger
 	watcher   filenotify.FileWatcher
 	debugMode bool
@@ -31,9 +31,9 @@ type Engine struct {
 	binStopCh      chan bool
 	exitCh         chan bool
 
+	procKillWg    sync.WaitGroup
 	mu            sync.RWMutex
 	watchers      uint
-	round         uint64
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
@@ -48,6 +48,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	}
 	e := Engine{
 		config:         cfg,
+		proxy:          NewProxy(&cfg.Proxy),
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
@@ -113,7 +114,7 @@ func (e *Engine) checkRunEnv() error {
 }
 
 func (e *Engine) watching(root string) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, _ error) error {
 		// NOTE: path is absolute
 		if info != nil && !info.IsDir() {
 			if e.checkIncludeFile(path) {
@@ -191,7 +192,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 			}
 		}
 
-		if e.isExcludeFile(path) || !e.isIncludeExt(path) {
+		if e.isExcludeFile(path) || !e.isIncludeExt(path) && !e.checkIncludeFile(path) {
 			e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 			return nil
 		}
@@ -256,7 +257,7 @@ func (e *Engine) watchPath(path string) error {
 				if excludeRegex {
 					break
 				}
-				if !e.isIncludeExt(ev.Name) {
+				if !e.isIncludeExt(ev.Name) && !e.checkIncludeFile(ev.Name) {
 					break
 				}
 				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
@@ -310,6 +311,11 @@ func (e *Engine) isModified(filename string) bool {
 
 // Endless loop and never return
 func (e *Engine) start() {
+	if e.config.Proxy.Enabled {
+		go e.proxy.Run()
+		e.mainLog("Proxy server listening on http://localhost%s", e.proxy.server.Addr)
+	}
+
 	e.running = true
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
@@ -322,7 +328,7 @@ func (e *Engine) start() {
 			e.mainDebug("exit in start")
 			return
 		case filename = <-e.eventCh:
-			if !e.isIncludeExt(filename) {
+			if !e.isIncludeExt(filename) && !e.checkIncludeFile(filename) {
 				continue
 			}
 			if e.config.Build.ExcludeUnchanged {
@@ -332,8 +338,8 @@ func (e *Engine) start() {
 				}
 			}
 
-			// cannot set buldDelay to 0, because when the write mutiple events received in short time
-			// it will start Multiple buildRuns: https://github.com/cosmtrek/air/issues/473
+			// cannot set buldDelay to 0, because when the write multiple events received in short time
+			// it will start Multiple buildRuns: https://github.com/air-verse/air/issues/473
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
 
@@ -477,8 +483,7 @@ func (e *Engine) runPostCmd() error {
 }
 
 func (e *Engine) runBin() error {
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
-		defer wg.Done()
+	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}) {
 		select {
 		// listen to binStopCh
 		// cleanup() will close binStopCh when engine stop
@@ -506,24 +511,24 @@ func (e *Engine) runBin() error {
 		} else {
 			e.mainDebug("cmd killed, pid: %d", pid)
 		}
-		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
-		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-			return
-		}
-		if err = os.Remove(cmdBinPath); err != nil {
-			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+		if e.config.Build.StopOnError {
+			cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
+			if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
+				return
+			}
+			if err = os.Remove(cmdBinPath); err != nil {
+				e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+			}
 		}
 	}
 
 	e.runnerLog("running...")
 	go func() {
-		wg := sync.WaitGroup{}
 
 		defer func() {
 			select {
 			case <-e.exitCh:
 				e.mainDebug("exit in runBin")
-				wg.Wait()
 			default:
 			}
 		}()
@@ -535,17 +540,25 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
+				e.procKillWg.Add(1)
 				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-				cmd, stdout, stderr, _ := e.startCmd(command)
+				cmd, stdout, stderr, err := e.startCmd(command)
+				if err != nil {
+					e.mainLog("failed to start %s, error: %s", e.config.rel(e.config.binPath()), err.Error())
+					close(killCh)
+					continue
+				}
+
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
+				if e.config.Proxy.Enabled {
+					e.proxy.Reload()
+				}
 
-				wg.Add(1)
-				atomic.AddUint64(&e.round, 1)
 				e.withLock(func() {
 					close(e.binStopCh)
 					e.binStopCh = make(chan bool)
-					go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+					go killFunc(cmd, stdout, stderr, killCh, processExit)
 				})
 
 				go func() {
@@ -567,6 +580,7 @@ func (e *Engine) runBin() error {
 				default:
 					e.runnerLog("Process Exit with Code: %v", state.ExitCode())
 				}
+				e.procKillWg.Done()
 
 				if !e.config.Build.Rerun {
 					return
@@ -583,11 +597,18 @@ func (e *Engine) cleanup() {
 	e.mainLog("cleaning...")
 	defer e.mainLog("see you again~")
 
+	if e.config.Proxy.Enabled {
+		e.mainDebug("powering down the proxy...")
+		if err := e.proxy.Stop(); err != nil {
+			e.mainLog("failed to stop proxy: %+v", err)
+		}
+	}
+
 	e.withLock(func() {
 		close(e.binStopCh)
 		e.binStopCh = make(chan bool)
 	})
-	e.mainDebug("wating for	close watchers..")
+	e.mainDebug("waiting for	close watchers..")
 
 	e.withLock(func() {
 		for i := 0; i < int(e.watchers); i++ {
@@ -611,7 +632,7 @@ func (e *Engine) cleanup() {
 	}
 
 	e.mainDebug("waiting for exit...")
-
+	e.procKillWg.Wait()
 	e.running = false
 	e.mainDebug("exited")
 }

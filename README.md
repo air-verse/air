@@ -1,6 +1,6 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=air-verse/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
 
 ![air](docs/air.png)
 
@@ -20,61 +20,75 @@ Note: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
-* Colorful log output
-* Customize build or any command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+- Colorful log output
+- Customize build or any command
+- Support excluding subdirectories
+- Allow watching new directories after Air started
+- Better building process
 
 ### Overwrite specify configuration from arguments
 
 Support air config fields as arguments:
 
+You can view the available command-line arguments by running the following commands:  
+
+```
+air -h
+```
+or  
+```
+air --help
+```
+
 If you want to config build command and run command, you can use like the following command without the config file:
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"
+```
 
 Use a comma to separate items for arguments that take a list as input:
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
+```
 
 ## Installation
 
 ### Via `go install` (Recommended)
 
-With go 1.18 or higher:
+With go 1.23 or higher:
 
 ```bash
-go install github.com/cosmtrek/air@latest
+go install github.com/air-verse/air@latest
 ```
 
 ### Via install.sh
 
-```bash
+```shell
 # binary will be $(go env GOPATH)/bin/air
-curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
 # or install it into ./bin/
-curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s
+curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s
 
 air -v
 ```
 
 ### Via [goblin.run](https://goblin.run)
 
-```sh
+```shell
 # binary will be /usr/local/bin/air
-curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
+curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 
 # to put to a custom path
-curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
+curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 ```
 
 ### Docker/Podman
 
-Please pull this docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
+Please pull this Docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
-```bash
+```shell
 docker/podman run -it --rm \
     -w "<PROJECT>" \
     -e "air_wd=<PROJECT>" \
@@ -86,9 +100,9 @@ docker/podman run -it --rm \
 
 #### Docker/Podman .${SHELL}rc
 
-if you want to use air continuously like a normal app, you can create a function in your ${SHELL}rc (bash,zsh,etc...)
+if you want to use air continuously like a normal app, you can create a function in your ${SHELL}rc (Bash, Zsh, etc…)
 
-```bash
+```shell
 air() {
   podman/docker run -it --rm \
     -w "$PWD" -v "$PWD":"$PWD" \
@@ -103,24 +117,24 @@ if you want to enter the container, Please add --entrypoint=bash.
 <details>
   <summary>For example</summary>
 
-One of my project runs in docker:
+One of my project runs in Docker:
 
-```bash
+```shell
 docker run -it --rm \
   -w "/go/src/github.com/cosmtrek/hub" \
   -v $(pwd):/go/src/github.com/cosmtrek/hub \
   -p 9090:9090 \
   cosmtrek/air
 ```
-  
+
 Another example:
 
-```bash
+```shell
 cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
 
-this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the aplication itself for example -c
+this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the application itself for example -c
 
 </details>
 
@@ -130,26 +144,26 @@ For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc
 
 First enter into your project
 
-```bash
+```shell
 cd /path/to/your_project
 ```
 
 The simplest usage is run
 
-```bash
+```shell
 # firstly find `.air.toml` in current directory, if not found, use defaults
 air -c .air.toml
 ```
 
 You can initialize the `.air.toml` configuration file to the current directory with the default settings running the following command.
 
-```bash
+```shell
 air init
 ```
 
-After this, you can just run the `air` command without additional arguments and it will use the `.air.toml` file for configuration.
+After this, you can just run the `air` command without additional arguments, and it will use the `.air.toml` file for configuration.
 
-```bash
+```shell
 air
 ```
 
@@ -159,7 +173,7 @@ For modifying the configuration refer to the [air_example.toml](air_example.toml
 
 You can pass arguments for running the built binary by adding them after the air command.
 
-```bash
+```shell
 # Will run ./tmp/main bench
 air bench
 
@@ -169,7 +183,7 @@ air server --port 8080
 
 You can separate the arguments passed for the air command and the built binary with `--` argument.
 
-```bash
+```shell
 # Will run ./tmp/main -h
 air -- -h
 
@@ -177,7 +191,7 @@ air -- -h
 air -c .air.toml -- -h
 ```
 
-### Docker-compose
+### Docker Compose
 
 ```yaml
 services:
@@ -205,11 +219,11 @@ services:
 
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.21-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
-RUN go install github.com/cosmtrek/air@latest
+RUN go install github.com/air-verse/air@latest
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -238,28 +252,45 @@ services:
 
 ### "command not found: air" or "No such file or directory"
 
-```zsh
+```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+export PATH=$PATH:$(go env GOPATH)/bin #Confirm this line in your .profile and make sure to source the .profile if you add it!!!
 ```
 
 ### Error under wsl when ' is included in the bin
 
-Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/cosmtrek/air/issues/305)
+Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/air-verse/air/issues/305)
 
-### Question: how to do hot compile only and do not run anything? 
+### Question: how to do hot compile only and do not run anything?
+
+[#365](https://github.com/air-verse/air/issues/365)
 
 ```toml
 [build]
   skip_run = true
 ```
 
+### How to Reload the Browser Automatically on Static File Changes
+
+Refer to issue [#512](https://github.com/air-verse/air/issues/512) for additional details.
+
+- Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
+- Ensure your HTML has a `</body>` tag
+- Activate the proxy by configuring the following config:
+
+```toml
+[proxy]
+  enabled = true
+  proxy_port = <air proxy port>
+  app_port = <your server port>
+```
+
 ## Development
 
 Please note that it requires Go 1.16+ since I use `go mod` to manage dependencies.
 
-```bash
+```shell
 # Fork this project
 
 # Clone it
@@ -279,7 +310,7 @@ Pull requests are welcome.
 
 ### Release
 
-```bash
+```shell
 # Checkout to master
 git checkout master
 
@@ -294,7 +325,7 @@ git push origin v1.xx.x
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=cosmtrek/air&type=Date)](https://star-history.com/#cosmtrek/air&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=air-verse/air&type=Date)](https://star-history.com/#air-verse/air&Date)
 
 ## Sponsor
 

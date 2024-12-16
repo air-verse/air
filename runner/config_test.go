@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -92,7 +93,6 @@ func TestDefaultPathConfig(t *testing.T) {
 	}}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(airWd, tt.path)
 			c, err := defaultPathConfig()
@@ -172,6 +172,33 @@ func TestReadConfigWithWrongPath(t *testing.T) {
 	}
 	if c != nil {
 		t.Fatal("expect is nil but got a conf")
+	}
+}
+
+func TestKillDelay(t *testing.T) {
+	config := Config{
+		Build: cfgBuild{
+			KillDelay: 1000,
+		},
+	}
+	if config.killDelay() != (1000 * time.Millisecond) {
+		t.Fatal("expect KillDelay 1000 to be interpreted as 1000 milliseconds, got ", config.killDelay())
+	}
+	config.Build.KillDelay = 1
+	if config.killDelay() != (1 * time.Millisecond) {
+		t.Fatal("expect KillDelay 1 to be interpreted as 1 millisecond, got ", config.killDelay())
+	}
+	config.Build.KillDelay = 1_000_000
+	if config.killDelay() != (1 * time.Millisecond) {
+		t.Fatal("expect KillDelay 1_000_000 to be interpreted as 1 millisecond, got ", config.killDelay())
+	}
+	config.Build.KillDelay = 100_000_000
+	if config.killDelay() != (100 * time.Millisecond) {
+		t.Fatal("expect KillDelay 100_000_000 to be interpreted as 100 milliseconds, got ", config.killDelay())
+	}
+	config.Build.KillDelay = 0
+	if config.killDelay() != 0 {
+		t.Fatal("expect KillDelay 0 to be interpreted as 0, got ", config.killDelay())
 	}
 }
 

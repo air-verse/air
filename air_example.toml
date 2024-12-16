@@ -1,4 +1,4 @@
-# Config file for [Air](https://github.com/cosmtrek/air) in TOML format
+# Config file for [Air](https://github.com/air-verse/air) in TOML format
 
 # Working directory
 # . or absolute path, please note that the directories following must be under root.
@@ -16,6 +16,8 @@ post_cmd = ["echo 'hello air' > post_cmd.txt"]
 bin = "tmp/main"
 # Customize binary, can setup environment variables when run your app.
 full_bin = "APP_ENV=dev APP_USER=air ./tmp/main"
+# Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
+args_bin = ["hello", "world"]
 # Watch these filename extensions.
 include_ext = ["go", "tpl", "tmpl", "html"]
 # Ignore these filename extensions or directories.
@@ -32,7 +34,7 @@ exclude_regex = ["_test\\.go"]
 exclude_unchanged = true
 # Follow symlink for directories
 follow_symlink = true
-# This log file places in your tmp_dir.
+# This log file is placed in your tmp_dir.
 log = "air.log"
 # Poll files for changes instead of using fsnotify.
 poll = false
@@ -48,10 +50,8 @@ send_interrupt = false
 kill_delay = 500 # nanosecond
 # Rerun binary or not
 rerun = false
-# Delay after each executions
+# Delay after each execution
 rerun_delay = 500
-# Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
-args_bin = ["hello", "world"]
 # Skips the run step so it's only builds
 skip_run = false
 
@@ -60,6 +60,8 @@ skip_run = false
 time = false
 # Only show main log (silences watcher, build, runner)
 main_only = false
+# silence all logs produced by air 
+silent = false
 
 [color]
 # Customize each part's color. If no color found, use the raw app log.
@@ -75,3 +77,9 @@ clean_on_exit = true
 [screen]
 clear_on_rebuild = true
 keep_scroll = true
+
+[proxy]
+# Enable live-reloading on the browser.
+enabled = true
+proxy_port = 8090
+app_port = 8080

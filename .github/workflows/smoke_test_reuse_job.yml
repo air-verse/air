@@ -1,4 +1,4 @@
-name: Reusable smoke_test
+name: Reusable smoke test
 
 on:
   workflow_call:
@@ -9,19 +9,19 @@ on:
 
 jobs:
   smoke_test:
-    name: smoke_test
+    name: Smoke test
     runs-on: ${{ inputs.run_on }}
     steps:
-      - name: check out code
-        uses: actions/checkout@v2
-      - name: setup Go 1.21
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Setup Go
         id: go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: ^1.21
-      - name: install
+          go-version: ^1.23
+      - name: Install
         run: make install
-      - name: check rebuild
+      - name: Check rebuild
         id: check_rebuild
         working-directory: ./smoke_test/check_rebuild
         run: |
@@ -29,9 +29,9 @@ jobs:
           sleep 15
           echo "" >> main.go
           sleep 5
-          cat  nohup.out
+          cat nohup.out
           grep "running" nohup.out | wc -l | if [ "$(cat -)" -eq "2" ]; then echo "::set-output name=value::PASS"; else echo "::set-output name=value::FAIL"; fi
-      - uses: nick-invision/assert-action@v1
+      - uses: nick-invision/assert-action@v2
         with:
           expected: "PASS"
           actual: ${{ steps.check_rebuild.outputs.value }}

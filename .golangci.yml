@@ -1,0 +1,18 @@
+run:
+  timeout: 2m
+
+linters:
+  disable-all: true
+  enable:
+    - copyloopvar # detects places where loop variables are copied
+    - errcheck # Errcheck is a program for checking for unchecked errors in go programs.
+    - gci # Gci controls Go package import order and makes it always deterministic
+    - goimports # checks that goimports was run
+    - ineffassign # Detects when assignments to existing variables are not used
+    - misspell # spell checker
+    - revive # configurable linter for Go. Drop-in replacement of golint
+    - staticcheck # go vet on steroids
+    - stylecheck # static analysis, finds bugs and performance issues, offers simplifications, and enforces style rules
+    - testifylint # checks usage of github.com/stretchr/testify
+    - unconvert # Remove unnecessary type conversions
+    - unused # Checks Go code for unused constants, variables, functions and types
