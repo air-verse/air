@@ -387,7 +387,9 @@ func (c *Config) rel(path string) string {
 // WithArgs returns a new config with the given arguments added to the configuration.
 func (c *Config) WithArgs(args map[string]TomlInfo) {
 	for _, value := range args {
-		if value.Value != nil && *value.Value != unsetDefault {
+		// Ignore values that match the default configuration.
+		// This ensures user-specified configurations are not overwritten by default values.
+		if value.Value != nil && *value.Value != value.fieldValue {
 			v := reflect.ValueOf(c)
 			setValue2Struct(v, value.fieldPath, *value.Value)
 		}

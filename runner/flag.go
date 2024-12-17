@@ -4,8 +4,6 @@ import (
 	"flag"
 )
 
-const unsetDefault = "DEFAULT"
-
 // ParseConfigFlag parse toml information for flag
 func ParseConfigFlag(f *flag.FlagSet) map[string]TomlInfo {
 	c := defaultConfig()
