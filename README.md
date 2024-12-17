@@ -268,7 +268,7 @@ Should use `\` to escape the `' in the bin. related issue: [#305](https://github
 
 ```toml
 [build]
-  cmd = "/usr/bin/true"
+  skip_run = true
 ```
 
 ### How to Reload the Browser Automatically on Static File Changes
