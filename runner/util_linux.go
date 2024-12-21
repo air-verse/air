@@ -2,6 +2,7 @@ package runner
 
 import (
 	"io"
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
@@ -28,11 +29,21 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	return
 }
 
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
-	c := exec.Command("/bin/sh", "-c", cmd)
+func (e *Engine) startCmd(cmd string) (c *exec.Cmd, err error) {
+	c = exec.Command("/bin/sh", "-c", cmd)
 	f, err := pty.Start(c)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	return c, f, f, nil
+
+	go func() {
+		_, _ = io.Copy(os.Stdin, f)
+	}()
+	go func() {
+		_, _ = io.Copy(os.Stdout, f)
+	}()
+	go func() {
+		_, _ = io.Copy(os.Stderr, f)
+	}()
+	return c, nil
 }
