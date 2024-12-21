@@ -30,6 +30,16 @@ Note: This tool has nothing to do with hot-deploy for production.
 
 Support air config fields as arguments:
 
+You can view the available command-line arguments by running the following commands:  
+
+```
+air -h
+```
+or  
+```
+air --help
+```
+
 If you want to config build command and run command, you can use like the following command without the config file:
 
 ```shell
@@ -245,7 +255,7 @@ services:
 ```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+export PATH=$PATH:$(go env GOPATH)/bin #Confirm this line in your .profile and make sure to source the .profile if you add it!!!
 ```
 
 ### Error under wsl when ' is included in the bin

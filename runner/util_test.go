@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -219,7 +220,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	// check processes were being killed
 	// read pids from file
 	bytesRead, err := os.ReadFile("pid")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	lines := strings.Split(string(bytesRead), "\n")
 	for _, line := range lines {
 		_, err := strconv.Atoi(line)
@@ -283,7 +284,37 @@ func TestCheckIncludeFile(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal(t, e.checkIncludeFile("main.go"), true)
-	assert.Equal(t, e.checkIncludeFile("no.go"), false)
-	assert.Equal(t, e.checkIncludeFile("."), false)
+	assert.True(t, e.checkIncludeFile("main.go"))
+	assert.False(t, e.checkIncludeFile("no.go"))
+	assert.False(t, e.checkIncludeFile("."))
+}
+
+func TestJoinPathRelative(t *testing.T) {
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, "x")
+
+	assert.Equal(t, result, filepath.Join(root, "x"))
+}
+
+func TestJoinPathAbsolute(t *testing.T) {
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	path, err := filepath.Abs("x")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, path)
+
+	assert.Equal(t, result, path)
 }

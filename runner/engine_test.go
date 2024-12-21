@@ -70,6 +70,10 @@ func TestRegexes(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	engine.config.Build.ExcludeRegex = []string{"foo\\.html$", "bar", "_test\\.go"}
+	err = engine.config.preprocess()
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 
 	result, err := engine.isExcludeRegex("./test/foo.html")
 	if err != nil {

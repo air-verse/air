@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type reloader struct {
@@ -97,8 +98,8 @@ func TestProxy_proxyHandler(t *testing.T) {
 				return req
 			},
 			assert: func(resp *http.Request) {
-				assert.NoError(t, resp.ParseForm())
-				assert.Equal(t, resp.Form.Get("foo"), "bar")
+				require.NoError(t, resp.ParseForm())
+				assert.Equal(t, "bar", resp.Form.Get("foo"))
 			},
 		},
 		{
@@ -108,7 +109,7 @@ func TestProxy_proxyHandler(t *testing.T) {
 			},
 			assert: func(resp *http.Request) {
 				q := resp.URL.Query()
-				assert.Equal(t, q.Encode(), "q=air")
+				assert.Equal(t, "q=air", q.Encode())
 			},
 		},
 		{
@@ -124,9 +125,9 @@ func TestProxy_proxyHandler(t *testing.T) {
 					Foo string `json:"foo"`
 				}
 				var r Response
-				assert.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
-				assert.Equal(t, resp.URL.Path, "/a/b/c")
-				assert.Equal(t, r.Foo, "bar")
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
+				assert.Equal(t, "/a/b/c", resp.URL.Path)
+				assert.Equal(t, "bar", r.Foo)
 			},
 		},
 		{
