@@ -11,10 +11,11 @@ import (
 	"time"
 )
 
-type Reloader interface {
+type Streamer interface {
 	AddSubscriber() *Subscriber
 	RemoveSubscriber(id int32)
 	Reload()
+	Error(msg StreamErrorMessage)
 	Stop()
 }
 
@@ -22,7 +23,7 @@ type Proxy struct {
 	server *http.Server
 	client *http.Client
 	config *cfgProxy
-	stream Reloader
+	stream Streamer
 }
 
 func NewProxy(cfg *cfgProxy) *Proxy {
@@ -43,7 +44,7 @@ func NewProxy(cfg *cfgProxy) *Proxy {
 
 func (p *Proxy) Run() {
 	http.HandleFunc("/", p.proxyHandler)
-	http.HandleFunc("/internal/reload", p.reloadHandler)
+	http.HandleFunc("/__air_internal/sse", p.reloadHandler)
 	if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(p.Stop())
 	}
@@ -66,7 +67,7 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 		return page, nil
 	}
 
-	script := `<script>new EventSource("/internal/reload").onmessage = () => { location.reload() }</script>`
+	script := `<script>new EventSource("/__air_internal/sse").onmessage = () => { location.reload() }</script>`
 	return page[:body] + script + page[body:], nil
 }
 
@@ -174,8 +175,8 @@ func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	for range sub.reloadCh {
-		fmt.Fprintf(w, "data: reload\n\n")
+	for msg := range sub.msgCh {
+		fmt.Fprint(w, msg.AsSSE())
 		flusher.Flush()
 	}
 }

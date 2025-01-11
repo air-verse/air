@@ -20,20 +20,21 @@ import (
 
 type reloader struct {
 	subCh    chan struct{}
-	reloadCh chan struct{}
+	reloadCh chan StreamMessage
 }
 
 func (r *reloader) AddSubscriber() *Subscriber {
 	r.subCh <- struct{}{}
-	return &Subscriber{reloadCh: r.reloadCh}
+	return &Subscriber{msgCh: r.reloadCh}
 }
 
 func (r *reloader) RemoveSubscriber(_ int32) {
 	close(r.subCh)
 }
 
-func (r *reloader) Reload() {}
-func (r *reloader) Stop()   {}
+func (r *reloader) Reload()                  {}
+func (r *reloader) Error(StreamErrorMessage) {}
+func (r *reloader) Stop()                    {}
 
 var proxyPort = 8090
 
@@ -225,7 +226,7 @@ func TestProxy_reloadHandler(t *testing.T) {
 	srvPort := getServerPort(t, srv)
 	defer srv.Close()
 
-	reloader := &reloader{subCh: make(chan struct{}), reloadCh: make(chan struct{})}
+	reloader := &reloader{subCh: make(chan struct{}), reloadCh: make(chan StreamMessage)}
 	cfg := &cfgProxy{
 		Enabled:   true,
 		ProxyPort: proxyPort,
@@ -252,7 +253,7 @@ func TestProxy_reloadHandler(t *testing.T) {
 	<-reloader.subCh
 
 	// send a reload event and wait for http response
-	reloader.reloadCh <- struct{}{}
+	reloader.reloadCh <- StreamMessage{Type: StreamMessageReload}
 	close(reloader.reloadCh)
 	wg.Wait()
 

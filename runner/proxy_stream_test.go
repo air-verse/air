@@ -43,7 +43,7 @@ func TestProxyStream(t *testing.T) {
 		wg.Add(1)
 		go func(sub *Subscriber) {
 			defer wg.Done()
-			<-sub.reloadCh
+			<-sub.msgCh
 			reloadCount.Add(1)
 		}(sub)
 	}

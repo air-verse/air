@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 )
@@ -11,9 +12,27 @@ type ProxyStream struct {
 	count       atomic.Int32
 }
 
+type StreamMessageType string
+
+const (
+	StreamMessageReload StreamMessageType = "reload"
+	StreamMessageError  StreamMessageType = "error"
+)
+
+type StreamMessage struct {
+	Type StreamMessageType
+	Data interface{}
+}
+
+type StreamErrorMessage struct {
+	Command string `json:"command"`
+	Stdout  string `json:"stdout"`
+	Stderr  string `json:"stderr"`
+}
+
 type Subscriber struct {
-	id       int32
-	reloadCh chan struct{}
+	id    int32
+	msgCh chan StreamMessage
 }
 
 func NewProxyStream() *ProxyStream {
@@ -32,7 +51,7 @@ func (stream *ProxyStream) AddSubscriber() *Subscriber {
 	defer stream.mu.Unlock()
 	stream.count.Add(1)
 
-	sub := &Subscriber{id: stream.count.Load(), reloadCh: make(chan struct{})}
+	sub := &Subscriber{id: stream.count.Load(), msgCh: make(chan StreamMessage)}
 	stream.subscribers[stream.count.Load()] = sub
 	return sub
 }
@@ -42,13 +61,36 @@ func (stream *ProxyStream) RemoveSubscriber(id int32) {
 	defer stream.mu.Unlock()
 
 	if _, ok := stream.subscribers[id]; ok {
-		close(stream.subscribers[id].reloadCh)
+		close(stream.subscribers[id].msgCh)
 		delete(stream.subscribers, id)
 	}
 }
 
 func (stream *ProxyStream) Reload() {
 	for _, sub := range stream.subscribers {
-		sub.reloadCh <- struct{}{}
+		sub.msgCh <- StreamMessage{
+			Type: StreamMessageReload,
+			Data: nil,
+		}
 	}
+}
+
+func (stream *ProxyStream) Error(err StreamErrorMessage) {
+	for _, sub := range stream.subscribers {
+		sub.msgCh <- StreamMessage{
+			Type: StreamMessageError,
+			Data: err,
+		}
+	}
+}
+
+func (m StreamMessage) AsSSE() string {
+	s := "event: " + string(m.Type) + "\n"
+	s += "data: " + stringify(m.Data) + "\n"
+	return s + "\n"
+}
+
+func stringify(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
 }
