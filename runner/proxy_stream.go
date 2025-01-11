@@ -2,6 +2,7 @@ package runner
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
@@ -91,6 +92,9 @@ func (m StreamMessage) AsSSE() string {
 }
 
 func stringify(v any) string {
-	b, _ := json.Marshal(v)
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("{\"error\":\"Failed to marshal message: %s\"}", err)
+	}
 	return string(b)
 }

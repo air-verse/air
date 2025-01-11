@@ -395,14 +395,17 @@ func (e *Engine) buildRun() {
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
+			// It only makes sense to run it if we stop on error. Otherwise when
+			// running the binary again the error modal will be overwritten by
+			// the reload.
+			if e.config.Proxy.Enabled {
+				e.proxy.BuildFailed(BuildFailedMsg{
+					Error:   err.Error(),
+					Command: e.config.Build.Cmd,
+					Output:  output,
+				})
+			}
 			return
-		}
-		if e.config.Proxy.Enabled {
-			e.proxy.BuildFailed(BuildFailedMsg{
-				Error:   err.Error(),
-				Command: e.config.Build.Cmd,
-				Output:  output,
-			})
 		}
 	}
 
