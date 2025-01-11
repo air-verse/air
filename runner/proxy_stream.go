@@ -15,8 +15,8 @@ type ProxyStream struct {
 type StreamMessageType string
 
 const (
-	StreamMessageReload StreamMessageType = "reload"
-	StreamMessageError  StreamMessageType = "error"
+	StreamMessageReload      StreamMessageType = "reload"
+	StreamMessageBuildFailed StreamMessageType = "build-failed"
 )
 
 type StreamMessage struct {
@@ -24,10 +24,10 @@ type StreamMessage struct {
 	Data interface{}
 }
 
-type StreamErrorMessage struct {
+type BuildFailedMsg struct {
+	Error   string `json:"error"`
 	Command string `json:"command"`
-	Stdout  string `json:"stdout"`
-	Stderr  string `json:"stderr"`
+	Output  string `json:"output"`
 }
 
 type Subscriber struct {
@@ -75,10 +75,10 @@ func (stream *ProxyStream) Reload() {
 	}
 }
 
-func (stream *ProxyStream) Error(err StreamErrorMessage) {
+func (stream *ProxyStream) BuildFailed(err BuildFailedMsg) {
 	for _, sub := range stream.subscribers {
 		sub.msgCh <- StreamMessage{
-			Type: StreamMessageError,
+			Type: StreamMessageBuildFailed,
 			Data: err,
 		}
 	}

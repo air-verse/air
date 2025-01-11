@@ -32,9 +32,9 @@ func (r *reloader) RemoveSubscriber(_ int32) {
 	close(r.subCh)
 }
 
-func (r *reloader) Reload()                  {}
-func (r *reloader) Error(StreamErrorMessage) {}
-func (r *reloader) Stop()                    {}
+func (r *reloader) Reload()                    {}
+func (r *reloader) BuildFailed(BuildFailedMsg) {}
+func (r *reloader) Stop()                      {}
 
 var proxyPort = 8090
 

@@ -391,11 +391,18 @@ func (e *Engine) buildRun() {
 			return
 		}
 	}
-	if err = e.building(); err != nil {
+	if output, err := e.building(); err != nil {
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
 			return
+		}
+		if e.config.Proxy.Enabled {
+			e.proxy.BuildFailed(BuildFailedMsg{
+				Error:   err.Error(),
+				Command: e.config.Build.Cmd,
+				Output:  output,
+			})
 		}
 	}
 
@@ -443,14 +450,36 @@ func (e *Engine) runCommand(command string) error {
 	return nil
 }
 
-// run cmd option in .air.toml
-func (e *Engine) building() error {
-	e.buildLog("building...")
-	err := e.runCommand(e.config.Build.Cmd)
+func (e *Engine) runCommandCopyOutput(command string) (string, error) {
+	// both stdout and stderr are piped to the same buffer, so ignore the second
+	// one
+	cmd, stdout, _, err := e.startCmd(command)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	defer func() {
+		stdout.Close()
+	}()
+
+	stdoutBytes, _ := io.ReadAll(stdout)
+	_, _ = io.Copy(os.Stdout, strings.NewReader(string(stdoutBytes)))
+
+	// wait for command to finish
+	err = cmd.Wait()
+	if err != nil {
+		return string(stdoutBytes), err
+	}
+	return string(stdoutBytes), nil
+}
+
+// run cmd option in .air.toml
+func (e *Engine) building() (string, error) {
+	e.buildLog("building...")
+	output, err := e.runCommandCopyOutput(e.config.Build.Cmd)
+	if err != nil {
+		return output, err
+	}
+	return output, nil
 }
 
 // run pre_cmd option in .air.toml

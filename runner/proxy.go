@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
@@ -11,11 +12,14 @@ import (
 	"time"
 )
 
+//go:embed proxy.js
+var ProxyScript string
+
 type Streamer interface {
 	AddSubscriber() *Subscriber
 	RemoveSubscriber(id int32)
 	Reload()
-	Error(msg StreamErrorMessage)
+	BuildFailed(msg BuildFailedMsg)
 	Stop()
 }
 
@@ -54,6 +58,10 @@ func (p *Proxy) Reload() {
 	p.stream.Reload()
 }
 
+func (p *Proxy) BuildFailed(msg BuildFailedMsg) {
+	p.stream.BuildFailed(msg)
+}
+
 func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 	buf := new(bytes.Buffer)
 	if _, err := buf.ReadFrom(resp.Body); err != nil {
@@ -67,7 +75,7 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 		return page, nil
 	}
 
-	script := `<script>new EventSource("/__air_internal/sse").onmessage = () => { location.reload() }</script>`
+	script := "<script>" + ProxyScript + "</script>"
 	return page[:body] + script + page[body:], nil
 }
 
