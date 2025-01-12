@@ -71,8 +71,6 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 	appURL := r.URL
 	appURL.Scheme = "http"
 	appURL.Host = fmt.Sprintf("localhost:%d", p.config.AppPort)
@@ -131,6 +129,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Via", viaHeaderValue)
 	w.WriteHeader(resp.StatusCode)
 
