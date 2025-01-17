@@ -778,7 +778,7 @@ func TestWriteDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// check the file is exist
+	// check the file exists
 	if _, err := os.Stat(configName); err != nil {
 		t.Fatal(err)
 	}
@@ -861,7 +861,7 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 	// run sed
-	// check the file is exist
+	// check the file exists
 	if _, err := os.Stat(dftTOML); err != nil {
 		t.Fatal(err)
 	}
@@ -998,7 +998,7 @@ include_file = ["main.sh"]
 	assert.Equal(t, []byte("modified"), bytes)
 }
 
-func TestShouldIncludeIncludedFileWihtoutIncludedExt(t *testing.T) {
+func TestShouldIncludeIncludedFileWithoutIncludedExt(t *testing.T) {
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
