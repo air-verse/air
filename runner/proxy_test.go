@@ -256,11 +256,12 @@ func TestProxy_reloadHandler(t *testing.T) {
 		proxy.reloadHandler(rec, req)
 	}()
 
-	// wait for subscriber to be added
 	<-reloader.subCh
 
-	// send a reload event and wait for http response
-	reloader.reloadCh <- StreamMessage{Type: StreamMessageReload}
+	reloader.reloadCh <- StreamMessage{
+		Type: StreamMessageReload,
+		Data: nil,
+	}
 	close(reloader.reloadCh)
 	wg.Wait()
 
@@ -273,7 +274,22 @@ func TestProxy_reloadHandler(t *testing.T) {
 	if err != nil {
 		t.Errorf("reading body: %v", err)
 	}
-	if got, exp := string(bodyBytes), "data: reload\n\n"; got != exp {
-		t.Errorf("expected %q but got %q", exp, got)
+
+	expected := "event: reload\ndata: null\n\n"
+	if got := string(bodyBytes); got != expected {
+		t.Errorf("expected %q but got %q", expected, got)
+	}
+
+	expectedHeaders := map[string]string{
+		"Access-Control-Allow-Origin": "*",
+		"Content-Type":                "text/event-stream",
+		"Cache-Control":               "no-cache",
+		"Connection":                  "keep-alive",
+	}
+
+	for key, value := range expectedHeaders {
+		if got := resp.Header.Get(key); got != value {
+			t.Errorf("expected header %s to be %q but got %q", key, value, got)
+		}
 	}
 }
