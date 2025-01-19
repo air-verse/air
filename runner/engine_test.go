@@ -1044,7 +1044,7 @@ include_file = ["main.sh"]
 
 	t.Logf("start change main.sh")
 	go func() {
-		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
+		err = os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
 		if err != nil {
 			log.Fatalf("Error updating file: %s.", err)
 		}
@@ -1057,4 +1057,87 @@ include_file = ["main.sh"]
 		t.Fatal(err)
 	}
 	assert.Equal(t, []byte("modified"), bytes)
+}
+
+type testExiter struct {
+	t          *testing.T
+	called     bool
+	expectCode int
+}
+
+func (te *testExiter) Exit(code int) {
+	te.called = true
+	if code != te.expectCode {
+		te.t.Fatalf("expected exit code %d, got %d", te.expectCode, code)
+	}
+}
+
+func TestEngineExit(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(*Engine, chan<- int)
+		expectCode int
+		wantCalled bool
+	}{
+		{
+			name: "normal exit - no error",
+			setup: func(_ *Engine, exitCode chan<- int) {
+				go func() {
+					exitCode <- 0
+				}()
+			},
+			expectCode: 0,
+			wantCalled: false,
+		},
+		{
+			name: "error exit - non-zero code",
+			setup: func(_ *Engine, exitCode chan<- int) {
+				go func() {
+					exitCode <- 1
+				}()
+			},
+			expectCode: 1,
+			wantCalled: true,
+		},
+		{
+			name: "process timeout",
+			setup: func(_ *Engine, _ chan<- int) {
+			},
+			expectCode: 0,
+			wantCalled: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, err := NewEngine("", true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			exiter := &testExiter{
+				t:          t,
+				expectCode: tt.expectCode,
+			}
+			e.exiter = exiter
+
+			exitCode := make(chan int)
+
+			if tt.setup != nil {
+				tt.setup(e, exitCode)
+			}
+			select {
+			case ret := <-exitCode:
+				if ret != 0 {
+					e.exiter.Exit(ret)
+				}
+			case <-time.After(1 * time.Millisecond):
+				// timeout case
+			}
+
+			if tt.wantCalled != exiter.called {
+				t.Errorf("Exit() called = %v, want %v", exiter.called, tt.wantCalled)
+			}
+		})
+	}
 }

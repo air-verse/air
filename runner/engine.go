@@ -17,7 +17,9 @@ import (
 
 // Engine ...
 type Engine struct {
-	config    *Config
+	config *Config
+
+	exiter    exiter
 	proxy     *Proxy
 	logger    *logger
 	watcher   filenotify.FileWatcher
@@ -50,6 +52,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	}
 	e := Engine{
 		config:         cfg,
+		exiter:         defaultExiter{},
 		proxy:          NewProxy(&cfg.Proxy),
 		logger:         logger,
 		watcher:        watcher,
@@ -655,8 +658,14 @@ func (e *Engine) stopBin() {
 			close(exitCode)
 		}
 	})
-	if ret := <-exitCode; ret != 0 {
-		os.Exit(ret)
+
+	select {
+	case ret := <-exitCode:
+		if ret != 0 {
+			e.exiter.Exit(ret) // Use exiter instead of direct os.Exit, it's for tests purpose.
+		}
+	case <-time.After(5 * time.Second):
+		e.mainDebug("timed out waiting for process exit")
 	}
 }
 
