@@ -863,7 +863,7 @@ func Test(t *testing.T) {
 	}
 	// check is MacOS
 	var cmd *exec.Cmd
-	var toolName string = "sed"
+	toolName := "sed"
 
 	if runtime.GOOS == "darwin" {
 		toolName = "gsed"
