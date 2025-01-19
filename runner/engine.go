@@ -29,8 +29,10 @@ type Engine struct {
 	watcherStopCh  chan bool
 	buildRunCh     chan bool
 	buildRunStopCh chan bool
-	binStopCh      chan<- chan int
-	exitCh         chan bool
+	// binStopCh is a channel for process termination control
+	// Type chan<- chan int indicates it's a send-only channel that transmits another channel(chan int)
+	binStopCh chan<- chan int
+	exitCh    chan bool
 
 	mu            sync.RWMutex
 	watchers      uint
@@ -605,11 +607,9 @@ func (e *Engine) stopBin() {
 	e.mainDebug("shutdown completed in %v", time.Since(start))
 
 	exitCode := make(chan int)
-	wasRunning := false
 
 	e.withLock(func() {
 		if e.binStopCh != nil {
-			wasRunning = true
 			e.mainDebug("sending shutdown command to killfunc")
 			e.binStopCh <- exitCode
 			e.binStopCh = nil
@@ -617,13 +617,8 @@ func (e *Engine) stopBin() {
 			close(exitCode)
 		}
 	})
-
 	if ret := <-exitCode; ret != 0 {
 		os.Exit(ret)
-	}
-
-	if wasRunning {
-		e.mainDebug("stopBin done")
 	}
 }
 
