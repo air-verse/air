@@ -600,6 +600,9 @@ func (e *Engine) runBin() error {
 }
 
 func (e *Engine) stopBin() {
+	e.mainDebug("initiating shutdown sequence")
+	start := time.Now()
+	e.mainDebug("shutdown completed in %v", time.Since(start))
 
 	exitCode := make(chan int)
 	wasRunning := false
