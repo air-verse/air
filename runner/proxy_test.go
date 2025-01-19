@@ -202,7 +202,7 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				},
 				Body: io.NopCloser(strings.NewReader(`<body><h1>test</h1></body>`)),
 			},
-			expect: `<body><h1>test</h1><script>new EventSource("/internal/reload").onmessage = () => { location.reload() }</script></body>`,
+			expect: fmt.Sprintf(`<body><h1>test</h1><script>%s</script></body>`, ProxyScript),
 		},
 	}
 	for _, tt := range tests {
@@ -212,8 +212,15 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				ProxyPort: 1111,
 				AppPort:   2222,
 			})
-			if got, _ := proxy.injectLiveReload(tt.given); got != tt.expect {
-				t.Errorf("expected page %+v, got %v", tt.expect, got)
+			got, _ := proxy.injectLiveReload(tt.given)
+			if got != tt.expect {
+				// Use a more descriptive error message
+				if len(got) > 100 || len(tt.expect) > 100 {
+					t.Errorf("Script injection mismatch.\nGot length: %d\nExpected length: %d",
+						len(got), len(tt.expect))
+				} else {
+					t.Errorf("expected page %+v, got %v", tt.expect, got)
+				}
 			}
 		})
 	}
