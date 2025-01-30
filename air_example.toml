@@ -52,6 +52,8 @@ kill_delay = 500 # nanosecond
 rerun = false
 # Delay after each execution
 rerun_delay = 500
+# Skips the run step so it's only builds
+skip_run = false
 
 [log]
 # Show log time
