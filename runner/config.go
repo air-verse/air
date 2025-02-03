@@ -18,6 +18,7 @@ import (
 const (
 	dftTOML = ".air.toml"
 	dftConf = ".air.conf"
+	dftGlobTOML= "~/.air.toml"
 	airWd   = "air_wd"
 )
 
@@ -203,7 +204,18 @@ func readConfByName(name string) (*Config, error) {
 	return cfg, err
 }
 
+func defaultGlobalConfig() (*Config, error) {
+	defaultConfigPath, _ := expandPath(dftGlobTOML)
+	cfg, err := readConfig(defaultConfigPath)
+	return cfg, err
+}
+
 func defaultConfig() Config {
+	cfg, err := defaultGlobalConfig()
+	if err == nil {
+		return *cfg
+	}
+
 	build := cfgBuild{
 		Cmd:          "go build -o ./tmp/main .",
 		Bin:          "./tmp/main",
