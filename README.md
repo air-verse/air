@@ -140,7 +140,18 @@ this will replace `$PWD` with the current directory, `$AIR_PORT` is the port whe
 
 ## Usage
 
-For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
+For less typing, the following commands use a shell alias that can added to your `.bashrc` or `.zshrc`:
+```zsh
+  # Create Alias
+  alias air='~/.air'
+
+  # Test Alias
+  air -v
+
+  # Troubleshooting note: Install location varies depending on installation method. Modify alias as needed.
+  # For installations via `go install`, check `~/go/bin/air`.
+```
+
 
 First enter into your project
 
