@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -258,56 +259,40 @@ func copyOutput(dst io.Writer, src io.Reader) {
 	}
 }
 
+// Expands a path, resolving any tilde prefixes, dereferencing symbolic links,
+// and converting relative paths to absolute. The result will always be an
+// absolute path.
+// For paths that do not exist on the filesystem, the dereferencing step will
+// be skipped.
+// An error will be thrown if dereferencing fails due to something other than
+// the path not existing on the filesystem.
 func expandPath(path string) (string, error) {
+	expanded := path
+
 	if strings.HasPrefix(path, "~/") {
 		home := os.Getenv("HOME")
-		return home + path[1:], nil
+		expanded = filepath.Join(home, path[1:])
 	}
-	if (pathInfo.Mode() & os.ModeSymlink) != 0 {
-		return true, nil
-	}
-	return false, nil
-}
 
-// Dereferences a symbolic link to its relative path.
-// If the path is not a symlink, simply returns the path.
-// If the file does not exist, return the path and no err.
-func derefLink(path string) (string, error) {
-	ok, err := isSymlink(path)
+	expanded, err := filepath.Abs(expanded)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return path, nil
+		return "", fmt.Errorf("Error getting absolute path to %v: %v", expanded, err)
+	}
+
+	// filepath.EvalSymlinks only works on real files
+	dereferenced, err := filepath.EvalSymlinks(expanded)
+	if err != nil {
+		// The error is something more serious than the path not existing, fail.
+		if !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("Unexpected error while dereferencing %v: %v", expanded, err)
 		}
-		return "", err
-	}
-	if !ok {
-		return path, nil
-	}
-
-	targetPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return "", err
-	}
-	absTargetPath, err := filepath.Abs(targetPath)
-	if err != nil {
-		return "", err
-	}
-	return absTargetPath, nil
-}
-
-// expandPath takes a path string (which may be absolute, relative, or tilde
-// expanded) and returns an absolute path to that file.
-func expandPath(path string) (string, error) {
-	if strings.HasPrefix(path, "~/") {
-		home := os.Getenv("HOME")
-		path = filepath.Join(home, path[1:])
+	} else {
+		// The error is simply that the path is not a real file.
+		// Continue without dereferencing.
+		expanded = dereferenced
 	}
 
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	return absPath, nil
+	return expanded, nil
 }
 
 func isDir(path string) bool {

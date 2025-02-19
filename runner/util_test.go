@@ -42,15 +42,19 @@ func TestIsDirFileNot(t *testing.T) {
 }
 
 func TestExpandPathWithRelPath(t *testing.T) {
-	relPath := path.Join("_testdata", "toml", ".air.toml")
+	tmp := path.Join("_testdata", "tmp")
+	_, err := os.Create(tmp)
+	defer os.Remove(tmp)
+	if err != nil {
+		t.Fatalf("Error creating temp directory for testing: %v", err)
+	}
 
+	expandedPath, _ := expandPath("_testdata/tmp")
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Error getting cwd: %v", err)
 	}
-
-	expandedPath, _ := expandPath(relPath)
-	expected := path.Join(wd, relPath)
+	expected := path.Join(wd, tmp)
 	if expandedPath != expected {
 		t.Errorf("expected %s got %s", expected, expandedPath)
 	}
@@ -66,7 +70,10 @@ func TestExpandPathWithDot(t *testing.T) {
 
 func TestExpandPathWithHomePath(t *testing.T) {
 	path := "~/.conf"
-	result, _ := expandPath(path)
+	result, err := expandPath(path)
+	if err != nil {
+		t.Errorf("expandPath returned an error: %v", err)
+	}
 	home := os.Getenv("HOME")
 	want := home + path[1:]
 	if result != want {
@@ -1035,5 +1042,82 @@ func TestIsDangerousRoot(t *testing.T) {
 				assert.Equal(t, tt.description, desc, "description mismatch for path %s", tt.path)
 			}
 		})
+	}
+}
+
+// Regression test for https://github.com/air-verse/air/issues/531. Makes sure
+// that if the project's root directory is a symlink, it will be correctly
+// expanded.
+func TestExpandPathRootDirectoryIsSymlink(t *testing.T) {
+	// Save the original working directory so we don't break other tests
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get original directory: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := os.Chdir(origDir); err != nil {
+			t.Errorf("Cleanup failed to restore original directory: %v", err)
+		}
+	})
+
+	tempDir := t.TempDir()
+
+	// Temp directories on some OSs (like macOS) are themselves symlinks.
+	// We need the fully resolved base directory to correctly construct our expected path.
+	realTempDir, err := filepath.EvalSymlinks(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to resolve real temp dir: %v", err)
+	}
+
+	// Move into the temporary workspace to recreate the scenario
+	if err := os.Chdir(realTempDir); err != nil {
+		t.Fatalf("Failed to chdir to temp dir: %v", err)
+	}
+
+	// Create a nested directory structure ./foo/bar/
+	if err := os.MkdirAll(filepath.Join("foo", "bar"), 0755); err != nil {
+		t.Fatalf("Failed to create nested directories: %v", err)
+	}
+
+	// Create a file ./foo/bar/baz
+	if err := os.WriteFile(filepath.Join("foo", "bar", "baz"), []byte("dummy content"), 0644); err != nil {
+		t.Fatalf("Failed to create regular file baz: %v", err)
+	}
+
+	// Symlink ./bar -> ./foo/bar/
+	if err := os.Symlink(filepath.Join("foo", "bar"), "bar"); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
+	// cd into ./bar
+	if err := os.Chdir("bar"); err != nil {
+		t.Fatalf("Failed to change directory into symlink: %v", err)
+	}
+
+	pwd, _ := os.Getwd()
+	t.Logf("pwd: %s\n", pwd)
+	files, _ := os.ReadDir(".")
+	for _, file := range files {
+		t.Logf("file: %v\n", file)
+	}
+
+	data, err := os.ReadFile("./baz")
+	if err != nil {
+		t.Fatalf("Error reading file: %v", err)
+	}
+	t.Logf("Contents: %s\n", data)
+
+	expectedPath := filepath.Join(realTempDir, "foo", "bar", "baz")
+
+	// expandPath should recognize that the current directory is a symlink,
+	// and dereference it fully to resolve the nested path.
+	gotPath, err := expandPath("./baz")
+	if err != nil {
+		t.Fatalf("expandPath returned an unexpected error: %v", err)
+	}
+
+	if gotPath != expectedPath {
+		t.Errorf("expandPath failed to correctly resolve the symlinked current directory.\nGot:  %s\nWant: %s", gotPath, expectedPath)
 	}
 }
