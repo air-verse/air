@@ -560,7 +560,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		if err = os.Chdir(cwd); err != nil {
 			return err
 		}
-		c.Root = cwd
+		c.Root = "."
 	}
 	c.Root, err = expandPath(c.Root)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -37,6 +38,25 @@ func TestIsDirFileNot(t *testing.T) {
 	result := isDir("main.go")
 	if result != false {
 		t.Errorf("expected '%t' but got '%t'", true, result)
+	}
+}
+
+func TestExpandPathWithRelPath(t *testing.T) {
+	tmp := path.Join("_testdata", "tmp")
+	_, err := os.Create(tmp)
+	defer os.Remove(tmp)
+	if err != nil {
+		t.Fatalf("Error creating temp directory for testing: %v", err)
+	}
+
+	expandedPath, _ := expandPath("_testdata/tmp")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Error getting cwd: %v", err)
+	}
+	expected := path.Join(wd, tmp)
+	if expandedPath != expected {
+		t.Errorf("expected %s got %s", expected, expandedPath)
 	}
 }
 
