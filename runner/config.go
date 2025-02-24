@@ -89,9 +89,11 @@ type cfgScreen struct {
 }
 
 type cfgProxy struct {
-	Enabled   bool `toml:"enabled" usage:"Enable live-reloading on the browser"`
-	ProxyPort int  `toml:"proxy_port" usage:"Port for proxy server"`
-	AppPort   int  `toml:"app_port" usage:"Port for your app"`
+	Enabled       bool `toml:"enabled" usage:"Enable live-reloading on the browser"`
+	ProxyPort     int  `toml:"proxy_port" usage:"Port for proxy server"`
+	AppPort       int  `toml:"app_port" usage:"Port for your app"`
+	UseHostHeader bool `toml:"use_host_header" usage:"Use host header for hostname when forwarding request"`
+	Retries       int  `toml:"retries" usage:"Number of times to retry connection after restart"`
 }
 
 type sliceTransformer struct{}
@@ -250,6 +252,10 @@ func defaultConfig() Config {
 		Screen: cfgScreen{
 			ClearOnRebuild: false,
 			KeepScroll:     true,
+		},
+		Proxy: cfgProxy{
+			UseHostHeader: false,
+			Retries:       10,
 		},
 	}
 }
