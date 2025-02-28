@@ -397,7 +397,6 @@ func (c *Config) WithArgs(args map[string]TomlInfo) {
 
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
-		return 
 	}
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
