@@ -394,4 +394,12 @@ func (c *Config) WithArgs(args map[string]TomlInfo) {
 			setValue2Struct(v, value.fieldPath, *value.Value)
 		}
 	}
+
+	if len(c.Build.FullBin) > 0 {
+		c.Build.Bin = c.Build.FullBin
+		return 
+	}
+	// Fix windows CMD processor
+	// CMD will not recognize relative path like ./tmp/server
+	c.Build.Bin, _ = filepath.Abs(c.Build.Bin)
 }
