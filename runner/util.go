@@ -429,3 +429,17 @@ func joinPath(root, path string) string {
 
 	return filepath.Join(root, path)
 }
+
+func formatPath(path string) string {
+	if !filepath.IsAbs(path) || !strings.Contains(path, " ") {
+		return path
+	}
+
+	quotedPath := fmt.Sprintf(`"%s"`, path)
+
+	if runtime.GOOS == PlatformWindows {
+		return fmt.Sprintf(`& %s`, quotedPath)
+	}
+
+	return quotedPath
+}
