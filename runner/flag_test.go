@@ -118,6 +118,13 @@ func TestConfigRuntimeArgs(t *testing.T) {
 				assert.NotEqual(t, []string{}, conf.Build.ExcludeDir)
 			},
 		},
+		{
+			name: "check full_bin",
+			args: []string{"--build.full_bin", "APP_ENV=dev APP_USER=air ./tmp/main"},
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, "APP_ENV=dev APP_USER=air ./tmp/main", conf.Build.Bin)
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
