@@ -71,9 +71,9 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 }
 
 // NewEngine ...
-func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
+func NewEngine(cfgPath string, args map[string]TomlInfo, debugMode bool) (*Engine, error) {
 	var err error
-	cfg, err := InitConfig(cfgPath)
+	cfg, err := InitConfig(cfgPath, args)
 	if err != nil {
 		return nil, err
 	}
