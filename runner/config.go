@@ -109,7 +109,7 @@ func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Va
 }
 
 // InitConfig initializes the configuration.
-func InitConfig(path string) (cfg *Config, err error) {
+func InitConfig(path string, cmdArgs map[string]TomlInfo) (cfg *Config, err error) {
 	if path == "" {
 		cfg, err = defaultPathConfig()
 		if err != nil {
@@ -135,7 +135,7 @@ func InitConfig(path string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	err = ret.preprocess()
+	err = ret.preprocess(cmdArgs)
 	return ret, err
 }
 
@@ -278,8 +278,12 @@ func readConfigOrDefault(path string) (*Config, error) {
 	return cfg, nil
 }
 
-func (c *Config) preprocess() error {
+func (c *Config) preprocess(args map[string]TomlInfo) error {
 	var err error
+
+	if args != nil {
+		c.withArgs(args)
+	}
 	cwd := os.Getenv(airWd)
 	if cwd != "" {
 		if err = os.Chdir(cwd); err != nil {
@@ -384,8 +388,8 @@ func (c *Config) rel(path string) string {
 	return s
 }
 
-// WithArgs returns a new config with the given arguments added to the configuration.
-func (c *Config) WithArgs(args map[string]TomlInfo) {
+// withArgs returns a new config with the given arguments added to the configuration.
+func (c *Config) withArgs(args map[string]TomlInfo) {
 	for _, value := range args {
 		// Ignore values that match the default configuration.
 		// This ensures user-specified configurations are not overwritten by default values.
@@ -394,4 +398,5 @@ func (c *Config) WithArgs(args map[string]TomlInfo) {
 			setValue2Struct(v, value.fieldPath, *value.Value)
 		}
 	}
+
 }
