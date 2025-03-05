@@ -591,7 +591,8 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
-				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
+				formattedBin := formatPath(e.config.Build.Bin)
+				command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
 				cmd, stdout, stderr, err := e.startCmd(command)
 				if err != nil {
 					e.mainLog("failed to start %s, error: %s", e.config.rel(e.config.binPath()), err.Error())
