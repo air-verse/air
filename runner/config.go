@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -309,16 +310,9 @@ func (c *Config) preprocess() error {
 	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
 
 	// Compile the exclude regexes if there are any patterns in the config file
-	if len(c.Build.ExcludeRegex) > 0 {
-		regexCompiled := make([]*regexp.Regexp, len(c.Build.ExcludeRegex))
-		for idx, expr := range c.Build.ExcludeRegex {
-			re, err := regexp.Compile(expr)
-			if err != nil {
-				return fmt.Errorf("failed to compile regex %s", expr)
-			}
-			regexCompiled[idx] = re
-		}
-		c.Build.regexCompiled = regexCompiled
+	err = c.compileExcludeRegex()
+	if err != nil {
+		return err
 	}
 
 	c.Build.ExcludeDir = ed
@@ -394,4 +388,27 @@ func (c *Config) WithArgs(args map[string]TomlInfo) {
 			setValue2Struct(v, value.fieldPath, *value.Value)
 		}
 	}
+
+	err := c.compileExcludeRegex()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (c *Config) compileExcludeRegex() error {
+	if len(c.Build.ExcludeRegex) > 0 {
+		regexCompiled := make([]*regexp.Regexp, len(c.Build.ExcludeRegex))
+		for idx, expr := range c.Build.ExcludeRegex {
+			re, err := regexp.Compile(expr)
+			if err != nil {
+				return fmt.Errorf("failed to compile regex %s", expr)
+			}
+			regexCompiled[idx] = re
+		}
+		c.Build.regexCompiled = regexCompiled
+	} else {
+		c.Build.regexCompiled = nil
+	}
+
+	return nil
 }
