@@ -388,7 +388,7 @@ func (c *Config) rel(path string) string {
 	return s
 }
 
-// WithArgs returns a new config with the given arguments added to the configuration.
+// withArgs returns a new config with the given arguments added to the configuration.
 func (c *Config) withArgs(args map[string]TomlInfo) {
 	for _, value := range args {
 		// Ignore values that match the default configuration.
