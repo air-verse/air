@@ -20,15 +20,25 @@ AirはGoアプリケーション開発用のライブリロードコマンドラ
 
 ## 特徴
 
-* カラフルなログ出力
-* ビルドやその他のコマンドをカスタマイズ
-* サブディレクトリを除外することをサポート
-* Air起動後は新しいディレクトリを監視します
-* より良いビルドプロセス
+- カラフルなログ出力
+- ビルドやその他のコマンドをカスタマイズ
+- サブディレクトリを除外することをサポート
+- Air起動後は新しいディレクトリを監視します
+- より良いビルドプロセス
 
 ### 引数から指定された設定を上書き
 
 airは引数による設定をサポートします:
+
+利用可能なコマンドライン引数を以下のコマンドで確認できます：
+
+```
+air -h
+```
+または
+```
+air --help
+```
 
 もしビルドコマンドと起動コマンドを設定したい場合は、設定ファイルを使わずに以下のようにコマンドを使うことができます:
 
@@ -46,7 +56,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### `go install`を使う場合（推奨）
 
-go 1.22以上を使う場合:
+go 1.23以上を使う場合:
 
 ```bash
 go install github.com/air-verse/air@latest
@@ -209,7 +219,7 @@ services:
 
 ```Dockerfile
 # 1.16以上の利用したいバージョンを選択してください
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
@@ -245,7 +255,7 @@ services:
 ```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin <---- この設定を確認してください!!!
+export PATH=$PATH:$(go env GOPATH)/bin #この設定を.profileで確認し、追加した場合は.profileをsourceするのを忘れないでください!!!
 ```
 
 ### binに'が含まれる場合のwslでのエラー
@@ -265,9 +275,9 @@ binの\`'をエスケープするには`\`を使用したほうが良いです�
 
 詳細のために[#512](https://github.com/air-verse/air/issues/512)のissueを参照してください。
 
-* 静的ファイルを `include_dir`、`include_ext`、`include_file`に配置していることを確かめてください。
-* HTML に `</body>` タグがあることを確かめてください。
-* プロキシを有効にするには、以下の設定を行います：
+- 静的ファイルを `include_dir`、`include_ext`、`include_file`に配置していることを確かめてください。
+- HTML に `</body>` タグがあることを確かめてください。
+- プロキシを有効にするには、以下の設定を行います：
 
 ```toml
 [proxy]
@@ -308,7 +318,6 @@ git checkout master
 git tag v1.xx.x
 
 # リモートにプッシュします
-# Push to remote
 git push origin v1.xx.x
 
 # CIが実行され、新しいバージョンがリリースされます。約5分待つと最新バージョンを取得できます
