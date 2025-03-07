@@ -1,4 +1,4 @@
-# :cloud: Air - Goアプリケーションのためのライブリロード
+# :cloud: Air - Go アプリケーションのためのライブリロード
 
 [![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=air-verse/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
 
@@ -8,13 +8,13 @@ English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md) | [�
 
 ## 動機
 
-Goでウェブサイトを開発し始め、[gin](https://github.com/gin-gonic/gin)を使っていた時、ginにはライブリロード機能がないのが残念でした。
+Go でウェブサイトを開発し始め、 [gin](https://github.com/gin-gonic/gin) を使っていた時、gin にはライブリロード機能がないのが残念でした。
 
-そこで探し回って[fresh](https://github.com/pilu/fresh)を試してみましたが、あまり柔軟ではないようでした。なので、もっと良いものを書くことにしました。そうして、Airが誕生しました。
+そこで探し回って [fresh](https://github.com/pilu/fresh) を試してみましたが、あまり柔軟ではないようでした。なので、もっと良いものを書くことにしました。そうして、 Air が誕生しました。
 
-加えて、[pilu](https:///github.com/pilu)に感謝します。freshがなければ、Airもありませんでした。:)
+加えて、 [pilu](https:///github.com/pilu) に感謝します。fresh がなければ、 Air もありませんでした。:)
 
-AirはGoアプリケーション開発用のライブリロードコマンドラインユーティリティです。プロジェクトのルートディレクトリで`air`を実行し、放置し、コードに集中してください。
+Air は Go アプリケーション開発用のライブリロードコマンドラインユーティリティです。プロジェクトのルートディレクトリで `air` を実行し、放置し、コードに集中してください。
 
 注：このツールは本番環境へのホットデプロイとは無関係です。
 
@@ -23,12 +23,12 @@ AirはGoアプリケーション開発用のライブリロードコマンドラ
 - カラフルなログ出力
 - ビルドやその他のコマンドをカスタマイズ
 - サブディレクトリを除外することをサポート
-- Air起動後は新しいディレクトリを監視します
+- Air 起動後は新しいディレクトリを監視します
 - より良いビルドプロセス
 
 ### 引数から指定された設定を上書き
 
-airは引数による設定をサポートします:
+air は引数による設定をサポートします:
 
 利用可能なコマンドライン引数を以下のコマンドで確認できます：
 
@@ -54,7 +54,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ## インストール
 
-### `go install`を使う場合（推奨）
+### `go install` を使う場合（推奨）
 
 go 1.23以上を使う場合:
 
@@ -62,10 +62,10 @@ go 1.23以上を使う場合:
 go install github.com/air-verse/air@latest
 ```
 
-### `install.sh`を使う場合
+### `install.sh` を使う場合
 
 ```shell
-# バイナリは$(go env GOPATH)/bin/airにインストールされます
+# バイナリは $(go env GOPATH)/bin/air にインストールされます
 curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
 # または./bin/にインストールすることもできます
@@ -74,10 +74,10 @@ curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | s
 air -v
 ```
 
-### [goblin.run](https://goblin.run)を使う場合
+### [goblin.run](https://goblin.run) を使う場合
 
 ```shell
-# バイナリは/usr/local/bin/airにインストールされます
+# バイナリは /usr/local/bin/air にインストールされます
 curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 
 # 任意のパスに配置することもできます
@@ -86,7 +86,7 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 
 ### Docker/Podman
 
-[cosmtrek/air](https://hub.docker.com/r/cosmtrek/air)というDockerイメージをプルしてください。
+[cosmtrek/air](https://hub.docker.com/r/cosmtrek/air) という Docker イメージをプルしてください。
 
 ```shell
 docker/podman run -it --rm \
@@ -100,7 +100,7 @@ docker/podman run -it --rm \
 
 #### Docker/Podman .${SHELL}rc
 
-通常のアプリケーションのように継続的にairを使いたい場合は、${SHELL}rc (Bash, Zsh, etc…)に関数を作成してください。
+通常のアプリケーションのように継続的に air を使いたい場合は、 ${SHELL}rc (Bash, Zsh, etc…)に関数を作成してください。
 
 ```shell
 air() {
@@ -111,13 +111,13 @@ air() {
 }
 ```
 
-`<PROJECT>`はコンテナ内のプロジェクトのパスです。 例：/go/example
-コンテナに接続したい場合は、--entrypoint=bashを追加してください。
+`<PROJECT>`はコンテナ内のプロジェクトのパスです。 例：`/go/example`
+コンテナに接続したい場合は、 `--entrypoint=bash` を追加してください。
 
 <details>
   <summary>例</summary>
 
-Dockerで動作するとあるプロジェクト：
+Docker で動作するとあるプロジェクト：
 
 ```shell
 docker run -it --rm \
@@ -134,13 +134,13 @@ cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
 
-これは`$PWD`を現在のディレクトリに置き換え、`$AIR_PORT`は公開するポートを指定し、`$@`は-cのようなアプリケーション自体の引数を受け取るためのものです。
+これは `$PWD` を現在のディレクトリに置き換え、 `$AIR_PORT` は公開するポートを指定し、 `$@` は-cのようなアプリケーション自体の引数を受け取るためのものです。
 
 </details>
 
 ## 使い方
 
-`.bashrc`または`.zshrc`に`alias air='~/.air'`を追加すると、入力の手間が省けます。
+`.bashrc` または `.zshrc` に `alias air='~/.air'` を追加すると、入力の手間が省けます。
 
 まずプロジェクトを移動します。
 
@@ -155,13 +155,13 @@ cd /path/to/your_project
 air -c .air.toml
 ```
 
-次のコマンドを実行することで、カレントディレクトリに`.air.toml`設定ファイルを初期化できます。
+次のコマンドを実行することで、カレントディレクトリに `.air.toml` 設定ファイルを初期化できます。
 
 ```shell
 air init
 ```
 
-その次に、追加の引数なしで`air`コマンドを実行すると、`.air.toml`ファイルが設定として使用されます。
+その次に、追加の引数なしで `air` コマンドを実行すると、 `.air.toml` ファイルが設定として使用されます。
 
 ```shell
 air
@@ -171,7 +171,7 @@ air
 
 ### 実行時引数
 
-airコマンドの後に引数を追加することで、ビルドしたバイナリを実行するための引数を渡すことができる。
+air コマンドの後に引数を追加することで、ビルドしたバイナリを実行するための引数を渡すことができる。
 
 ```shell
 # ./tmp/main benchを実行します
@@ -181,13 +181,13 @@ air bench
 air server --port 8080
 ```
 
-airコマンドに渡す引数とビルドするバイナリを`--`引数で区切ることができる。
+air コマンドに渡す引数とビルドするバイナリを `--` 引数で区切ることができる。
 
 ```shell
 # ./tmp/main -hを実行します
 air -- -h
 
-# カスタム設定でairを実行し、ビルドされたバイナリに-h引数を渡す
+# カスタム設定で air を実行し、ビルドされたバイナリに -h 引数を渡す
 air -c .air.toml -- -h
 ```
 
@@ -197,7 +197,7 @@ air -c .air.toml -- -h
 services:
   my-project-with-air:
     image: cosmtrek/air
-    # working_dirの値はマップされたボリュームの値と同じでなければなりません
+    # working_dir の値はマップされたボリュームの値と同じでなければなりません
     working_dir: /project-package
     ports:
       - <any>:<any>
@@ -213,7 +213,7 @@ services:
 
 `air -d`は全てのログを出力します。
 
-## airイメージを使いたくないDockerユーザーのためのインストールと使い方
+## air イメージを使いたくない Docker ユーザーのためのインストールと使い方
 
 `Dockerfile`
 
@@ -239,28 +239,28 @@ services:
   web:
     build:
       context: .
-      # Dockerfileへのパスを正してください
+      # Dockerfile へのパスを正してください
       dockerfile: Dockerfile
     ports:
       - 8080:3000
-    # ライブリロードのために、コードベースディレクトリを/appディレクトリにバインド/マウントすることが重要です
+    # ライブリロードのために、コードベースディレクトリを /app ディレクトリにバインド/マウントすることが重要です
     volumes:
       - ./:/app
 ```
 
 ## Q&A
 
-### "command not found: air"または"No such file or directory"
+### "command not found: air" または "No such file or directory"
 
 ```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin #この設定を.profileで確認し、追加した場合は.profileをsourceするのを忘れないでください!!!
+export PATH=$PATH:$(go env GOPATH)/bin #この設定を .profile で確認し、追加した場合は .profile を source するのを忘れないでください!!!
 ```
 
-### binに'が含まれる場合のwslでのエラー
+### bin に ' が含まれる場合の wsl でのエラー
 
-binの\`'をエスケープするには`\`を使用したほうが良いです。関連するissue: [#305](https://github.com/air-verse/air/issues/305)
+bin の\`'をエスケープするには`\`を使用したほうが良いです。関連する issue: [#305](https://github.com/air-verse/air/issues/305)
 
 ### 質問: ホットコンパイルのみを行い、何も実行しない方法は？
 
@@ -273,9 +273,9 @@ binの\`'をエスケープするには`\`を使用したほうが良いです�
 
 ### 静的ファイルの変更時にブラウザを自動的にリロードする方法
 
-詳細のために[#512](https://github.com/air-verse/air/issues/512)のissueを参照してください。
+詳細のために [#512](https://github.com/air-verse/air/issues/512) の issue を参照してください。
 
-- 静的ファイルを `include_dir`、`include_ext`、`include_file`に配置していることを確かめてください。
+- 静的ファイルを `include_dir` 、`include_ext` 、`include_file` に配置していることを確かめてください。
 - HTML に `</body>` タグがあることを確かめてください。
 - プロキシを有効にするには、以下の設定を行います：
 
@@ -288,7 +288,7 @@ binの\`'をエスケープするには`\`を使用したほうが良いです�
 
 ## 開発
 
-依存関係を管理するために`go mod`を使っているので、Go 1.16+が必要であることに注意してください。
+依存関係を管理するために `go mod` を使っているので、 Go 1.16+ が必要であることに注意してください。
 
 ```shell
 # プロジェクトをフォークしてください
@@ -306,12 +306,12 @@ make ci
 make install
 ```
 
-Pull Requestを受け付けています。
+Pull Request を受け付けています。
 
 ### リリース
 
 ```shell
-# masterにチェックアウトします
+# master にチェックアウトします
 git checkout master
 
 # リリースに必要なバージョンタグを付与します
@@ -320,7 +320,7 @@ git tag v1.xx.x
 # リモートにプッシュします
 git push origin v1.xx.x
 
-# CIが実行され、新しいバージョンがリリースされます。約5分待つと最新バージョンを取得できます
+# CI が実行され、新しいバージョンがリリースされます。約5分待つと最新バージョンを取得できます
 ```
 
 ## スターヒストリー
