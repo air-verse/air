@@ -1,0 +1,208 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Air Configuration",
+  "type": "object",
+  "properties": {
+    "root": {
+      "type": "string",
+      "description": "Working directory, either '.' or an absolute path."
+    },
+    "tmp_dir": {
+      "type": "string",
+      "description": "Temporary directory used by Air."
+    },
+    "build": {
+      "type": "object",
+      "properties": {
+        "pre_cmd": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Commands to run before each build."
+        },
+        "cmd": {
+          "type": "string",
+          "description": "Build command, e.g., 'go build -o ./tmp/main .'."
+        },
+        "post_cmd": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Commands to run after stopping the application."
+        },
+        "bin": {
+          "type": "string",
+          "description": "Binary file produced by the build command."
+        },
+        "full_bin": {
+          "type": "string",
+          "description": "Customized binary execution command with environment variables."
+        },
+        "args_bin": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Additional arguments when running the binary."
+        },
+        "include_ext": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "File extensions to watch for changes."
+        },
+        "exclude_dir": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Directories to exclude from watching."
+        },
+        "include_dir": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific directories to watch."
+        },
+        "include_file": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific files to watch."
+        },
+        "exclude_file": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Specific files to exclude from watching."
+        },
+        "exclude_regex": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Regular expressions matching files to exclude."
+        },
+        "exclude_unchanged": {
+          "type": "boolean",
+          "description": "Exclude unchanged files from triggering rebuilds."
+        },
+        "follow_symlink": {
+          "type": "boolean",
+          "description": "Follow symbolic links in watched directories."
+        },
+        "log": {
+          "type": "string",
+          "description": "Log file path, relative to tmp_dir."
+        },
+        "poll": {
+          "type": "boolean",
+          "description": "Use polling to detect file changes instead of fsnotify."
+        },
+        "poll_interval": {
+          "type": "integer",
+          "description": "Interval in milliseconds for polling file changes.",
+          "minimum": 500
+        },
+        "delay": {
+          "type": "integer",
+          "description": "Delay in milliseconds before triggering a rebuild after file changes.",
+          "minimum": 0
+        },
+        "stop_on_error": {
+          "type": "boolean",
+          "description": "Stop running the old binary when build errors occur."
+        },
+        "send_interrupt": {
+          "type": "boolean",
+          "description": "Send an interrupt signal before killing the process (not supported on Windows)."
+        },
+        "kill_delay": {
+          "type": "integer",
+          "description": "Delay in nanoseconds after sending an interrupt signal before forcefully killing the process.",
+          "minimum": 0
+        },
+        "rerun": {
+          "type": "boolean",
+          "description": "Rerun the binary automatically after it stops."
+        },
+        "rerun_delay": {
+          "type": "integer",
+          "description": "Delay in milliseconds before rerunning the binary.",
+          "minimum": 0
+        }
+      },
+      "required": [ "cmd", "bin" ]
+    },
+    "log": {
+      "type": "object",
+      "properties": {
+        "time": {
+          "type": "boolean",
+          "description": "Show log timestamps."
+        },
+        "main_only": {
+          "type": "boolean",
+          "description": "Show only main logs, silencing watcher, build, and runner logs."
+        },
+        "silent": {
+          "type": "boolean",
+          "description": "Silence all logs produced by Air."
+        }
+      }
+    },
+    "color": {
+      "type": "object",
+      "properties": {
+        "main": {
+          "type": "string",
+          "description": "Color for main logs."
+        },
+        "watcher": {
+          "type": "string",
+          "description": "Color for watcher logs."
+        },
+        "build": {
+          "type": "string",
+          "description": "Color for build logs."
+        },
+        "runner": {
+          "type": "string",
+          "description": "Color for runner logs."
+        }
+      }
+    },
+    "misc": {
+      "type": "object",
+      "properties": {
+        "clean_on_exit": {
+          "type": "boolean",
+          "description": "Delete the temporary directory on exit."
+        }
+      }
+    },
+    "screen": {
+      "type": "object",
+      "properties": {
+        "clear_on_rebuild": {
+          "type": "boolean",
+          "description": "Clear the screen on each rebuild."
+        },
+        "keep_scroll": {
+          "type": "boolean",
+          "description": "Keep scrollback history after clearing the screen."
+        }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable live-reloading on the browser."
+        },
+        "proxy_port": {
+          "type": "integer",
+          "description": "Port number for the proxy server.",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "app_port": {
+          "type": "integer",
+          "description": "Port number for the application server.",
+          "minimum": 1,
+          "maximum": 65535
+        }
+      }
+    }
+  },
+  "required": [ "root", "tmp_dir", "build" ]
+}
