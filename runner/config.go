@@ -58,6 +58,7 @@ type cfgBuild struct {
 	KillDelay        time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
 	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
+	SkipRun          bool          `toml:"skip_run" usage:"Only build the application, do not run"`
 	regexCompiled    []*regexp.Regexp
 }
 
