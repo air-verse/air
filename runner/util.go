@@ -207,6 +207,41 @@ func (e *Engine) logWithLock(f func()) {
 	e.ll.Unlock()
 }
 
+// Checks if a directory is a symbolic link
+func isSymlink(path string) (bool, error) {
+	pathInfo, err := os.Lstat(path)
+	if err != nil {
+		log.Printf("Error calling Lstat on root directory: %v\n", err)
+		return false, err
+	}
+	if (pathInfo.Mode() & os.ModeSymlink) != 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+// Dereferences a symbolic link to its relative path.
+// If the path is not a symlink, simply returns the path.
+func derefLink(path string) (string, error) {
+	ok, err := isSymlink(path)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return path, nil
+	}
+
+	targetPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", err
+	}
+	absTargetPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		return "", err
+	}
+	return absTargetPath, nil
+}
+
 func expandPath(path string) (string, error) {
 	if strings.HasPrefix(path, "~/") {
 		home := os.Getenv("HOME")

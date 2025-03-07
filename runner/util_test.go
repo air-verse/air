@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -401,4 +402,53 @@ func TestFormatPath(t *testing.T) {
 		}
 		runTests(t, tests)
 	})
+}
+
+func TestIsSymlink(t *testing.T) {
+	type testCase struct {
+		name     string
+		path     string
+		expected bool
+	}
+
+	tmp := path.Join("_testdata/tmp")
+	_, err := os.Create(tmp)
+	defer os.Remove(tmp)
+
+	if err != nil {
+		t.Fatalf("Error creating temporary file for testing: %v", err)
+	}
+
+	tmpTarget := path.Join("_testdata/tmp.link")
+	err = os.Symlink(tmp, tmpTarget)
+	defer os.Remove(tmpTarget)
+	if err != nil {
+		t.Fatalf("Error creating symlink to cwd for testing: %v", err)
+	}
+
+	testCases := []testCase{
+		{
+			name:     "Symlink to current directory",
+			path:     tmpTarget,
+			expected: true,
+		},
+		{
+			name:     "Absolute path to current directory",
+			path:     tmp,
+			expected: false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(*testing.T) {
+			ok, err := isSymlink(testCase.path)
+			if err != nil {
+				t.Errorf("isSymlink(%s): isSymlink returned an error: %v", testCase.path, err)
+			}
+
+			if ok != testCase.expected {
+				t.Errorf("isSymlink(%s): Expected %t, got %t", testCase.path, testCase.expected, ok)
+			}
+		})
+	}
 }

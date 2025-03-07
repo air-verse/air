@@ -295,6 +295,12 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	if err != nil {
 		return err
 	}
+	// Dereference the root node if it is a symbolic link
+	c.Root, err = derefLink(c.Root)
+	if err != nil {
+		return err
+	}
+
 	if c.TmpDir == "" {
 		c.TmpDir = "tmp"
 	}
