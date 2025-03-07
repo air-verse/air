@@ -19,11 +19,11 @@ jobs:
         id: go
         uses: actions/setup-go@v5
         with:
-          go-version: ^1.23
+          go-version-file: go.mod
       - name: Install golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.61
+          version: v1.64.5
       - name: Install dependency
         run: if [ $(uname) == "Darwin" ]; then brew install gnu-sed ;fi
       - name: Build

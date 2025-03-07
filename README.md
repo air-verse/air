@@ -56,7 +56,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### Via `go install` (Recommended)
 
-With go 1.23 or higher:
+With go 1.24 or higher:
 
 ```bash
 go install github.com/air-verse/air@latest
@@ -219,7 +219,7 @@ services:
 
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.23-alpine
+FROM golang:1.24-alpine
 
 WORKDIR /app
 
