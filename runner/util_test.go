@@ -42,7 +42,7 @@ func TestIsDirFileNot(t *testing.T) {
 
 func TestExpandPathWithRelPath(t *testing.T) {
 	tmp := path.Join("_testdata", "tmp")
-	_, err := os.Create(tmp)
+	err := os.Mkdir(tmp, 0750)
 	defer os.Remove(tmp)
 	if err != nil {
 		t.Fatalf("Error creating temp directory for testing: %v", err)
