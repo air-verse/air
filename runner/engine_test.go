@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pelletier/go-toml"
+	toml "github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 )
 

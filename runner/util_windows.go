@@ -33,6 +33,15 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 		e.runnerLog("CMD will not recognize non .exe file for execution, path: %s", cmd)
 	}
 	c := exec.Command("powershell", cmd)
+
+	envvars := []string{}
+	for k, v := range e.environment {
+		envvars = append(envvars, k+"="+v)
+	}
+
+	c.Env = append(c.Env, os.Environ()...)
+	c.Env = append(c.Env, envvars...)
+
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err

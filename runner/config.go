@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"dario.cat/mergo"
-	"github.com/pelletier/go-toml"
+	toml "github.com/pelletier/go-toml"
 )
 
 const (
@@ -27,11 +27,16 @@ type Config struct {
 	TmpDir      string    `toml:"tmp_dir" usage:"Temporary directory for air"`
 	TestDataDir string    `toml:"testdata_dir"`
 	Build       cfgBuild  `toml:"build"`
+	Run         cfgRun    `toml:"run"`
 	Color       cfgColor  `toml:"color"`
 	Log         cfgLog    `toml:"log"`
 	Misc        cfgMisc   `toml:"misc"`
 	Screen      cfgScreen `toml:"screen"`
 	Proxy       cfgProxy  `toml:"proxy"`
+}
+
+type cfgRun struct {
+	EnvFile string `toml:"env_file" usage:"Load environment variables from a file"`
 }
 
 type cfgBuild struct {
@@ -225,6 +230,10 @@ func defaultConfig() Config {
 		build.Bin = `tmp\main.exe`
 		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
+
+	run := cfgRun{
+		EnvFile: ".env",
+	}
 	log := cfgLog{
 		AddTime:  false,
 		MainOnly: false,
@@ -244,6 +253,7 @@ func defaultConfig() Config {
 		TmpDir:      "tmp",
 		TestDataDir: "testdata",
 		Build:       build,
+		Run:         run,
 		Color:       color,
 		Log:         log,
 		Misc:        misc,
@@ -378,6 +388,10 @@ func (c *Config) tmpPath() string {
 
 func (c *Config) testDataPath() string {
 	return joinPath(c.Root, c.TestDataDir)
+}
+
+func (c *Config) envFilePath() string {
+	return joinPath(c.Root, c.Run.EnvFile)
 }
 
 func (c *Config) rel(path string) string {

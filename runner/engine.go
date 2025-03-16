@@ -13,19 +13,21 @@ import (
 	"time"
 
 	"github.com/gohugoio/hugo/watcher/filenotify"
+	"github.com/joho/godotenv"
 )
 
 // Engine ...
 type Engine struct {
 	config *Config
 
-	exiter    exiter
-	proxy     *Proxy
-	logger    *logger
-	watcher   filenotify.FileWatcher
-	debugMode bool
-	runArgs   []string
-	running   atomic.Bool
+	exiter      exiter
+	proxy       *Proxy
+	logger      *logger
+	watcher     filenotify.FileWatcher
+	debugMode   bool
+	runArgs     []string
+	running     atomic.Bool
+	environment map[string]string
 
 	eventCh        chan string
 	watcherStopCh  chan bool
@@ -58,6 +60,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		watcher:        watcher,
 		debugMode:      debugMode,
 		runArgs:        cfg.Build.ArgsBin,
+		environment:    make(map[string]string),
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
@@ -114,6 +117,26 @@ func (e *Engine) checkRunEnv() error {
 			return err
 		}
 	}
+
+	ev := e.config.envFilePath()
+	if _, err := os.Stat(ev); os.IsNotExist(err) {
+		e.runnerLog("%s file not found", ev)
+	} else {
+		f, err := os.Open(ev)
+		if err != nil {
+			e.runnerLog("failed to open %s, error: %s", ev, err.Error())
+			return err
+		}
+
+		env, err := godotenv.Parse(f)
+		if err != nil {
+			e.runnerLog("failed to parse envfile %s, error: %s", ev, err.Error())
+			return err
+		}
+
+		e.environment = env
+	}
+
 	return nil
 }
 
