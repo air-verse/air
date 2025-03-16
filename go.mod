@@ -8,6 +8,7 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gohugoio/hugo v0.134.3
+	github.com/joho/godotenv v1.5.1
 	github.com/pelletier/go-toml v1.9.5
 	github.com/stretchr/testify v1.9.0
 )

@@ -34,6 +34,14 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 		Setpgid: true,
 	}
 
+	envvars := []string{}
+	for k, v := range e.environment {
+		envvars = append(envvars, k+"="+v)
+	}
+
+	c.Env = append(c.Env, os.Environ()...)
+	c.Env = append(c.Env, envvars...)
+
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err
