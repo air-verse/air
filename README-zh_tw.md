@@ -1,6 +1,6 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=air-verse/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
+[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=air-verse/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
 
 ![air](docs/air.png)
 
@@ -16,11 +16,11 @@ Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 
 
 ## 功能列表
 
-* 彩色的日誌輸出
-* 自訂建立或任何命令
-* 支援排除子目錄
-* 允許在 Air 開始後監視新目錄
-* 更佳的建置過程
+- 彩色的日誌輸出
+- 自訂建立或任何命令
+- 支援排除子目錄
+- 允許在 Air 開始後監視新目錄
+- 更佳的建置過程
 
 ### 用參數覆寫指定的配置
 
@@ -42,7 +42,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### 使用 `go install` （推薦）
 
-需要使用 go 1.22 或更高版本：
+需要使用 go 1.23 或更高版本：
 
 ```bash
 go install github.com/air-verse/air@latest

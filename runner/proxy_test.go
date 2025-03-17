@@ -15,24 +15,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type reloader struct {
 	subCh    chan struct{}
-	reloadCh chan struct{}
+	reloadCh chan StreamMessage
 }
 
 func (r *reloader) AddSubscriber() *Subscriber {
 	r.subCh <- struct{}{}
-	return &Subscriber{reloadCh: r.reloadCh}
+	return &Subscriber{msgCh: r.reloadCh}
 }
 
 func (r *reloader) RemoveSubscriber(_ int32) {
 	close(r.subCh)
 }
 
-func (r *reloader) Reload() {}
-func (r *reloader) Stop()   {}
+func (r *reloader) Reload()                    {}
+func (r *reloader) BuildFailed(BuildFailedMsg) {}
+func (r *reloader) Stop()                      {}
 
 var proxyPort = 8090
 
@@ -97,8 +99,8 @@ func TestProxy_proxyHandler(t *testing.T) {
 				return req
 			},
 			assert: func(resp *http.Request) {
-				assert.NoError(t, resp.ParseForm())
-				assert.Equal(t, resp.Form.Get("foo"), "bar")
+				require.NoError(t, resp.ParseForm())
+				assert.Equal(t, "bar", resp.Form.Get("foo"))
 			},
 		},
 		{
@@ -108,7 +110,7 @@ func TestProxy_proxyHandler(t *testing.T) {
 			},
 			assert: func(resp *http.Request) {
 				q := resp.URL.Query()
-				assert.Equal(t, q.Encode(), "q=air")
+				assert.Equal(t, "q=air", q.Encode())
 			},
 		},
 		{
@@ -124,9 +126,19 @@ func TestProxy_proxyHandler(t *testing.T) {
 					Foo string `json:"foo"`
 				}
 				var r Response
-				assert.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
-				assert.Equal(t, resp.URL.Path, "/a/b/c")
-				assert.Equal(t, r.Foo, "bar")
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
+				assert.Equal(t, "/a/b/c", resp.URL.Path)
+				assert.Equal(t, "bar", r.Foo)
+			},
+		},
+		{
+			name: "set_via_header",
+			req: func() *http.Request {
+				req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d", proxyPort), nil)
+				return req
+			},
+			assert: func(resp *http.Request) {
+				assert.Equal(t, fmt.Sprintf("HTTP/1.1 localhost:%d", proxyPort), resp.Header.Get("Via"))
 			},
 		},
 	}
@@ -190,7 +202,7 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				},
 				Body: io.NopCloser(strings.NewReader(`<body><h1>test</h1></body>`)),
 			},
-			expect: `<body><h1>test</h1><script>new EventSource("http://localhost:1111/internal/reload").onmessage = () => { location.reload() }</script></body>`,
+			expect: fmt.Sprintf(`<body><h1>test</h1><script>%s</script></body>`, ProxyScript),
 		},
 	}
 	for _, tt := range tests {
@@ -200,8 +212,15 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				ProxyPort: 1111,
 				AppPort:   2222,
 			})
-			if got, _ := proxy.injectLiveReload(tt.given); got != tt.expect {
-				t.Errorf("expected page %+v, got %v", tt.expect, got)
+			got, _ := proxy.injectLiveReload(tt.given)
+			if got != tt.expect {
+				// Use a more descriptive error message
+				if len(got) > 100 || len(tt.expect) > 100 {
+					t.Errorf("Script injection mismatch.\nGot length: %d\nExpected length: %d",
+						len(got), len(tt.expect))
+				} else {
+					t.Errorf("expected page %+v, got %v", tt.expect, got)
+				}
 			}
 		})
 	}
@@ -214,7 +233,7 @@ func TestProxy_reloadHandler(t *testing.T) {
 	srvPort := getServerPort(t, srv)
 	defer srv.Close()
 
-	reloader := &reloader{subCh: make(chan struct{}), reloadCh: make(chan struct{})}
+	reloader := &reloader{subCh: make(chan struct{}), reloadCh: make(chan StreamMessage)}
 	cfg := &cfgProxy{
 		Enabled:   true,
 		ProxyPort: proxyPort,
@@ -237,11 +256,12 @@ func TestProxy_reloadHandler(t *testing.T) {
 		proxy.reloadHandler(rec, req)
 	}()
 
-	// wait for subscriber to be added
 	<-reloader.subCh
 
-	// send a reload event and wait for http response
-	reloader.reloadCh <- struct{}{}
+	reloader.reloadCh <- StreamMessage{
+		Type: StreamMessageReload,
+		Data: nil,
+	}
 	close(reloader.reloadCh)
 	wg.Wait()
 
@@ -254,7 +274,22 @@ func TestProxy_reloadHandler(t *testing.T) {
 	if err != nil {
 		t.Errorf("reading body: %v", err)
 	}
-	if got, exp := string(bodyBytes), "data: reload\n\n"; got != exp {
-		t.Errorf("expected %q but got %q", exp, got)
+
+	expected := "event: reload\ndata: null\n\n"
+	if got := string(bodyBytes); got != expected {
+		t.Errorf("expected %q but got %q", expected, got)
+	}
+
+	expectedHeaders := map[string]string{
+		"Access-Control-Allow-Origin": "*",
+		"Content-Type":                "text/event-stream",
+		"Cache-Control":               "no-cache",
+		"Connection":                  "keep-alive",
+	}
+
+	for key, value := range expectedHeaders {
+		if got := resp.Header.Get(key); got != value {
+			t.Errorf("expected header %s to be %q but got %q", key, value, got)
+		}
 	}
 }

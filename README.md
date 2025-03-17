@@ -1,10 +1,10 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=air-verse/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
+[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=air-verse/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
 
 ![air](docs/air.png)
 
-English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md) | [Français](README-fr-fr.md)
+English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md) | [日本語](README-ja.md) | [Français](README-fr-fr.md)
 
 ## Motivation
 
@@ -20,15 +20,25 @@ Note: This tool has nothing to do with hot-deploy for production.
 
 ## Features
 
-* Colorful log output
-* Customize build or any command
-* Support excluding subdirectories
-* Allow watching new directories after Air started
-* Better building process
+- Colorful log output
+- Customize build or any command
+- Support excluding subdirectories
+- Allow watching new directories after Air started
+- Better building process
 
 ### Overwrite specify configuration from arguments
 
 Support air config fields as arguments:
+
+You can view the available command-line arguments by running the following commands:  
+
+```
+air -h
+```
+or  
+```
+air --help
+```
 
 If you want to config build command and run command, you can use like the following command without the config file:
 
@@ -46,7 +56,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### Via `go install` (Recommended)
 
-With go 1.22 or higher:
+With go 1.23 or higher:
 
 ```bash
 go install github.com/air-verse/air@latest
@@ -209,7 +219,7 @@ services:
 
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.22-alpine
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
@@ -245,12 +255,12 @@ services:
 ```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+export PATH=$PATH:$(go env GOPATH)/bin #Confirm this line in your .profile and make sure to source the .profile if you add it!!!
 ```
 
 ### Error under wsl when ' is included in the bin
 
-Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/air-verse/air/issues/305)
+Should use `\` to escape the `'` in the bin. related issue: [#305](https://github.com/air-verse/air/issues/305)
 
 ### Question: how to do hot compile only and do not run anything?
 
@@ -263,12 +273,11 @@ Should use `\` to escape the `' in the bin. related issue: [#305](https://github
 
 ### How to Reload the Browser Automatically on Static File Changes
 
-
 Refer to issue [#512](https://github.com/air-verse/air/issues/512) for additional details.
 
-* Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
-* Ensure your HTML has a `</body>` tag
-* Activate the proxy by configuring the following config:
+- Ensure your static files in `include_dir`, `include_ext`, or `include_file`.
+- Ensure your HTML has a `</body>` tag
+- Activate the proxy by configuring the following config:
 
 ```toml
 [proxy]

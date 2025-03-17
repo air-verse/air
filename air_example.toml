@@ -34,7 +34,7 @@ exclude_regex = ["_test\\.go"]
 exclude_unchanged = true
 # Follow symlink for directories
 follow_symlink = true
-# This log file places in your tmp_dir.
+# This log file is placed in your tmp_dir.
 log = "air.log"
 # Poll files for changes instead of using fsnotify.
 poll = false
@@ -58,6 +58,8 @@ rerun_delay = 500
 time = false
 # Only show main log (silences watcher, build, runner)
 main_only = false
+# silence all logs produced by air 
+silent = false
 
 [color]
 # Customize each part's color. If no color found, use the raw app log.
@@ -74,8 +76,8 @@ clean_on_exit = true
 clear_on_rebuild = true
 keep_scroll = true
 
-# Enable live-reloading on the browser.
 [proxy]
-  enabled = true
-  proxy_port = 8090
-  app_port = 8080
+# Enable live-reloading on the browser.
+enabled = true
+proxy_port = 8090
+app_port = 8080

@@ -2,21 +2,24 @@ package runner
 
 import (
 	"bytes"
-	"errors"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
-type Reloader interface {
+//go:embed proxy.js
+var ProxyScript string
+
+type Streamer interface {
 	AddSubscriber() *Subscriber
 	RemoveSubscriber(id int32)
 	Reload()
+	BuildFailed(msg BuildFailedMsg)
 	Stop()
 }
 
@@ -24,7 +27,7 @@ type Proxy struct {
 	server *http.Server
 	client *http.Client
 	config *cfgProxy
-	stream Reloader
+	stream Streamer
 }
 
 func NewProxy(cfg *cfgProxy) *Proxy {
@@ -45,7 +48,7 @@ func NewProxy(cfg *cfgProxy) *Proxy {
 
 func (p *Proxy) Run() {
 	http.HandleFunc("/", p.proxyHandler)
-	http.HandleFunc("/internal/reload", p.reloadHandler)
+	http.HandleFunc("/__air_internal/sse", p.reloadHandler)
 	if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(p.Stop())
 	}
@@ -53,6 +56,10 @@ func (p *Proxy) Run() {
 
 func (p *Proxy) Reload() {
 	p.stream.Reload()
+}
+
+func (p *Proxy) BuildFailed(msg BuildFailedMsg) {
+	p.stream.BuildFailed(msg)
 }
 
 func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
@@ -68,16 +75,11 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 		return page, nil
 	}
 
-	script := fmt.Sprintf(
-		`<script>new EventSource("http://localhost:%d/internal/reload").onmessage = () => { location.reload() }</script>`,
-		p.config.ProxyPort,
-	)
+	script := "<script>" + ProxyScript + "</script>"
 	return page[:body] + script + page[body:], nil
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 	appURL := r.URL
 	appURL.Scheme = "http"
 	appURL.Host = fmt.Sprintf("localhost:%d", p.config.AppPort)
@@ -106,18 +108,24 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("X-Forwarded-For", r.RemoteAddr)
 
-	// retry on connection refused error since after a file change air will restart the server and it may take a few milliseconds for the server to be up-and-running.
+	// set the via header
+	viaHeaderValue := fmt.Sprintf("%s %s", r.Proto, r.Host)
+	req.Header.Set("Via", viaHeaderValue)
+
+	// air will restart the server. it may take a few milliseconds for it to start back up.
+	// therefore, we retry until the server becomes available or this retry loop exits with an error.
 	var resp *http.Response
+	resp, err = p.client.Do(req)
 	for i := 0; i < 10; i++ {
-		resp, err = p.client.Do(req)
 		if err == nil {
 			break
 		}
-		if !errors.Is(err, syscall.ECONNREFUSED) {
-			http.Error(w, "proxy handler: unable to reach app", http.StatusInternalServerError)
-			return
-		}
 		time.Sleep(100 * time.Millisecond)
+		resp, err = p.client.Do(req)
+	}
+	if err != nil {
+		http.Error(w, "proxy handler: unable to reach app", http.StatusInternalServerError)
+		return
 	}
 	defer resp.Body.Close()
 
@@ -130,6 +138,8 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Via", viaHeaderValue)
 	w.WriteHeader(resp.StatusCode)
 
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
@@ -173,8 +183,8 @@ func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	for range sub.reloadCh {
-		fmt.Fprintf(w, "data: reload\n\n")
+	for msg := range sub.msgCh {
+		fmt.Fprint(w, msg.AsSSE())
 		flusher.Flush()
 	}
 }
