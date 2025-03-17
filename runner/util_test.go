@@ -41,19 +41,15 @@ func TestIsDirFileNot(t *testing.T) {
 }
 
 func TestExpandPathWithRelPath(t *testing.T) {
-	tmp := path.Join("_testdata", "tmp")
-	err := os.Mkdir(tmp, 0750)
-	defer os.Remove(tmp)
-	if err != nil {
-		t.Fatalf("Error creating temp directory for testing: %v", err)
-	}
+	relPath := path.Join("_testdata", "toml", ".air.toml")
 
-	expandedPath, _ := expandPath("_testdata/tmp")
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Error getting cwd: %v", err)
 	}
-	expected := path.Join(wd, tmp)
+
+	expandedPath, _ := expandPath(relPath)
+	expected := path.Join(wd, relPath)
 	if expandedPath != expected {
 		t.Errorf("expected %s got %s", expected, expandedPath)
 	}

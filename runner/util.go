@@ -221,6 +221,7 @@ func isSymlink(path string) (bool, error) {
 
 // Dereferences a symbolic link to its relative path.
 // If the path is not a symlink, simply returns the path.
+// If the file does not exist, return the path and no err.
 func derefLink(path string) (string, error) {
 	ok, err := isSymlink(path)
 	if err != nil {
