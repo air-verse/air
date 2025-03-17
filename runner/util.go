@@ -274,6 +274,9 @@ func expandPath(path string) (string, error) {
 func derefLink(path string) (string, error) {
 	ok, err := isSymlink(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return path, nil
+		}
 		return "", err
 	}
 	if !ok {
