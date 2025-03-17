@@ -211,7 +211,6 @@ func (e *Engine) logWithLock(f func()) {
 func isSymlink(path string) (bool, error) {
 	pathInfo, err := os.Lstat(path)
 	if err != nil {
-		log.Printf("Error calling Lstat on root directory: %v\n", err)
 		return false, err
 	}
 	if (pathInfo.Mode() & os.ModeSymlink) != 0 {
@@ -225,6 +224,9 @@ func isSymlink(path string) (bool, error) {
 func derefLink(path string) (string, error) {
 	ok, err := isSymlink(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return path, nil
+		}
 		return "", err
 	}
 	if !ok {
