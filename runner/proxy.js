@@ -1,6 +1,10 @@
 (() => {
     const eventSource = new EventSource("/__air_internal/sse");
 
+    window.addEventListener('beforeunload', function() {
+        eventSource.close();
+    })
+
     eventSource.addEventListener('reload', () => {
         location.reload();
     });
