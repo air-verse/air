@@ -51,12 +51,20 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v5
         with:
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: cosmtrek/air:latest
+          tags: |
+            cosmtrek/air:latest
+            ghcr.io/${{ github.repository_owner }}/air:latest
       - name: Show image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
