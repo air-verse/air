@@ -42,7 +42,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### 使用 `go install` （推荐）
 
-使用 go 1.23 或更高版本:
+使用 go 1.24 或更高版本:
 
 ```shell
 go install github.com/air-verse/air@latest
@@ -205,7 +205,7 @@ services:
 
 ```Dockerfile
 # 选择你想要的版本，>= 1.16
-FROM golang:1.23-alpine
+FROM golang:1.24-alpine
 
 WORKDIR /app
 

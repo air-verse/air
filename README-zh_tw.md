@@ -42,7 +42,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### 使用 `go install` （推薦）
 
-需要使用 go 1.23 或更高版本：
+需要使用 go 1.24 或更高版本：
 
 ```bash
 go install github.com/air-verse/air@latest
