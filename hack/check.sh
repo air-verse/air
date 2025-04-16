@@ -20,7 +20,7 @@ fi
 
 echo -e "${green}2. Linting"
 out=$(golangci-lint run)
-if [[ -n "${out}" ]]; then
+if [[ -n "${out}" && "${out}" != "0 issues." ]]; then
     echo "${red}${out}"
     exit_code=1
 fi
