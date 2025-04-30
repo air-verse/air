@@ -11,12 +11,14 @@ import (
 	"syscall"
 
 	"github.com/air-verse/air/runner"
+	"github.com/fatih/color"
 )
 
 var (
 	cfgPath     string
 	debugMode   bool
 	showVersion bool
+	forceColor  bool
 	cmdArgs     map[string]runner.TomlInfo
 )
 
@@ -39,6 +41,7 @@ func parseFlag(args []string) {
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
+	flag.BoolVar(&forceColor, "colored", false, "force colored output")
 	cmd := flag.CommandLine
 	cmdArgs = runner.ParseConfigFlag(cmd)
 	if err := flag.CommandLine.Parse(args); err != nil {
@@ -81,6 +84,9 @@ func printSplash() {
 }
 
 func main() {
+	if forceColor {
+		color.NoColor = false
+	}
 	if showVersion {
 		printSplash()
 		return
