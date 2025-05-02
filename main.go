@@ -18,7 +18,7 @@ var (
 	cfgPath     string
 	debugMode   bool
 	showVersion bool
-	forceColor  bool
+	colorMode   string
 	cmdArgs     map[string]runner.TomlInfo
 )
 
@@ -41,7 +41,7 @@ func parseFlag(args []string) {
 	flag.StringVar(&cfgPath, "c", "", "config path")
 	flag.BoolVar(&debugMode, "d", false, "debug mode")
 	flag.BoolVar(&showVersion, "v", false, "show version")
-	flag.BoolVar(&forceColor, "colored", false, "force colored output")
+	flag.StringVar(&colorMode, "color", "auto", "colored output: auto, always, never")
 	cmd := flag.CommandLine
 	cmdArgs = runner.ParseConfigFlag(cmd)
 	if err := flag.CommandLine.Parse(args); err != nil {
@@ -84,8 +84,15 @@ func printSplash() {
 }
 
 func main() {
-	if forceColor {
+	switch colorMode {
+	case "always":
 		color.NoColor = false
+	case "never":
+		color.NoColor = true
+	case "auto", "":
+		// do nothing
+	default:
+		log.Fatal("unsupported color mode: use always, never, auto")
 	}
 	if showVersion {
 		printSplash()
