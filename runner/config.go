@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"dario.cat/mergo"
+	"github.com/fatih/color"
 	"github.com/pelletier/go-toml"
 )
 
@@ -163,6 +164,7 @@ type cfgColor struct {
 	Watcher string `toml:"watcher" usage:"Customize watcher part's color"`
 	Build   string `toml:"build" usage:"Customize build part's color"`
 	Runner  string `toml:"runner" usage:"Customize runner part's color"`
+	Force   bool   `toml:"force" usage:"Force colorized output"`
 	App     string `toml:"app"`
 }
 
@@ -632,6 +634,11 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+
+	if c.Color.Force == true {
+		// Force colorful output, see https://github.com/fatih/color#disableenable-color
+		color.NoColor = false
+	}
 
 	return err
 }
