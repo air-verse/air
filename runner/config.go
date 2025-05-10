@@ -77,7 +77,7 @@ type cfgColor struct {
 	Watcher string `toml:"watcher" usage:"Customize watcher part's color"`
 	Build   string `toml:"build" usage:"Customize build part's color"`
 	Runner  string `toml:"runner" usage:"Customize runner part's color"`
-	Force   bool   `toml:"force" usage:"Force colorized output"`
+	Mode    string `toml:"mode" usage:"Colorized output mode, one of always, auto, or never. Defaults to auto"`
 	App     string `toml:"app"`
 }
 
@@ -336,9 +336,16 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	// CMD will not recognize relative path like ./tmp/server
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
-	if c.Color.Force == true {
-		// Force colorful output, see https://github.com/fatih/color#disableenable-color
+	// Set colorful output, see https://github.com/fatih/color#disableenable-color
+	switch c.Color.Mode {
+	case "always":
 		color.NoColor = false
+	case "never":
+		color.NoColor = true
+	case "auto", "":
+		break
+	default:
+		return fmt.Errorf("unsupported value for color mode: %s. Expected always, auto, or never", c.Color.Mode)
 	}
 
 	return err
