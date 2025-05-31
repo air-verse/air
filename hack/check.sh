@@ -19,12 +19,13 @@ if [[ "${#files[@]}" -ne 0 ]]; then
 fi
 
 echo -e "${green}2. Linting"
-out=$(golangci-lint run)
-if [[ -n "${out}" ]]; then
-    echo "${red}${out}"
+if ! command -v golangci-lint &> /dev/null; then
+    echo "${red}golangci-lint command not found. Please install it first."
+    exit_code=1
+elif ! golangci-lint run; then
+    echo "${red}Linting issues found."
     exit_code=1
 fi
-
 
 if [[ ${exit_code} -ne 0 ]]; then
     echo "${red}Please fix the errors above :)"

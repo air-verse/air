@@ -18,7 +18,11 @@ jobs:
         id: go
         uses: actions/setup-go@v5
         with:
-          go-version: ^1.23
+          go-version: ^1.24
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
       - name: Install
         run: make install
       - name: Check rebuild
