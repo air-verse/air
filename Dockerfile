@@ -1,4 +1,4 @@
-FROM golang:1.23 AS builder
+FROM golang:1.24 AS builder
 
 LABEL maintainer="Rick Yu <cosmtrek@gmail.com>"
 
@@ -12,7 +12,7 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build make ci && make install
 
-FROM golang:1.23
+FROM golang:1.24
 
 COPY --from=builder /go/bin/air  /go/bin/air
 
