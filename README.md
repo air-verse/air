@@ -4,7 +4,7 @@
 
 ![air](docs/air.png)
 
-English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md) | [日本語](README-ja.md)
+English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md) | [日本語](README-ja.md) | [Français](README-fr-fr.md)
 
 ## Motivation
 
