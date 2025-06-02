@@ -184,6 +184,7 @@ func defaultPathConfig() (*Config, error) {
 		}
 	}
 
+	fmt.Println("local config file not found, using default config.")
 	dftCfg := defaultConfig()
 	return &dftCfg, nil
 }
