@@ -207,23 +207,57 @@ func (e *Engine) logWithLock(f func()) {
 	e.ll.Unlock()
 }
 
-func expandPath(path string) (string, error) {
-	if strings.HasPrefix(path, "~/") {
-		home := os.Getenv("HOME")
-		return home + path[1:], nil
+// Checks if a directory is a symbolic link
+func isSymlink(path string) (bool, error) {
+	pathInfo, err := os.Lstat(path)
+	if err != nil {
+		return false, err
 	}
-	var err error
-	wd, err := os.Getwd()
+	if (pathInfo.Mode() & os.ModeSymlink) != 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+// Dereferences a symbolic link to its relative path.
+// If the path is not a symlink, simply returns the path.
+// If the file does not exist, return the path and no err.
+func derefLink(path string) (string, error) {
+	ok, err := isSymlink(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return path, nil
+		}
+		return "", err
+	}
+	if !ok {
+		return path, nil
+	}
+
+	targetPath, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return "", err
 	}
-	if path == "." {
-		return wd, nil
+	absTargetPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		return "", err
 	}
-	if strings.HasPrefix(path, "./") {
-		return wd + path[1:], nil
+	return absTargetPath, nil
+}
+
+// expandPath takes a path string (which may be absolute, relative, or tilde
+// expanded) and returns an absolute path to that file.
+func expandPath(path string) (string, error) {
+	if strings.HasPrefix(path, "~/") {
+		home := os.Getenv("HOME")
+		path = filepath.Join(home, path[1:])
 	}
-	return path, nil
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	return absPath, nil
 }
 
 func isDir(path string) bool {
