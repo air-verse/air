@@ -81,3 +81,5 @@ keep_scroll = true
 enabled = true
 proxy_port = 8090
 app_port = 8080
+use_host_header = false
+retries = 10
