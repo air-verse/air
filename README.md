@@ -62,6 +62,17 @@ With go 1.23 or higher:
 go install github.com/air-verse/air@latest
 ```
 
+### Via `go get -tool` (project install)
+
+With go 1.24 or higher:
+
+```bash
+go get -tool github.com/air-verse/air@latest
+
+# then use it like so:
+go tool air -v
+```
+
 ### Via install.sh
 
 ```shell

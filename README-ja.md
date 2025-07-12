@@ -62,6 +62,16 @@ go 1.23以上を使う場合:
 go install github.com/air-verse/air@latest
 ```
 
+### `go get -tool` を使う場合
+
+go 1.24以上を使う場合:
+
+```bash
+go get -tool github.com/air-verse/air@latest
+
+go tool air -v
+```
+
 ### `install.sh` を使う場合
 
 ```shell

@@ -48,6 +48,16 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 go install github.com/air-verse/air@latest
 ```
 
+### 使用 `go get -tool`
+
+需要使用 go 1.24 或更高版本：
+
+```bash
+go get -tool github.com/air-verse/air@latest
+
+go tool air -v
+```
+
 ### 透過 install.sh
 
 ```shell
