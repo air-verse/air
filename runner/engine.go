@@ -36,9 +36,11 @@ type Engine struct {
 	binStopCh chan<- chan int
 	exitCh    chan bool
 
-	mu            sync.RWMutex
-	watchers      uint
-	fileChecksums *checksumMap
+	mu                sync.RWMutex
+	watchers          uint
+	fileChecksums     *checksumMap
+	buildMutex        sync.Mutex
+	shouldCancelBuild atomic.Bool
 
 	ll sync.Mutex // lock for logger
 }
@@ -362,31 +364,31 @@ func (e *Engine) start() {
 			// go down
 		}
 
-		// already build and run now
-		select {
-		case <-e.buildRunCh:
-			e.buildRunStopCh <- true
-		default:
-		}
+		go func() {
+			// if current app is running, stop it
+			e.stopBin()
 
-		// if current app is running, stop it
-		e.stopBin()
+			// signal existing build to stop
+			e.shouldCancelBuild.Store(true)
 
-		go e.buildRun()
+			// block waiting for existing build to finish
+			e.buildMutex.Lock()
+			defer e.buildMutex.Unlock()
+
+			// we don't want to cancel the current build
+			e.shouldCancelBuild.Store(false)
+
+			e.buildRun()
+		}()
 	}
 }
 
 func (e *Engine) buildRun() {
-	e.buildRunCh <- true
-	defer func() {
-		<-e.buildRunCh
-	}()
-
-	select {
-	case <-e.buildRunStopCh:
+	// if the build should be canceled, do nothing
+	if e.shouldCancelBuild.Load() {
 		return
-	default:
 	}
+
 	var err error
 	if err = e.runPreCmd(); err != nil {
 		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
@@ -412,14 +414,18 @@ func (e *Engine) buildRun() {
 		}
 	}
 
-	select {
-	case <-e.buildRunStopCh:
+	// no need to run the binary if the build should be canceled
+	if e.shouldCancelBuild.Load() {
 		return
+	}
+
+	select {
 	case <-e.exitCh:
 		e.mainDebug("exit in buildRun")
 		return
 	default:
 	}
+
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
 	}
