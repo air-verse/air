@@ -16,3 +16,15 @@ archives:
     format: tar.gz
   - id: binary
     format: binary
+
+brews:
+  - name: air
+    description: "Live reload for Go apps"
+    homepage: "https://github.com/air-verse/air"
+    repository:
+      owner: air-verse
+      name: homebrew-tap
+    install: |
+      bin.install "air"
+    test: |
+      system "#{bin}/air -v"
