@@ -280,7 +280,7 @@ func adaptToVariousPlatforms(c *Config) {
 		isPowershell := isPowershell()
 
 		if isPowershell {
-			runName = "Start-Process -FilePath"
+			runName = "Start-Process -FilePath "
 		}
 
 		if 0 < len(c.Build.FullBin) {
