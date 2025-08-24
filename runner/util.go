@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -299,6 +300,24 @@ func cmdPath(path string) string {
 	return strings.Split(path, " ")[0]
 }
 
+func isPowershell() bool {
+	if runtime.GOOS != PlatformWindows {
+		return false
+	}
+
+	c := exec.Command("powershell", "(dir 2>&1 *`|echo CMD);&<# rem #>echo PowerShell")
+	stdout, err := c.Output()
+	if err != nil {
+		return false
+	}
+
+	if string(stdout) == "CMD" {
+		return false
+	}
+
+	return true
+}
+
 func adaptToVariousPlatforms(c *Config) {
 	// Fix the default configuration is not used in Windows
 	// Use the unix configuration on Windows
@@ -308,6 +327,13 @@ func adaptToVariousPlatforms(c *Config) {
 		extName := ".exe"
 		originBin := c.Build.Bin
 
+		// Check using PowerShell or cmd
+		isPowershell := isPowershell()
+
+		if isPowershell {
+			runName = "Start-Process -FilePath"
+		}
+
 		if 0 < len(c.Build.FullBin) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
@@ -315,6 +341,10 @@ func adaptToVariousPlatforms(c *Config) {
 			}
 			if !strings.HasPrefix(c.Build.FullBin, runName) {
 				c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
+
+				if isPowershell {
+					c.Build.FullBin = runName + c.Build.FullBin + " -wait -nonewwindow" // equivalent to start /wait /b on cmd
+				}
 			}
 		}
 
