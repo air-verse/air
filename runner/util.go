@@ -279,20 +279,23 @@ func adaptToVariousPlatforms(c *Config) {
 		// Check using PowerShell or cmd
 		isPowershell := isPowershell()
 
-		if isPowershell {
-			runName = "Start-Process -FilePath "
-		}
-
 		if 0 < len(c.Build.FullBin) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
 				c.Build.FullBin += extName
 			}
 			if !strings.HasPrefix(c.Build.FullBin, runName) {
-				c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
-
 				if isPowershell {
-					c.Build.FullBin = runName + c.Build.FullBin + " -wait -nonewwindow" // equivalent to start /wait /b on cmd
+					parts := strings.SplitN(c.Build.FullBin, " ", 2)
+					exe := parts[0]
+					args := ""
+					if len(parts) > 1 {
+						args = parts[1]
+					}
+
+					c.Build.FullBin = fmt.Sprintf(`Start-Process -FilePath "%s" -ArgumentList "%s" -Wait -NoNewWindow`, exe, args)
+				} else {
+					c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
 				}
 			}
 		}
