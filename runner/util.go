@@ -22,6 +22,16 @@ const (
 	sliceCmdArgSeparator = ","
 )
 
+var (
+	getGOOSFunc = func() string {
+		return runtime.GOOS
+	}
+
+	isPowershellFunc = func() bool {
+		return isPowershell()
+	}
+)
+
 func (e *Engine) mainLog(format string, v ...interface{}) {
 	if e.config.Log.Silent {
 		return
@@ -270,40 +280,67 @@ func isPowershell() bool {
 func adaptToVariousPlatforms(c *Config) {
 	// Fix the default configuration is not used in Windows
 	// Use the unix configuration on Windows
-	if runtime.GOOS == PlatformWindows {
+	if getGOOSFunc() == PlatformWindows {
 
 		runName := "start"
 		extName := ".exe"
-		originBin := c.Build.Bin
 
 		// Check using PowerShell or cmd
-		isPowershell := isPowershell()
+		isPowershell := isPowershellFunc()
 
-		if 0 < len(c.Build.FullBin) {
+		if c.Build.FullBin != "" {
+			if isPowershell {
+				exe, args := "", ""
 
-			if !strings.HasSuffix(c.Build.FullBin, extName) {
-				c.Build.FullBin += extName
-			}
-			if !strings.HasPrefix(c.Build.FullBin, runName) {
-				if isPowershell {
+				if strings.HasPrefix(c.Build.FullBin, `"`) {
+					end := strings.Index(c.Build.FullBin[1:], `"`)
+					if end > 0 {
+						exe = c.Build.FullBin[1 : end+1]
+						if len(c.Build.FullBin) > end+2 {
+							args = strings.TrimSpace(c.Build.FullBin[end+2:])
+						}
+					}
+				} else {
 					parts := strings.SplitN(c.Build.FullBin, " ", 2)
-					exe := parts[0]
-					args := ""
+					exe = parts[0]
 					if len(parts) > 1 {
 						args = parts[1]
 					}
+				}
 
-					c.Build.FullBin = fmt.Sprintf(`Start-Process -FilePath "%s" -ArgumentList "%s" -Wait -NoNewWindow`, exe, args)
-				} else {
+				if !strings.HasSuffix(exe, extName) {
+					exe += extName
+				}
+
+				c.Build.FullBin = fmt.Sprintf(`Start-Process -FilePath "%s" -ArgumentList "%s" -Wait -NoNewWindow`, exe, args)
+			} else {
+				if !strings.HasSuffix(strings.ToLower(c.Build.FullBin), extName) {
+					c.Build.FullBin += extName
+				}
+				if !strings.HasPrefix(c.Build.FullBin, runName) {
 					c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
 				}
 			}
 		}
 
-		// bin=/tmp/main  cmd=go build -o ./tmp/main.exe main.go
-		if !strings.Contains(c.Build.Cmd, c.Build.Bin) && strings.Contains(c.Build.Cmd, originBin) {
-			c.Build.Cmd = strings.Replace(c.Build.Cmd, originBin, c.Build.Bin, 1)
+		if c.Build.Bin != "" {
+			if !strings.HasPrefix(c.Build.Bin, "./") &&
+				!strings.HasPrefix(c.Build.Bin, ".\\") &&
+				!strings.Contains(c.Build.Bin, ":") && // windows drive letter
+				!strings.HasPrefix(c.Build.Bin, "/") { // unix absolute path
+				c.Build.Bin = "./" + c.Build.Bin
+			}
+
+			if !strings.HasSuffix(strings.ToLower(c.Build.Bin), extName) {
+				c.Build.Bin += extName
+			}
+
+			if c.Build.Cmd == "" {
+				c.Build.Cmd = fmt.Sprintf("go build -o %s main.go", c.Build.Bin)
+			}
+
 		}
+
 	}
 }
 
