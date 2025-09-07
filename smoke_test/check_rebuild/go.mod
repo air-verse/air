@@ -1,3 +1,3 @@
 module air.sample.com
 
-go 1.17
+go 1.24
