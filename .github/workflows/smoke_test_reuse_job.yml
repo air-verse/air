@@ -22,7 +22,8 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1
+          install-mode: goinstall
+          version: latest
       - name: Install
         run: make install
       - name: Check rebuild

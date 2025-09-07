@@ -23,7 +23,9 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1
+          # Build golangci-lint from source with the configured Go version
+          install-mode: goinstall
+          version: latest
       - name: Install dependency
         run: if [ $(uname) == "Darwin" ]; then brew install gnu-sed ;fi
       - name: Build
