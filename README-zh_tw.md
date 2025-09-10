@@ -55,6 +55,7 @@ go install github.com/air-verse/air@latest
 ```shell
 go get -tool github.com/air-verse/air@latest
 
+# 然後這樣使用：
 go tool air -v
 ```
 

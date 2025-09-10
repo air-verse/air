@@ -69,6 +69,7 @@ go 1.24以上を使う場合:
 ```shell
 go get -tool github.com/air-verse/air@latest
 
+# 使い方は以下の通りです:
 go tool air -v
 ```
 
