@@ -32,7 +32,13 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	if !strings.Contains(cmd, ".exe") {
 		e.runnerLog("CMD will not recognize non .exe file for execution, path: %s", cmd)
 	}
-	c := exec.Command("powershell", cmd)
+
+	shell := e.config.Build.Shell
+	if shell == "" {
+		shell = "powershell"
+	}
+
+	c := exec.Command(shell, cmd)
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err
