@@ -134,7 +134,7 @@ cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
 
-this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish and `$@` is to accept arguments of the application itself for example -c
+this will replace `$PWD` with the current directory, `$AIR_PORT` is the port where to publish, and `$@` is to accept arguments of the application itself, for example -c
 
 </details>
 
@@ -142,20 +142,12 @@ this will replace `$PWD` with the current directory, `$AIR_PORT` is the port whe
 
 For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
 
-First enter into your project
+First, enter your project
 
 ```shell
 cd /path/to/your_project
 ```
-
-The simplest usage is run
-
-```shell
-# firstly find `.air.toml` in current directory, if not found, use defaults
-air -c .air.toml
-```
-
-You can initialize the `.air.toml` configuration file to the current directory with the default settings running the following command.
+You can initialize the `.air.toml` configuration file to the current directory with the default settings by running the following command.
 
 ```shell
 air init
@@ -167,7 +159,17 @@ After this, you can just run the `air` command without additional arguments, and
 air
 ```
 
-For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
+
+The simplest usage is run
+
+```shell
+# firstly find `.air.toml` in current directory, if not found, use defaults
+air -c .air.toml
+```
+
+
+
+For modifying the configuration, refer to the [air_example.toml](air_example.toml) file.
 
 ### Runtime arguments
 
