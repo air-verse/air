@@ -1072,6 +1072,70 @@ func (te *testExiter) Exit(code int) {
 	}
 }
 
+func TestKeepBuiltBinary(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		keepBuiltBinary bool
+	}{
+		{name: "removes the built binary after stopping", keepBuiltBinary: false},
+		{name: "keeps the built binary after stopping", keepBuiltBinary: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			port, f := GetPort()
+			f()
+			t.Logf("port: %d", port)
+
+			tmpDir := initTestEnv(t, port)
+			chdir(t, tmpDir)
+
+			engine, err := NewEngine("", nil, true)
+			if err != nil {
+				t.Fatalf("Failed to create engine: %v", err)
+			}
+
+			engine.config.Build.StopOnError = true // if false, the binary never gets deleted
+			engine.config.Build.KeepBuiltBinary = tc.keepBuiltBinary
+
+			stopped := make(chan struct{})
+			go func() {
+				engine.Run()
+				stopped <- struct{}{}
+			}()
+
+			err = waitingPortReady(t, port, time.Second*10)
+			if err != nil {
+				t.Fatalf("Should not be fail: %s.", err)
+			}
+			t.Logf("port is ready")
+
+			// Binary exists while running
+			binPath := engine.config.binPath()
+			if _, err := os.Stat(binPath); err != nil {
+				t.Fatalf("Failed to stat file %s: %v", binPath, err)
+			}
+
+			engine.Stop()
+			<-stopped
+			t.Logf("engine stopped")
+			time.Sleep(time.Second * 1)
+
+			// Check again after stopping air
+			binExists := true
+			if _, err = os.Stat(binPath); err != nil {
+				if os.IsNotExist(err) {
+					binExists = false
+				} else {
+					t.Fatalf("Failed to stat file %s: %v", binPath, err)
+				}
+			}
+
+			if binExists != tc.keepBuiltBinary {
+				t.Errorf("Binary exists? want=%v got=%v", tc.keepBuiltBinary, binExists)
+			}
+		})
+	}
+}
+
 func TestEngineExit(t *testing.T) {
 	tests := []struct {
 		name       string

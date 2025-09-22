@@ -559,7 +559,7 @@ func (e *Engine) runBin() error {
 				e.mainDebug("cmd killed, pid: %d", pid)
 			}
 
-			if e.config.Build.StopOnError {
+			if e.config.Build.StopOnError && !e.config.Build.KeepBuiltBinary {
 				cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
 				if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
 					return
