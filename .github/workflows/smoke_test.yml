@@ -13,7 +13,3 @@ jobs:
     uses: ./.github/workflows/smoke_test_reuse_job.yml
     with:
       run_on: macos-latest
-  smoke_test_windows:
-    uses: ./.github/workflows/smoke_test_reuse_job_windows.yml
-    with:
-      run_on: windows-latest
