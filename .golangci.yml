@@ -24,7 +24,6 @@ linters:
       - examples$
 formatters:
   enable:
-    - gci
     - goimports
   exclusions:
     generated: lax
