@@ -58,7 +58,12 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 }
 
 func sendSignalToProcessTree(pid int, sig syscall.Signal) error {
+	descendants, descendantsErr := collectDescendantPIDs(pid)
 	var errs []error
+
+	if descendantsErr != nil && !errors.Is(descendantsErr, os.ErrNotExist) {
+		errs = append(errs, descendantsErr)
+	}
 
 	// Try to signal the whole process group first.
 	groupErr := syscall.Kill(-pid, sig)
@@ -72,8 +77,10 @@ func sendSignalToProcessTree(pid int, sig syscall.Signal) error {
 		errs = append(errs, procErr)
 	}
 
-	if err := signalDescendants(pid, sig); err != nil {
-		errs = append(errs, err)
+	for _, child := range descendants {
+		if err := syscall.Kill(child, sig); err != nil && !errors.Is(err, syscall.ESRCH) {
+			errs = append(errs, err)
+		}
 	}
 
 	if len(errs) == 0 && errors.Is(groupErr, syscall.ESRCH) && errors.Is(procErr, syscall.ESRCH) {
@@ -83,26 +90,33 @@ func sendSignalToProcessTree(pid int, sig syscall.Signal) error {
 	return errors.Join(errs...)
 }
 
-func signalDescendants(pid int, sig syscall.Signal) error {
+func collectDescendantPIDs(pid int) ([]int, error) {
 	children, err := readChildPIDs(pid)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil
+			return nil, nil
 		}
-		return err
+		return nil, err
 	}
 
-	var errs []error
+	var (
+		allChildren = make([]int, 0, len(children))
+		errs        []error
+	)
 	for _, child := range children {
-		if err := syscall.Kill(child, sig); err != nil && !errors.Is(err, syscall.ESRCH) {
+		allChildren = append(allChildren, child)
+		descendants, err := collectDescendantPIDs(child)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
 			errs = append(errs, err)
+			continue
 		}
-		if err := signalDescendants(child, sig); err != nil {
-			errs = append(errs, err)
-		}
+		allChildren = append(allChildren, descendants...)
 	}
 
-	return errors.Join(errs...)
+	return allChildren, errors.Join(errs...)
 }
 
 func readChildPIDs(pid int) ([]int, error) {
