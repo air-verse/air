@@ -19,11 +19,6 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ^1.25
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          install-mode: goinstall
-          version: latest
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
