@@ -19,6 +19,8 @@ const (
 	dftTOML = ".air.toml"
 	dftConf = ".air.conf"
 	airWd   = "air_wd"
+
+	schemaHeader = "#:schema https://json.schemastore.org/any.json"
 )
 
 // Config is the main configuration structure for Air.
@@ -164,7 +166,10 @@ func writeDefaultConfig() (string, error) {
 		return "", fmt.Errorf("failed to marshal the default configuration: %w", err)
 	}
 
-	_, err = file.Write(configFile)
+	headers := []byte(schemaHeader + "\n\n")
+	content := append(headers, configFile...)
+
+	_, err = file.Write(content)
 	if err != nil {
 		return "", fmt.Errorf("failed to write to %s: %w", dftTOML, err)
 	}
