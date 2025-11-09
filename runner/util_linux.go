@@ -33,7 +33,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
-	// because using pty cannot have same pgid
+	// Set Setpgid to create a new process group (not possible when using pty)
 	c.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
