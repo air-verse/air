@@ -84,6 +84,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 ```
 
+### Using software package manager [mise](https://github.com/jdx/mise)
+
+```shell
+mise use -g air
+```
+
 ### Docker/Podman
 
 Please pull this Docker image [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
