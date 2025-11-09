@@ -13,10 +13,10 @@ jobs:
     runs-on: ${{ inputs.run_on }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Go
         id: go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ^1.25
       - name: golangci-lint
