@@ -13,7 +13,7 @@ jobs:
   merge_schedule:
     runs-on: ubuntu-latest
     steps:
-      - uses: gr2m/merge-schedule-action@v2
+      - uses: gr2m/merge-schedule-action@v2.7.0
         with:
           # Merge method to use. Possible values are merge, squash or
           # rebase. Default is merge.
