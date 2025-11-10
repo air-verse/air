@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"fmt"
 	"io"
@@ -112,19 +113,31 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	viaHeaderValue := fmt.Sprintf("%s %s", r.Proto, r.Host)
 	req.Header.Set("Via", viaHeaderValue)
 
-	// air will restart the server. it may take a few milliseconds for it to start back up.
+	// air will restart the server. it may take a few seconds for it to start back up.
 	// therefore, we retry until the server becomes available or this retry loop exits with an error.
+	timeout := time.Duration(p.config.AppStartTimeout) * time.Millisecond
+	if timeout == 0 {
+		timeout = defaultProxyAppStartTimeout * time.Millisecond
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	defer cancel()
+
 	var resp *http.Response
 	resp, err = p.client.Do(req)
-	for i := 0; i < 10; i++ {
+	for {
 		if err == nil {
 			break
 		}
+		// Check if timeout has been exceeded
+		if ctx.Err() != nil {
+			err = ctx.Err()
+			break
+		}
 		time.Sleep(100 * time.Millisecond)
-		resp, err = p.client.Do(req)
+		resp, err = p.client.Do(req.WithContext(ctx))
 	}
 	if err != nil {
-		http.Error(w, "proxy handler: unable to reach app", http.StatusInternalServerError)
+		http.Error(w, "proxy handler: unable to reach app (try increasing the proxy.app_start_timeout)", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()

@@ -603,6 +603,7 @@ func (e *Engine) runBin() error {
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
 				if e.config.Proxy.Enabled {
+					e.mainDebug("reloading proxy")
 					e.proxy.Reload()
 				}
 
