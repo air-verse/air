@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -315,9 +316,11 @@ func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool)
 
 // TomlInfo is a struct for toml config file
 type TomlInfo struct {
-	fieldPath string
-	field     reflect.StructField
-	Value     *string
+	fieldPath  string
+	field      reflect.StructField
+	Value      *string
+	fieldValue string
+	usage      string
 }
 
 func setValue2Struct(v reflect.Value, fieldName string, value string) {
@@ -372,28 +375,71 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 func flatConfig(stut interface{}) map[string]TomlInfo {
 	m := make(map[string]TomlInfo)
 	t := reflect.TypeOf(stut)
-	setTage2Map("", t, m, "")
+	v := reflect.ValueOf(stut)
+	setTage2Map("", t, v, m, "")
 	return m
 }
 
-func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath string) {
+func getFieldValueString(fieldValue reflect.Value) string {
+	switch fieldValue.Kind() {
+	case reflect.Slice:
+		sliceLen := fieldValue.Len()
+		strSlice := make([]string, sliceLen)
+		for j := 0; j < sliceLen; j++ {
+			strSlice[j] = fmt.Sprintf("%v", fieldValue.Index(j).Interface())
+		}
+		return strings.Join(strSlice, ",")
+	default:
+		return fmt.Sprintf("%v", fieldValue.Interface())
+	}
+}
+
+func setTage2Map(root string, t reflect.Type, v reflect.Value, m map[string]TomlInfo, fieldPath string) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+		fieldValue := v.Field(i)
 		tomlVal := field.Tag.Get("toml")
-		switch field.Type.Kind() {
-		case reflect.Struct:
+
+		if field.Type.Kind() == reflect.Struct {
 			path := fieldPath + field.Name + "."
-			setTage2Map(root+tomlVal+".", field.Type, m, path)
-		default:
-			if tomlVal == "" {
-				continue
-			}
-			tomlPath := root + tomlVal
-			path := fieldPath + field.Name
-			var v *string
-			str := ""
-			v = &str
-			m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path}
+			setTage2Map(root+tomlVal+".", field.Type, fieldValue, m, path)
+			continue
 		}
+
+		if tomlVal == "" {
+			continue
+		}
+
+		tomlPath := root + tomlVal
+		path := fieldPath + field.Name
+		var v *string
+		str := ""
+		v = &str
+
+		fieldValueStr := getFieldValueString(fieldValue)
+		usage := field.Tag.Get("usage")
+		m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path, fieldValue: fieldValueStr, usage: usage}
 	}
+}
+
+func joinPath(root, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	return filepath.Join(root, path)
+}
+
+func formatPath(path string) string {
+	if !filepath.IsAbs(path) || !strings.Contains(path, " ") {
+		return path
+	}
+
+	quotedPath := fmt.Sprintf(`"%s"`, path)
+
+	if runtime.GOOS == PlatformWindows {
+		return fmt.Sprintf(`& %s`, quotedPath)
+	}
+
+	return quotedPath
 }

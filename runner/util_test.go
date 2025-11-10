@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -196,7 +197,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	// check processes were being killed
 	// read pids from file
 	bytesRead, err := os.ReadFile("pid")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	lines := strings.Split(string(bytesRead), "\n")
 	for _, line := range lines {
 		_, err := strconv.Atoi(line)
@@ -260,7 +261,121 @@ func TestCheckIncludeFile(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal(t, e.checkIncludeFile("main.go"), true)
-	assert.Equal(t, e.checkIncludeFile("no.go"), false)
-	assert.Equal(t, e.checkIncludeFile("."), false)
+	assert.True(t, e.checkIncludeFile("main.go"))
+	assert.False(t, e.checkIncludeFile("no.go"))
+	assert.False(t, e.checkIncludeFile("."))
+}
+
+func TestJoinPathRelative(t *testing.T) {
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, "x")
+
+	assert.Equal(t, result, filepath.Join(root, "x"))
+}
+
+func TestJoinPathAbsolute(t *testing.T) {
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	path, err := filepath.Abs("x")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, path)
+
+	assert.Equal(t, result, path)
+}
+
+func TestFormatPath(t *testing.T) {
+	type testCase struct {
+		name     string
+		path     string
+		expected string
+	}
+
+	runTests := func(t *testing.T, tests []testCase) {
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := formatPath(tt.path)
+				if result != tt.expected {
+					t.Errorf("formatPath(%q) = %q, want %q", tt.path, result, tt.expected)
+				}
+			})
+		}
+	}
+
+	t.Run("PathPlatformSpecific", func(t *testing.T) {
+		if runtime.GOOS == PlatformWindows {
+			// Windows-specific tests
+			tests := []testCase{
+				{
+					name:     "Windows style absolute path with spaces",
+					path:     `C:\My Documents\My Project\tmp\app.exe`,
+					expected: `& "C:\My Documents\My Project\tmp\app.exe"`,
+				},
+				{
+					name:     "Windows style relative path with spaces",
+					path:     `My Project\tmp\app.exe`,
+					expected: `My Project\tmp\app.exe`,
+				},
+				{
+					name:     "Windows style absolute path without spaces",
+					path:     `C:\Documents\Project\tmp\app.exe`,
+					expected: `C:\Documents\Project\tmp\app.exe`,
+				},
+			}
+			runTests(t, tests)
+		} else {
+			// Unix-specific tests
+			tests := []testCase{
+				{
+					name:     "Unix style absolute path with spaces",
+					path:     `/usr/local/my project/tmp/main`,
+					expected: `"/usr/local/my project/tmp/main"`,
+				},
+				{
+					name:     "Unix style relative path with spaces",
+					path:     "./my project/tmp/main",
+					expected: "./my project/tmp/main",
+				},
+				{
+					name:     "Unix style absolute path without spaces",
+					path:     `/usr/local/project/tmp/main`,
+					expected: `/usr/local/project/tmp/main`,
+				},
+			}
+			runTests(t, tests)
+		}
+	})
+
+	t.Run("CommonCases", func(t *testing.T) {
+		tests := []testCase{
+			{
+				name:     "Empty path",
+				path:     "",
+				expected: "",
+			},
+			{
+				name:     "Simple path",
+				path:     "main.go",
+				expected: "main.go",
+			},
+			{
+				name:     "TestShouldIncludeIncludedFile",
+				path:     "sh main.sh",
+				expected: "sh main.sh",
+			},
+		}
+		runTests(t, tests)
+	})
 }

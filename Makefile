@@ -4,7 +4,8 @@ LDFLAGS += -X "main.airVersion=$(AIRVER)"
 LDFLAGS += -X "main.goVersion=$(shell go version | sed -r 's/go version go(.*)\ .*/\1/')"
 
 GO := GO111MODULE=on CGO_ENABLED=0 go
-GOLANGCI_LINT_VERSION = v1.61.0
+GOLANGCI_LINT_VERSION = v2.6.1
+GOLANGCI_LINT_CURRENT := $(shell golangci-lint --version 2>/dev/null | sed -n 's/.*version \([0-9.]*\).*/v\1/p')
 
 .PHONY: init
 init: install-golangci-lint
@@ -15,9 +16,8 @@ init: install-golangci-lint
 
 .PHONY: install-golangci-lint
 install-golangci-lint:
-ifeq (, $(shell which golangci-lintx))
-	@$(shell curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOPATH)/bin $(GOLANGCI_LINT_VERSION))
-endif
+	@echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)"
+	@GO111MODULE=on go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
 .PHONY: setup
 setup: init
@@ -29,7 +29,7 @@ check:
 
 .PHONY: ci
 ci: init
-	@$(GO) mod tidy && $(GO) mod vendor
+	@$(GO) mod tidy
 
 .PHONY: build
 build: check

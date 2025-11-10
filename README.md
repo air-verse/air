@@ -4,7 +4,7 @@
 
 ![air](docs/air.png)
 
-English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md)
+English | [简体中文](README-zh_cn.md) | [繁體中文](README-zh_tw.md) | [日本語](README-ja.md)
 
 ## Motivation
 
@@ -30,6 +30,16 @@ Note: This tool has nothing to do with hot-deploy for production.
 
 Support air config fields as arguments:
 
+You can view the available command-line arguments by running the following commands:  
+
+```
+air -h
+```
+or  
+```
+air --help
+```
+
 If you want to config build command and run command, you can use like the following command without the config file:
 
 ```shell
@@ -46,10 +56,21 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### Via `go install` (Recommended)
 
-With go 1.23 or higher:
+With go 1.25 or higher:
 
-```bash
+```shell
 go install github.com/air-verse/air@latest
+```
+
+### Via `go get -tool` (project install)
+
+With go 1.24 or higher:
+
+```shell
+go get -tool github.com/air-verse/air@latest
+
+# then use it like so:
+go tool air -v
 ```
 
 ### Via install.sh
@@ -209,7 +230,7 @@ services:
 
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.23-alpine
+FROM golang:1.25-alpine
 
 WORKDIR /app
 
@@ -245,12 +266,12 @@ services:
 ```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
+export PATH=$PATH:$(go env GOPATH)/bin #Confirm this line in your .profile and make sure to source the .profile if you add it!!!
 ```
 
 ### Error under wsl when ' is included in the bin
 
-Should use `\` to escape the `' in the bin. related issue: [#305](https://github.com/air-verse/air/issues/305)
+Should use `\` to escape the `'` in the bin. related issue: [#305](https://github.com/air-verse/air/issues/305)
 
 ### Question: how to do hot compile only and do not run anything?
 

@@ -4,6 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func find(s map[int32]*Subscriber, id int32) bool {
@@ -43,7 +45,7 @@ func TestProxyStream(t *testing.T) {
 		wg.Add(1)
 		go func(sub *Subscriber) {
 			defer wg.Done()
-			<-sub.reloadCh
+			<-sub.msgCh
 			reloadCount.Add(1)
 		}(sub)
 	}
@@ -68,4 +70,21 @@ func TestProxyStream(t *testing.T) {
 	if got, exp := len(stream.subscribers), 0; got != exp {
 		t.Errorf("expected subscribers count to be %d, got %d", exp, got)
 	}
+}
+
+func TestBuildFailureMessage(t *testing.T) {
+	stream := NewProxyStream()
+	sub := stream.AddSubscriber()
+
+	msg := BuildFailedMsg{
+		Error:   "build failed",
+		Command: "go build",
+		Output:  "error output",
+	}
+
+	go stream.BuildFailed(msg)
+
+	received := <-sub.msgCh
+	assert.Equal(t, StreamMessageBuildFailed, received.Type)
+	assert.Equal(t, msg, received.Data)
 }
