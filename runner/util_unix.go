@@ -20,6 +20,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	waitResult := make(chan error)
 	go func() {
 		defer close(waitResult)
+		// ignore any error from Wait
 		_, _ = cmd.Process.Wait()
 	}()
 
@@ -63,13 +64,14 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 			results = append(results, err)
 		case err = <-waitResult:
 			results = append(results, err)
-			// if we have a kill delay, we ignore the kill result
+			// if we have a kill delay, but have not received a kill
+			// result yet, we fake the kill result to exit the loop below
 			if killDelay > 0 && len(results) == 1 {
 				results = append(results, nil)
 			}
 		}
 
-		if len(results) == 2 {
+		if len(results) >= 2 {
 			err = errors.Join(results...)
 			return
 		}
