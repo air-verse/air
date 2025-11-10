@@ -174,7 +174,7 @@ func writeDefaultConfig() (string, error) {
 
 func defaultPathConfig() (*Config, error) {
 	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-	for _, name := range []string{dftTOML, dftConf} {
+	for _, name := range []string{dftTOML, dftConf, ".config/air.toml"} {
 		cfg, err := readConfByName(name)
 		if err == nil {
 			if name == dftConf && !cfg.Log.Silent {
