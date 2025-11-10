@@ -42,10 +42,21 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ### 使用 `go install` （推薦）
 
-需要使用 go 1.23 或更高版本：
+需要使用 go 1.25 或更高版本：
 
-```bash
+```shell
 go install github.com/air-verse/air@latest
+```
+
+### 使用 `go get -tool`
+
+需要使用 go 1.24 或更高版本：
+
+```shell
+go get -tool github.com/air-verse/air@latest
+
+# 然後這樣使用：
+go tool air -v
 ```
 
 ### 透過 install.sh
@@ -72,7 +83,7 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 
 ### 透過 `go install`
 
-使用 go 1.18 或更高版本:
+使用 go 1.25 或更高版本:
 
 ```bash
 go install github.com/air-verse/air@latest
@@ -212,7 +223,7 @@ services:
 
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.21-alpine
+FROM golang:1.25-alpine
 
 WORKDIR /app
 

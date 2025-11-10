@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFlag(t *testing.T) {
@@ -54,7 +55,7 @@ func TestFlag(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
-			assert.NoError(t, flag.Parse(tc.args))
+			require.NoError(t, flag.Parse(tc.args))
 			assert.Equal(t, tc.expected, *cmdArgs[tc.key].Value)
 		})
 	}
@@ -98,7 +99,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			args: []string{"--build.exclude_unchanged", "true"},
 			key:  "build.exclude_unchanged",
 			check: func(t *testing.T, conf *Config) {
-				assert.Equal(t, true, conf.Build.ExcludeUnchanged)
+				assert.True(t, conf.Build.ExcludeUnchanged)
 			},
 		},
 		{
@@ -117,20 +118,40 @@ func TestConfigRuntimeArgs(t *testing.T) {
 				assert.NotEqual(t, []string{}, conf.Build.ExcludeDir)
 			},
 		},
+		{
+			name: "check full_bin",
+			args: []string{"--build.full_bin", "APP_ENV=dev APP_USER=air ./tmp/main"},
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, "APP_ENV=dev APP_USER=air ./tmp/main", conf.Build.Bin)
+			},
+		},
+
+		{
+			name: "check exclude_regex patterns compiled",
+			args: []string{"--build.exclude_regex", "test_pattern\\.go"},
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, []string{"test_pattern\\.go"}, conf.Build.ExcludeRegex)
+				patterns, err := conf.Build.RegexCompiled()
+				require.NoError(t, err)
+				require.NotNil(t, patterns)
+				require.Len(t, patterns, 1)
+				assert.True(t, patterns[0].MatchString("test_pattern.go"), "regex should match test_pattern.go")
+				assert.False(t, patterns[0].MatchString("other_file.go"), "regex shouldn't match other_file.go")
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			assert.NoError(t, os.Chdir(dir))
+			require.NoError(t, os.Chdir(dir))
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			_ = flag.Parse(tc.args)
-			cfg, err := InitConfig("")
+			cfg, err := InitConfig("", cmdArgs)
 			if err != nil {
 				log.Fatal(err)
 				return
 			}
-			cfg.WithArgs(cmdArgs)
 			tc.check(t, cfg)
 		})
 	}

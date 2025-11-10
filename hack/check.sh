@@ -19,12 +19,28 @@ if [[ "${#files[@]}" -ne 0 ]]; then
 fi
 
 echo -e "${green}2. Linting"
-out=$(golangci-lint run)
-if [[ -n "${out}" ]]; then
-    echo "${red}${out}"
+if ! command -v golangci-lint &> /dev/null; then
+    echo "${red}golangci-lint command not found. Please install it first."
     exit_code=1
-fi
+else
+    # If golangci-lint was built with an older Go than the module target, hint to upgrade
+    lint_go_ver=$(golangci-lint --version 2>/dev/null | sed -n 's/.*built with go\([0-9]\+\.[0-9]\+\).*/\1/p')
+    mod_go_ver=$(sed -n 's/^go \([0-9]\+\.[0-9]\+\).*/\1/p' go.mod | head -n1)
+    if [[ -n "${lint_go_ver}" && -n "${mod_go_ver}" ]]; then
+        lint_minor=$(echo "${lint_go_ver}" | cut -d. -f2)
+        mod_minor=$(echo "${mod_go_ver}" | cut -d. -f2)
+        if [[ ${lint_minor} -lt ${mod_minor} ]]; then
+            echo "${red}can't load config: the Go language version (go${lint_go_ver}) used to build golangci-lint is lower than the targeted Go version (${mod_go_ver})"
+            echo "${red}Hint: upgrade golangci-lint (run: make init)"
+            exit_code=1
+        fi
+    fi
 
+    if [[ ${exit_code} -eq 0 ]] && ! golangci-lint run; then
+        echo "${red}Linting issues found."
+        exit_code=1
+    fi
+fi
 
 if [[ ${exit_code} -ne 0 ]]; then
     echo "${red}Please fix the errors above :)"

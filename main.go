@@ -89,12 +89,11 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
 	var err error
-	cfg, err := runner.InitConfig(cfgPath)
+	cfg, err := runner.InitConfig(cfgPath, cmdArgs)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	cfg.WithArgs(cmdArgs)
 	if !cfg.Log.Silent {
 		printSplash()
 	}

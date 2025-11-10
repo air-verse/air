@@ -43,7 +43,7 @@ func TestBinCmdPath(t *testing.T) {
 	var err error
 
 	c := getWindowsConfig()
-	err = c.preprocess()
+	err = c.preprocess(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,6 @@ func TestDefaultPathConfig(t *testing.T) {
 	}}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(airWd, tt.path)
 			c, err := defaultPathConfig()
@@ -119,7 +118,7 @@ func TestReadConfByName(t *testing.T) {
 func TestConfPreprocess(t *testing.T) {
 	t.Setenv(airWd, "_testdata/toml")
 	df := defaultConfig()
-	err := df.preprocess()
+	err := df.preprocess(nil)
 	if err != nil {
 		t.Fatalf("preprocess error %v", err)
 	}
@@ -144,7 +143,7 @@ func TestConfigWithRuntimeArgs(t *testing.T) {
 
 	t.Run("when using bin", func(t *testing.T) {
 		df := defaultConfig()
-		if err := df.preprocess(); err != nil {
+		if err := df.preprocess(nil); err != nil {
 			t.Fatalf("preprocess error %v", err)
 		}
 
@@ -156,7 +155,7 @@ func TestConfigWithRuntimeArgs(t *testing.T) {
 	t.Run("when using full_bin", func(t *testing.T) {
 		df := defaultConfig()
 		df.Build.FullBin = "./tmp/main"
-		if err := df.preprocess(); err != nil {
+		if err := df.preprocess(nil); err != nil {
 			t.Fatalf("preprocess error %v", err)
 		}
 

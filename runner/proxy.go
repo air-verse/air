@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"io"
 	"log"
@@ -11,10 +12,14 @@ import (
 	"time"
 )
 
-type Reloader interface {
+//go:embed proxy.js
+var ProxyScript string
+
+type Streamer interface {
 	AddSubscriber() *Subscriber
 	RemoveSubscriber(id int32)
 	Reload()
+	BuildFailed(msg BuildFailedMsg)
 	Stop()
 }
 
@@ -22,7 +27,7 @@ type Proxy struct {
 	server *http.Server
 	client *http.Client
 	config *cfgProxy
-	stream Reloader
+	stream Streamer
 }
 
 func NewProxy(cfg *cfgProxy) *Proxy {
@@ -43,7 +48,7 @@ func NewProxy(cfg *cfgProxy) *Proxy {
 
 func (p *Proxy) Run() {
 	http.HandleFunc("/", p.proxyHandler)
-	http.HandleFunc("/internal/reload", p.reloadHandler)
+	http.HandleFunc("/__air_internal/sse", p.reloadHandler)
 	if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(p.Stop())
 	}
@@ -51,6 +56,10 @@ func (p *Proxy) Run() {
 
 func (p *Proxy) Reload() {
 	p.stream.Reload()
+}
+
+func (p *Proxy) BuildFailed(msg BuildFailedMsg) {
+	p.stream.BuildFailed(msg)
 }
 
 func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
@@ -66,13 +75,11 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 		return page, nil
 	}
 
-	script := `<script>new EventSource("/internal/reload").onmessage = () => { location.reload() }</script>`
+	script := "<script>" + ProxyScript + "</script>"
 	return page[:body] + script + page[body:], nil
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 	appURL := r.URL
 	appURL.Scheme = "http"
 	appURL.Host = fmt.Sprintf("localhost:%d", p.config.AppPort)
@@ -131,6 +138,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Via", viaHeaderValue)
 	w.WriteHeader(resp.StatusCode)
 
@@ -175,8 +183,8 @@ func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	for range sub.reloadCh {
-		fmt.Fprintf(w, "data: reload\n\n")
+	for msg := range sub.msgCh {
+		fmt.Fprint(w, msg.AsSSE())
 		flusher.Flush()
 	}
 }
