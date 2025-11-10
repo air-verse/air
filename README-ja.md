@@ -58,8 +58,19 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 go 1.25以上を使う場合:
 
-```bash
+```shell
 go install github.com/air-verse/air@latest
+```
+
+### `go get -tool` を使う場合
+
+go 1.24以上を使う場合:
+
+```shell
+go get -tool github.com/air-verse/air@latest
+
+# 使い方は以下の通りです:
+go tool air -v
 ```
 
 ### `install.sh` を使う場合
