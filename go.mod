@@ -4,7 +4,6 @@ go 1.25
 
 require (
 	dario.cat/mergo v1.0.2
-	github.com/creack/pty v1.1.24
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gohugoio/hugo v0.149.1
