@@ -783,6 +783,13 @@ func TestWriteDefaultConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	raw, err := os.ReadFile(configName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedPrefix := schemaHeader + "\n\n"
+	assert.True(t, strings.HasPrefix(string(raw), expectedPrefix), "config should start with schema header")
+
 	// check the file content is right
 	actual, err := readConfig(configName)
 	if err != nil {

@@ -1,3 +1,5 @@
+#:schema https://json.schemastore.org/any.json
+
 # Config file for [Air](https://github.com/air-verse/air) in TOML format
 
 # Working directory
