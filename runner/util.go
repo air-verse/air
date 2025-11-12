@@ -212,7 +212,7 @@ func (e *Engine) logWithLock(f func()) {
 func copyOutput(dst io.Writer, src io.Reader) {
 	scanner := bufio.NewScanner(src)
 	for scanner.Scan() {
-		dst.Write([]byte(scanner.Text() + "\n"))
+		_, _ = dst.Write([]byte(scanner.Text() + "\n"))
 	}
 }
 
