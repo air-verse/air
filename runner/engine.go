@@ -562,8 +562,12 @@ func (e *Engine) runBin() error {
 				if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
 					return
 				}
+				if !e.config.Build.DeleteBin {
+					e.mainLog("skpping deletion of %s as per config", cmdBinPath)
+					return
+				}
 				if err = os.Remove(cmdBinPath); err != nil {
-					e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+					e.mainLog("failed to remove %s, error: %s", cmdBinPath, err)
 				}
 			}
 		}()
