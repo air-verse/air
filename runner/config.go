@@ -60,6 +60,7 @@ type cfgBuild struct {
 	KillDelay        time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
 	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
+	DeleteBin        bool          `toml:"delete_bin" usage:"Delete binary before building"`
 	regexCompiled    []*regexp.Regexp
 }
 
@@ -225,6 +226,7 @@ func defaultConfig() Config {
 		Delay:        1000,
 		Rerun:        false,
 		RerunDelay:   500,
+		DeleteBin:    true,
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
