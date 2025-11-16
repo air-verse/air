@@ -70,7 +70,7 @@ func TestNormalizeIncludeDirOutsideRoot(t *testing.T) {
 	}
 	cfg.Build.normalizeIncludeDirs(cfg.Root)
 
-	require.Len(t, cfg.Build.includeDirAbs, 0)
+	require.Empty(t, cfg.Build.includeDirAbs)
 	require.Equal(t, []string{filepath.Clean(external)}, cfg.Build.extraIncludeDirs)
 
 	engine := &Engine{config: cfg}
