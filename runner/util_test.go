@@ -340,7 +340,7 @@ func Test_sendSignalToProcessTree_ConcurrentSignalSending(t *testing.T) {
 
 	// Send signal using the concurrent implementation
 	err = sendSignalToProcessTree(pid, syscall.SIGKILL)
-	
+
 	// Should not return an error for successful kill
 	if err != nil && !errors.Is(err, syscall.ESRCH) {
 		t.Errorf("unexpected error from sendSignalToProcessTree: %v", err)
