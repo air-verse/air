@@ -20,7 +20,7 @@ Guidelines for contributors and AI coding agents working in this repository.
 
 - Build: `make build`
 - Install: `make install`
-- CI setup + vendor: `make ci`
+- CI setup: `make ci`
 - Lint/format/check staged files: `make check`
 - Run tests: `go test ./...`
 

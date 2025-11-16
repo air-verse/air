@@ -58,8 +58,19 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 With go 1.25 or higher:
 
-```bash
+```shell
 go install github.com/air-verse/air@latest
+```
+
+### Via `go get -tool` (project install)
+
+With go 1.24 or higher:
+
+```shell
+go get -tool github.com/air-verse/air@latest
+
+# then use it like so:
+go tool air -v
 ```
 
 ### Via install.sh

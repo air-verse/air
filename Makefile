@@ -29,7 +29,7 @@ check:
 
 .PHONY: ci
 ci: init
-	@$(GO) mod tidy && $(GO) mod vendor
+	@$(GO) mod tidy
 
 .PHONY: build
 build: check

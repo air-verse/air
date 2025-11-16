@@ -1,10 +1,12 @@
 package runner
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -205,6 +207,13 @@ func (e *Engine) logWithLock(f func()) {
 	e.ll.Lock()
 	f()
 	e.ll.Unlock()
+}
+
+func copyOutput(dst io.Writer, src io.Reader) {
+	scanner := bufio.NewScanner(src)
+	for scanner.Scan() {
+		_, _ = dst.Write([]byte(scanner.Text() + "\n"))
+	}
 }
 
 func expandPath(path string) (string, error) {
