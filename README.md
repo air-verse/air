@@ -180,6 +180,24 @@ air
 
 For modifying the configuration refer to the [air_example.toml](air_example.toml) file.
 
+### Configuration: Binary and Arguments
+
+When configuring your application binary in `.air.toml`, the `bin` field should only contain the path to the binary file, without any arguments:
+
+```toml
+[build]
+cmd = "go build -o ./tmp/main ."
+bin = "./tmp/main"  # Only the binary path
+args_bin = ["server", ":8080"]  # Arguments go here
+```
+
+**Important:** Passing arguments in the `bin` field (e.g., `bin = "./tmp/main server :8080"`) is deprecated and will be removed in a future version. Air will automatically detect and migrate this format with a warning, but please update your configuration to use `args_bin` for all arguments.
+
+This separation allows Air to properly:
+- Check if the binary file exists
+- Handle paths with spaces correctly
+- Pass arguments reliably across different platforms
+
 ### Runtime arguments
 
 You can pass arguments for running the built binary by adding them after the air command.

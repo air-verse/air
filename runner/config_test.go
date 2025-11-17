@@ -202,6 +202,88 @@ func TestKillDelay(t *testing.T) {
 	}
 }
 
+func TestMigrateBinArgs(t *testing.T) {
+	tests := []struct {
+		name            string
+		inputBin        string
+		inputArgsBin    []string
+		expectedBin     string
+		expectedArgsBin []string
+		shouldWarn      bool
+	}{
+		{
+			name:            "bin with arguments",
+			inputBin:        "./tmp/main server :8080",
+			inputArgsBin:    []string{},
+			expectedBin:     "./tmp/main",
+			expectedArgsBin: []string{"server", ":8080"},
+			shouldWarn:      true,
+		},
+		{
+			name:            "bin with arguments and existing args_bin",
+			inputBin:        "./tmp/main server",
+			inputArgsBin:    []string{":8080"},
+			expectedBin:     "./tmp/main",
+			expectedArgsBin: []string{"server", ":8080"},
+			shouldWarn:      true,
+		},
+		{
+			name:            "bin without arguments",
+			inputBin:        "./tmp/main",
+			inputArgsBin:    []string{"server", ":8080"},
+			expectedBin:     "./tmp/main",
+			expectedArgsBin: []string{"server", ":8080"},
+			shouldWarn:      false,
+		},
+		{
+			name:            "bin with quoted path containing spaces",
+			inputBin:        `"/path/with space/main" arg1 arg2`,
+			inputArgsBin:    []string{},
+			expectedBin:     `/path/with space/main`,
+			expectedArgsBin: []string{"arg1", "arg2"},
+			shouldWarn:      true,
+		},
+		{
+			name:            "absolute path with spaces in arguments",
+			inputBin:        "/home/user/tmp/main server :8080",
+			inputArgsBin:    []string{},
+			expectedBin:     "/home/user/tmp/main",
+			expectedArgsBin: []string{"server", ":8080"},
+			shouldWarn:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := Config{
+				Build: cfgBuild{
+					Bin:     tt.inputBin,
+					ArgsBin: tt.inputArgsBin,
+				},
+				Log: cfgLog{
+					Silent: true, // Silence warnings during test
+				},
+			}
+
+			config.migrateBinArgs()
+
+			if config.Build.Bin != tt.expectedBin {
+				t.Errorf("expected bin='%s', got bin='%s'", tt.expectedBin, config.Build.Bin)
+			}
+
+			if len(config.Build.ArgsBin) != len(tt.expectedArgsBin) {
+				t.Errorf("expected args_bin length %d, got %d", len(tt.expectedArgsBin), len(config.Build.ArgsBin))
+			}
+
+			for i, expected := range tt.expectedArgsBin {
+				if i >= len(config.Build.ArgsBin) || config.Build.ArgsBin[i] != expected {
+					t.Errorf("expected args_bin[%d]='%s', got '%s'", i, expected, config.Build.ArgsBin[i])
+				}
+			}
+		})
+	}
+}
+
 func contains(sl []string, target string) bool {
 	for _, c := range sl {
 		if c == target {

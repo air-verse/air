@@ -15,6 +15,8 @@ cmd = "go build -o ./tmp/main ."
 # Array of commands to run after ^C
 post_cmd = ["echo 'hello air' > post_cmd.txt"]
 # Binary file yields from `cmd`.
+# Should only be a file path without arguments. Arguments should be specified in args_bin.
+# NOTE: Passing arguments in bin is deprecated and will be removed in a future version.
 bin = "tmp/main"
 # Customize binary, can setup environment variables when run your app.
 full_bin = "APP_ENV=dev APP_USER=air ./tmp/main"
