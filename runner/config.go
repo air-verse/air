@@ -38,12 +38,52 @@ type Config struct {
 	Proxy       cfgProxy  `toml:"proxy"`
 }
 
+type entrypoint []string
+
+func (e *entrypoint) UnmarshalTOML(v interface{}) error {
+	switch val := v.(type) {
+	case nil:
+		*e = nil
+		return nil
+	case string:
+		*e = []string{val}
+		return nil
+	case []interface{}:
+		values := make([]string, len(val))
+		for i, raw := range val {
+			s, ok := raw.(string)
+			if !ok {
+				return fmt.Errorf("entrypoint values must be strings, got %T", raw)
+			}
+			values[i] = s
+		}
+		*e = values
+		return nil
+	default:
+		return fmt.Errorf("entrypoint must be a string or array of strings, got %T", v)
+	}
+}
+
+func (e entrypoint) binary() string {
+	if len(e) == 0 {
+		return ""
+	}
+	return e[0]
+}
+
+func (e entrypoint) args() []string {
+	if len(e) <= 1 {
+		return nil
+	}
+	return e[1:]
+}
+
 type cfgBuild struct {
 	PreCmd           []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
 	Cmd              string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
 	PostCmd          []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
 	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd',will be deprecated soon, recommend using entrypoint."`
-	Entrypoint       string        `toml:"entrypoint" usage:"Binary file to run relative to root; supply arguments via args_bin"`
+	Entrypoint       entrypoint    `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
 	FullBin          string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
 	ArgsBin          []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
 	Log              string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
@@ -164,8 +204,8 @@ func writeDefaultConfig() (string, error) {
 	defer file.Close()
 
 	config := defaultConfig()
-	if config.Build.Entrypoint == "" {
-		config.Build.Entrypoint = config.Build.Bin
+	if len(config.Build.Entrypoint) == 0 && config.Build.Bin != "" {
+		config.Build.Entrypoint = entrypoint{config.Build.Bin}
 	}
 	configFile, err := toml.Marshal(config)
 	if err != nil {
@@ -218,7 +258,7 @@ func defaultConfig() Config {
 	build := cfgBuild{
 		Cmd:          "go build -o ./tmp/main .",
 		Bin:          "",
-		Entrypoint:   "./tmp/main",
+		Entrypoint:   entrypoint{"./tmp/main"},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
@@ -318,8 +358,8 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		ed[i] = cleanPath(ed[i])
 	}
 
-	if c.Build.Entrypoint != "" {
-		entry := c.Build.Entrypoint
+	if len(c.Build.Entrypoint) > 0 {
+		entry := c.Build.Entrypoint.binary()
 		if !filepath.IsAbs(entry) {
 			if resolved := resolveCommandPath(entry); resolved != "" {
 				entry = resolved
@@ -332,7 +372,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		if err != nil {
 			return err
 		}
-		c.Build.Entrypoint = entry
+		c.Build.Entrypoint[0] = entry
 	}
 
 	adaptToVariousPlatforms(c)
@@ -398,15 +438,15 @@ func (c *Config) killDelay() time.Duration {
 }
 
 func (c *Config) binPath() string {
-	if c.Build.Entrypoint != "" {
-		return c.Build.Entrypoint
+	if len(c.Build.Entrypoint) > 0 {
+		return c.Build.Entrypoint.binary()
 	}
 	return joinPath(c.Root, c.Build.Bin)
 }
 
 func (c *Config) runnerBin() string {
-	if c.Build.Entrypoint != "" && len(c.Build.FullBin) == 0 {
-		return c.Build.Entrypoint
+	if len(c.Build.Entrypoint) > 0 && len(c.Build.FullBin) == 0 {
+		return c.Build.Entrypoint.binary()
 	}
 	return c.Build.Bin
 }

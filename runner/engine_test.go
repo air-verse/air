@@ -812,8 +812,8 @@ func TestWriteDefaultConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	expect := defaultConfig()
-	if expect.Build.Entrypoint == "" {
-		expect.Build.Entrypoint = expect.Build.Bin
+	if len(expect.Build.Entrypoint) == 0 && expect.Build.Bin != "" {
+		expect.Build.Entrypoint = entrypoint{expect.Build.Bin}
 	}
 
 	assert.Equal(t, expect, *actual)

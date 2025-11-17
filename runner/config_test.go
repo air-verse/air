@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -124,7 +125,7 @@ func TestConfPreprocess(t *testing.T) {
 		t.Fatalf("preprocess error %v", err)
 	}
 	suffix := "/_testdata/toml/tmp/main"
-	binPath := df.Build.Bin
+	binPath := df.Build.Entrypoint.binary()
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
 	}
@@ -139,15 +140,15 @@ func TestEntrypointResolvesAbsolutePath(t *testing.T) {
 
 	cfg := defaultConfig()
 	cfg.Root = rootWithSpace
-	cfg.Build.Entrypoint = "./tmp/main"
+	cfg.Build.Entrypoint = entrypoint{"./tmp/main"}
 
 	if err := cfg.preprocess(nil); err != nil {
 		t.Fatalf("preprocess error %v", err)
 	}
 
 	want := filepath.Join(rootWithSpace, "tmp", "main")
-	if cfg.Build.Entrypoint != want {
-		t.Fatalf("entrypoint is %s, but want %s", cfg.Build.Entrypoint, want)
+	if got := cfg.Build.Entrypoint.binary(); got != want {
+		t.Fatalf("entrypoint is %s, but want %s", got, want)
 	}
 
 	if cfg.binPath() != want {
@@ -181,15 +182,36 @@ func TestEntrypointResolvesFromPath(t *testing.T) {
 
 	cfg := defaultConfig()
 	cfg.Root = root
-	cfg.Build.Entrypoint = binName
+	cfg.Build.Entrypoint = entrypoint{binName}
 
 	if err := cfg.preprocess(nil); err != nil {
 		t.Fatalf("preprocess error %v", err)
 	}
 
 	want := fullPath
-	if cfg.Build.Entrypoint != want {
-		t.Fatalf("entrypoint resolved to %s, want %s", cfg.Build.Entrypoint, want)
+	if got := cfg.Build.Entrypoint.binary(); got != want {
+		t.Fatalf("entrypoint resolved to %s, want %s", got, want)
+	}
+}
+
+func TestEntrypointPreservesArgs(t *testing.T) {
+	root := t.TempDir()
+	cfg := defaultConfig()
+	cfg.Root = root
+	cfg.Build.Entrypoint = entrypoint{"./tmp/main", "server", ":8080"}
+
+	if err := cfg.preprocess(nil); err != nil {
+		t.Fatalf("preprocess error %v", err)
+	}
+
+	wantBin := filepath.Join(root, "tmp", "main")
+	if cfg.Build.Entrypoint.binary() != wantBin {
+		t.Fatalf("entrypoint binary is %s, want %s", cfg.Build.Entrypoint.binary(), wantBin)
+	}
+
+	wantArgs := []string{"server", ":8080"}
+	if got := cfg.Build.Entrypoint.args(); !reflect.DeepEqual(got, wantArgs) {
+		t.Fatalf("entrypoint args mismatch, got %v want %v", got, wantArgs)
 	}
 }
 

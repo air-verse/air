@@ -146,7 +146,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			args: []string{"--build.entrypoint", "./tmp/server"},
 			check: func(t *testing.T, conf *Config) {
 				want := filepath.Join("tmp", "server")
-				assert.True(t, strings.HasSuffix(conf.Build.Entrypoint, want), "entrypoint %s does not end with %s", conf.Build.Entrypoint, want)
+				assert.True(t, strings.HasSuffix(conf.Build.Entrypoint.binary(), want), "entrypoint %s does not end with %s", conf.Build.Entrypoint.binary(), want)
 			},
 		},
 	}

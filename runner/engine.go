@@ -50,6 +50,15 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	var entryArgs []string
+	if len(cfg.Build.FullBin) == 0 {
+		entryArgs = cfg.Build.Entrypoint.args()
+	}
+	runArgs := make([]string, 0, len(entryArgs)+len(cfg.Build.ArgsBin))
+	if len(entryArgs) > 0 {
+		runArgs = append(runArgs, entryArgs...)
+	}
+	runArgs = append(runArgs, cfg.Build.ArgsBin...)
 	e := Engine{
 		config:         cfg,
 		exiter:         defaultExiter{},
@@ -57,7 +66,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
-		runArgs:        cfg.Build.ArgsBin,
+		runArgs:        runArgs,
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
