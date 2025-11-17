@@ -259,6 +259,12 @@ func cmdPath(path string) string {
 
 // splitBinArgs splits a bin string into the binary path and its arguments.
 // This handles the legacy case where Build.Bin may contain both path and args as a space-separated string.
+//
+// Note: This function splits on the first space, so it cannot distinguish between
+// a space in the binary path itself vs. a space separating the binary from arguments.
+// For binary paths containing spaces, use the 'full_bin' config field or 'args_bin' field instead.
+// This limitation matches the historical behavior of the cmdPath function.
+//
 // Returns (binaryPath, []arguments)
 func splitBinArgs(bin string) (string, []string) {
 	parts := strings.SplitN(bin, " ", 2)

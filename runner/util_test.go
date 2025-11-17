@@ -508,6 +508,13 @@ func TestSplitBinArgs(t *testing.T) {
 			expectedPath: "appname",
 			expectedArgs: []string{"cmdname"},
 		},
+		{
+			name:         "Limitation: Cannot distinguish path with spaces from args",
+			bin:          "/path/with spaces/app",
+			expectedPath: "/path/with", // This is a known limitation
+			expectedArgs: []string{"spaces/app"},
+			// Note: For paths with spaces, users should use 'full_bin' or 'args_bin' field
+		},
 	}
 
 	for _, tt := range tests {
