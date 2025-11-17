@@ -589,7 +589,7 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
-				formattedBin := formatPath(e.config.Build.Bin)
+				formattedBin := formatPath(e.config.runnerBin())
 				command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
 				cmd, stdout, stderr, err := e.startCmd(command)
 				if err != nil {

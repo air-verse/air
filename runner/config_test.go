@@ -3,6 +3,7 @@ package runner
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -126,6 +127,31 @@ func TestConfPreprocess(t *testing.T) {
 	binPath := df.Build.Bin
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
+	}
+}
+
+func TestEntrypointResolvesAbsolutePath(t *testing.T) {
+	base := t.TempDir()
+	rootWithSpace := filepath.Join(base, "with space")
+	if err := os.MkdirAll(filepath.Join(rootWithSpace, "tmp"), 0o755); err != nil {
+		t.Fatalf("failed to prepare tmp dir: %v", err)
+	}
+
+	cfg := defaultConfig()
+	cfg.Root = rootWithSpace
+	cfg.Build.Entrypoint = "./tmp/main"
+
+	if err := cfg.preprocess(nil); err != nil {
+		t.Fatalf("preprocess error %v", err)
+	}
+
+	want := filepath.Join(rootWithSpace, "tmp", "main")
+	if cfg.Build.Entrypoint != want {
+		t.Fatalf("entrypoint is %s, but want %s", cfg.Build.Entrypoint, want)
+	}
+
+	if cfg.binPath() != want {
+		t.Fatalf("bin path is %s, but want %s", cfg.binPath(), want)
 	}
 }
 

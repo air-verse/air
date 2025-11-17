@@ -40,7 +40,8 @@ type cfgBuild struct {
 	PreCmd           []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
 	Cmd              string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
 	PostCmd          []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
-	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd'"`
+	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd',will be deprecated soon, recommend using entrypoint."`
+	Entrypoint       string        `toml:"entrypoint" usage:"Binary file to run relative to root; supply arguments via args_bin"`
 	FullBin          string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
 	ArgsBin          []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
 	Log              string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
@@ -161,6 +162,9 @@ func writeDefaultConfig() (string, error) {
 	defer file.Close()
 
 	config := defaultConfig()
+	if config.Build.Entrypoint == "" {
+		config.Build.Entrypoint = config.Build.Bin
+	}
 	configFile, err := toml.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal the default configuration: %w", err)
@@ -311,6 +315,19 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		ed[i] = cleanPath(ed[i])
 	}
 
+	if c.Build.Entrypoint != "" {
+		entry := c.Build.Entrypoint
+		if !filepath.IsAbs(entry) {
+			entry = joinPath(c.Root, entry)
+		}
+
+		entry, err = filepath.Abs(entry)
+		if err != nil {
+			return err
+		}
+		c.Build.Entrypoint = entry
+	}
+
 	adaptToVariousPlatforms(c)
 
 	// Join runtime arguments with the configuration arguments
@@ -374,7 +391,17 @@ func (c *Config) killDelay() time.Duration {
 }
 
 func (c *Config) binPath() string {
+	if c.Build.Entrypoint != "" {
+		return c.Build.Entrypoint
+	}
 	return joinPath(c.Root, c.Build.Bin)
+}
+
+func (c *Config) runnerBin() string {
+	if c.Build.Entrypoint != "" && len(c.Build.FullBin) == 0 {
+		return c.Build.Entrypoint
+	}
+	return c.Build.Bin
 }
 
 func (c *Config) tmpPath() string {
