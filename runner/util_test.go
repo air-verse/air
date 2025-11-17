@@ -550,6 +550,18 @@ func TestSplitBinArgs(t *testing.T) {
 			expectedPath: "/path with spaces/app",
 			expectedArgs: []string{"--port", "8080"},
 		},
+		{
+			name:         "Linux path with spaces and non-flag args",
+			bin:          "/home/neo/project/airexample/with space/tmp/main serve :9898",
+			expectedPath: "/home/neo/project/airexample/with space/tmp/main",
+			expectedArgs: []string{"serve", ":9898"},
+		},
+		{
+			name:         "Linux path with multiple space directories",
+			bin:          "/home/neo/project/airexample/with space/with space/with space/tmp/main",
+			expectedPath: "/home/neo/project/airexample/with space/with space/with space/tmp/main",
+			expectedArgs: nil,
+		},
 	}
 
 	for _, tt := range tests {

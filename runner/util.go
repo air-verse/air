@@ -263,10 +263,12 @@ func cmdPath(path string) string {
 //
 // For Windows absolute paths (e.g., C:\Program Files\app.exe), it detects the executable
 // by looking for common Windows executable extensions (.exe, .bat, .cmd, .com).
-// For Unix-like paths, it uses smart detection:
-//   - If remaining part after first space contains '/' AND flags are present, splits before the first flag
-//   - If remaining part after first space contains '/', treats whole string as path (path with spaces, no args)
-//   - Otherwise, splits on first space (legacy format: "binary cmdname")
+// For Unix-like absolute paths (starting with /), it uses smart detection:
+//   - Looks for flags (--flag or -f) which clearly mark start of arguments
+//   - If no flags, splits at the first space-separated part that doesn't contain '/'
+//   - This handles paths like "/path with spaces/app serve :9898" correctly
+//
+// For relative paths and simple names, splits on first space unless remaining contains '/'.
 //
 // Returns (binaryPath, []arguments)
 func splitBinArgs(bin string) (string, []string) {
@@ -305,19 +307,10 @@ func splitBinArgs(bin string) (string, []string) {
 		return bin, nil
 	}
 
-	// Use simple space-based split
-	parts := strings.SplitN(bin, " ", 2)
-	if len(parts) == 1 {
-		return parts[0], nil
-	}
-
-	remaining := strings.TrimSpace(parts[1])
-
-	// Check if remaining part looks like path components (contains /)
-	// This handles: "/path with spaces/in/it"
-	if strings.Contains(remaining, "/") {
-		// Check if there's a flag anywhere in the string
-		// If yes, everything before the flag is the path (even if it has spaces)
+	// For Unix absolute paths, use smarter detection
+	if strings.HasPrefix(bin, "/") {
+		// It's an absolute Unix path
+		// Look for flags first - they clearly mark the start of arguments
 		flagPattern := regexp.MustCompile(`\s+--?[a-zA-Z]`)
 		flagMatch := flagPattern.FindStringIndex(bin)
 
@@ -329,7 +322,37 @@ func splitBinArgs(bin string) (string, []string) {
 			return binPath, args
 		}
 
-		// No flags found and path contains slashes - assume it's all path
+		// No flags found. Try to find where the path ends.
+		// Split by spaces and find the first part that doesn't contain /
+		// Everything before that part is the path, from there on are args
+		parts := strings.Fields(bin)
+
+		for i := 1; i < len(parts); i++ {
+			if !strings.Contains(parts[i], "/") {
+				// This part doesn't contain /, likely start of args
+				// Rejoin: parts[0:i] as path, parts[i:] as args
+				pathParts := parts[0:i]
+				path := strings.Join(pathParts, " ")
+				args := parts[i:]
+				return path, args
+			}
+		}
+
+		// All parts contain / or it's a single path, so it's all path
+		return bin, nil
+	}
+
+	// Not an absolute path, use simple space-based split
+	parts := strings.SplitN(bin, " ", 2)
+	if len(parts) == 1 {
+		return parts[0], nil
+	}
+
+	remaining := strings.TrimSpace(parts[1])
+
+	// Check if remaining part looks like path components (contains /)
+	if strings.Contains(remaining, "/") {
+		// Likely more path
 		return bin, nil
 	}
 
