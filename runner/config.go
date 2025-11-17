@@ -332,10 +332,10 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	}
 
 	c.Build.ExcludeDir = ed
-	
+
 	// Handle deprecated bin format with arguments
 	c.migrateBinArgs()
-	
+
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
 		return err
@@ -354,20 +354,20 @@ func (c *Config) migrateBinArgs() {
 	if len(c.Build.FullBin) > 0 {
 		return
 	}
-	
+
 	// Skip if bin is empty
 	if len(c.Build.Bin) == 0 {
 		return
 	}
-	
+
 	// Check if bin contains arguments by looking for spaces outside of quotes
 	// This is a simplified check - we look for spaces that suggest arguments
 	binTrimmed := strings.TrimSpace(c.Build.Bin)
-	
+
 	// Parse the bin string to extract binary path and arguments
 	// We need to handle quoted paths with spaces
 	parts := parseCommandLine(binTrimmed)
-	
+
 	if len(parts) > 1 {
 		// Bin contains arguments - this is the deprecated format
 		if !c.Log.Silent {
@@ -376,7 +376,7 @@ func (c *Config) migrateBinArgs() {
 				"Found bin='%s', migrating to bin='%s' with args_bin=%v\n",
 				c.Build.Bin, parts[0], parts[1:])
 		}
-		
+
 		// Migrate: first part is the binary, rest are arguments
 		c.Build.Bin = parts[0]
 		// Prepend the extracted args to existing args_bin (preserve order)
@@ -391,7 +391,7 @@ func parseCommandLine(cmdLine string) []string {
 	var current strings.Builder
 	inQuotes := false
 	quoteChar := rune(0)
-	
+
 	for i, r := range cmdLine {
 		switch {
 		case (r == '"' || r == '\'') && !inQuotes:
@@ -416,12 +416,12 @@ func parseCommandLine(cmdLine string) []string {
 			current.WriteRune(r)
 		}
 	}
-	
+
 	// Add the last part
 	if current.Len() > 0 {
 		parts = append(parts, current.String())
 	}
-	
+
 	return parts
 }
 
