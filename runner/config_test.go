@@ -155,6 +155,44 @@ func TestEntrypointResolvesAbsolutePath(t *testing.T) {
 	}
 }
 
+func TestEntrypointResolvesFromPath(t *testing.T) {
+	root := t.TempDir()
+	pathDir := t.TempDir()
+
+	binName := "air-entrypoint-path"
+	fileName := binName
+	fileContents := "#!/bin/sh\nexit 0\n"
+	if runtime.GOOS == "windows" {
+		fileName += ".bat"
+		fileContents = "@echo off\r\n"
+		t.Setenv("PATHEXT", ".BAT;.EXE")
+	}
+	fullPath := filepath.Join(pathDir, fileName)
+	if err := os.WriteFile(fullPath, []byte(fileContents), 0o755); err != nil {
+		t.Fatalf("failed to write fake binary: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(fullPath, 0o755); err != nil {
+			t.Fatalf("failed to make fake binary executable: %v", err)
+		}
+	}
+
+	t.Setenv("PATH", pathDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cfg := defaultConfig()
+	cfg.Root = root
+	cfg.Build.Entrypoint = binName
+
+	if err := cfg.preprocess(nil); err != nil {
+		t.Fatalf("preprocess error %v", err)
+	}
+
+	want := fullPath
+	if cfg.Build.Entrypoint != want {
+		t.Fatalf("entrypoint resolved to %s, want %s", cfg.Build.Entrypoint, want)
+	}
+}
+
 func TestConfigWithRuntimeArgs(t *testing.T) {
 	runtimeArg := "-flag=value"
 

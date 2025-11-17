@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"dario.cat/mergo"
@@ -318,7 +320,11 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	if c.Build.Entrypoint != "" {
 		entry := c.Build.Entrypoint
 		if !filepath.IsAbs(entry) {
-			entry = joinPath(c.Root, entry)
+			if resolved := resolveCommandPath(entry); resolved != "" {
+				entry = resolved
+			} else {
+				entry = joinPath(c.Root, entry)
+			}
 		}
 
 		entry, err = filepath.Abs(entry)
@@ -418,6 +424,18 @@ func (c *Config) rel(path string) string {
 		return ""
 	}
 	return s
+}
+
+func resolveCommandPath(entry string) string {
+	if entry == "" || strings.ContainsAny(entry, `/\`) {
+		return ""
+	}
+
+	path, err := exec.LookPath(entry)
+	if err != nil {
+		return ""
+	}
+	return path
 }
 
 // withArgs returns a new config with the given arguments added to the configuration.
