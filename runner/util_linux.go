@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -77,11 +78,21 @@ func sendSignalToProcessTree(pid int, sig syscall.Signal) error {
 		errs = append(errs, procErr)
 	}
 
+	// Send signals to descendants concurrently for better performance
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for _, child := range descendants {
-		if err := syscall.Kill(child, sig); err != nil && !errors.Is(err, syscall.ESRCH) {
-			errs = append(errs, err)
-		}
+		wg.Add(1)
+		go func(childPID int) {
+			defer wg.Done()
+			if err := syscall.Kill(childPID, sig); err != nil && !errors.Is(err, syscall.ESRCH) {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(child)
 	}
+	wg.Wait()
 
 	if len(errs) == 0 && errors.Is(groupErr, syscall.ESRCH) && errors.Is(procErr, syscall.ESRCH) {
 		return syscall.ESRCH
