@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
-	"strings"
 	"time"
 
 	"dario.cat/mergo"
@@ -41,9 +40,10 @@ type cfgBuild struct {
 	PreCmd           []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
 	Cmd              string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
 	PostCmd          []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
-	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd'. Should only be a file path without arguments. Arguments should be specified in args_bin. DEPRECATED: passing arguments in bin is deprecated and will be removed in a future version."`
+	Entrypoint       string        `toml:"entrypoint" usage:"Binary file path without arguments. Recommended over 'bin' for cleaner configuration."`
+	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd'. For backward compatibility, will be deprecated in favor of 'entrypoint'."`
 	FullBin          string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
-	ArgsBin          []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
+	ArgsBin          []string      `toml:"args_bin" usage:"Add additional arguments when running binary (entrypoint/bin/full_bin)."`
 	Log              string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
 	IncludeExt       []string      `toml:"include_ext" usage:"Watch these filename extensions"`
 	ExcludeDir       []string      `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
@@ -333,8 +333,17 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 
 	c.Build.ExcludeDir = ed
 
-	// Handle deprecated bin format with arguments
-	c.migrateBinArgs()
+	// Handle entrypoint field (new recommended way)
+	if len(c.Build.Entrypoint) > 0 {
+		// Entrypoint takes precedence over bin and full_bin
+		c.Build.Entrypoint, err = filepath.Abs(c.Build.Entrypoint)
+		if err != nil {
+			return err
+		}
+		// Use entrypoint as the bin for execution
+		c.Build.Bin = c.Build.Entrypoint
+		return nil
+	}
 
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
@@ -345,84 +354,6 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	return err
-}
-
-// migrateBinArgs detects if bin contains arguments (deprecated format)
-// and migrates them to args_bin with a deprecation warning
-func (c *Config) migrateBinArgs() {
-	// Skip if FullBin is used (different handling)
-	if len(c.Build.FullBin) > 0 {
-		return
-	}
-
-	// Skip if bin is empty
-	if len(c.Build.Bin) == 0 {
-		return
-	}
-
-	// Check if bin contains arguments by looking for spaces outside of quotes
-	// This is a simplified check - we look for spaces that suggest arguments
-	binTrimmed := strings.TrimSpace(c.Build.Bin)
-
-	// Parse the bin string to extract binary path and arguments
-	// We need to handle quoted paths with spaces
-	parts := parseCommandLine(binTrimmed)
-
-	if len(parts) > 1 {
-		// Bin contains arguments - this is the deprecated format
-		if !c.Log.Silent {
-			fmt.Fprintf(os.Stderr, "Warning: Passing arguments in 'bin' is deprecated. "+
-				"Please move arguments from 'bin' to 'args_bin'. "+
-				"Found bin='%s', migrating to bin='%s' with args_bin=%v\n",
-				c.Build.Bin, parts[0], parts[1:])
-		}
-
-		// Migrate: first part is the binary, rest are arguments
-		c.Build.Bin = parts[0]
-		// Prepend the extracted args to existing args_bin (preserve order)
-		c.Build.ArgsBin = append(parts[1:], c.Build.ArgsBin...)
-	}
-}
-
-// parseCommandLine parses a command line string into individual arguments
-// handling quoted strings with spaces
-func parseCommandLine(cmdLine string) []string {
-	var parts []string
-	var current strings.Builder
-	inQuotes := false
-	quoteChar := rune(0)
-
-	for i, r := range cmdLine {
-		switch {
-		case (r == '"' || r == '\'') && !inQuotes:
-			// Start of quoted string
-			inQuotes = true
-			quoteChar = r
-		case r == quoteChar && inQuotes:
-			// End of quoted string
-			inQuotes = false
-			quoteChar = 0
-		case r == ' ' && !inQuotes:
-			// Space outside quotes - separator
-			if current.Len() > 0 {
-				parts = append(parts, current.String())
-				current.Reset()
-			}
-		case r == '\\' && i+1 < len(cmdLine) && inQuotes:
-			// Escape character in quotes - include next char literally
-			current.WriteRune(r)
-		default:
-			// Regular character
-			current.WriteRune(r)
-		}
-	}
-
-	// Add the last part
-	if current.Len() > 0 {
-		parts = append(parts, current.String())
-	}
-
-	return parts
 }
 
 func (c *Config) colorInfo() map[string]string {

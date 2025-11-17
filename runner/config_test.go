@@ -3,6 +3,7 @@ package runner
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -202,109 +203,34 @@ func TestKillDelay(t *testing.T) {
 	}
 }
 
-func TestMigrateBinArgs(t *testing.T) {
+func TestEntrypointField(t *testing.T) {
 	tests := []struct {
-		name            string
-		inputBin        string
-		inputArgsBin    []string
-		expectedBin     string
-		expectedArgsBin []string
-		shouldWarn      bool
+		name                string
+		entrypoint          string
+		bin                 string
+		expectedBinSuffix   string // Check if final Bin ends with this
+		shouldUseEntrypoint bool
 	}{
 		{
-			name:            "bin with arguments",
-			inputBin:        "./tmp/main server :8080",
-			inputArgsBin:    []string{},
-			expectedBin:     "./tmp/main",
-			expectedArgsBin: []string{"server", ":8080"},
-			shouldWarn:      true,
+			name:                "entrypoint takes precedence over bin",
+			entrypoint:          "./tmp/main",
+			bin:                 "./other/path",
+			expectedBinSuffix:   "/tmp/main",
+			shouldUseEntrypoint: true,
 		},
 		{
-			name:            "bin with arguments and existing args_bin",
-			inputBin:        "./tmp/main server",
-			inputArgsBin:    []string{":8080"},
-			expectedBin:     "./tmp/main",
-			expectedArgsBin: []string{"server", ":8080"},
-			shouldWarn:      true,
+			name:                "bin used when entrypoint not set",
+			entrypoint:          "",
+			bin:                 "./tmp/main",
+			expectedBinSuffix:   "/tmp/main",
+			shouldUseEntrypoint: false,
 		},
 		{
-			name:            "bin without arguments",
-			inputBin:        "./tmp/main",
-			inputArgsBin:    []string{"server", ":8080"},
-			expectedBin:     "./tmp/main",
-			expectedArgsBin: []string{"server", ":8080"},
-			shouldWarn:      false,
-		},
-		{
-			name:            "bin with quoted path containing spaces",
-			inputBin:        `"/path/with space/main" arg1 arg2`,
-			inputArgsBin:    []string{},
-			expectedBin:     `/path/with space/main`,
-			expectedArgsBin: []string{"arg1", "arg2"},
-			shouldWarn:      true,
-		},
-		{
-			name:            "absolute path with spaces in arguments",
-			inputBin:        "/home/user/tmp/main server :8080",
-			inputArgsBin:    []string{},
-			expectedBin:     "/home/user/tmp/main",
-			expectedArgsBin: []string{"server", ":8080"},
-			shouldWarn:      true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			config := Config{
-				Build: cfgBuild{
-					Bin:     tt.inputBin,
-					ArgsBin: tt.inputArgsBin,
-				},
-				Log: cfgLog{
-					Silent: true, // Silence warnings during test
-				},
-			}
-
-			config.migrateBinArgs()
-
-			if config.Build.Bin != tt.expectedBin {
-				t.Errorf("expected bin='%s', got bin='%s'", tt.expectedBin, config.Build.Bin)
-			}
-
-			if len(config.Build.ArgsBin) != len(tt.expectedArgsBin) {
-				t.Errorf("expected args_bin length %d, got %d", len(tt.expectedArgsBin), len(config.Build.ArgsBin))
-			}
-
-			for i, expected := range tt.expectedArgsBin {
-				if i >= len(config.Build.ArgsBin) || config.Build.ArgsBin[i] != expected {
-					t.Errorf("expected args_bin[%d]='%s', got '%s'", i, expected, config.Build.ArgsBin[i])
-				}
-			}
-		})
-	}
-}
-
-func TestPreprocessWithBinMigration(t *testing.T) {
-	tests := []struct {
-		name            string
-		inputBin        string
-		inputArgsBin    []string
-		expectedBin     string // Will check if it ends with this (after abs path conversion)
-		expectedArgsBin []string
-	}{
-		{
-			name:            "bin with arguments gets migrated",
-			inputBin:        "./tmp/main server :8080",
-			inputArgsBin:    []string{},
-			expectedBin:     "/tmp/main",
-			expectedArgsBin: []string{"server", ":8080"},
-		},
-		{
-			name:            "bin without arguments stays clean",
-			inputBin:        "./tmp/main",
-			inputArgsBin:    []string{"server", ":8080"},
-			expectedBin:     "/tmp/main",
-			expectedArgsBin: []string{"server", ":8080"},
+			name:                "entrypoint with args_bin",
+			entrypoint:          "./tmp/main",
+			bin:                 "",
+			expectedBinSuffix:   "/tmp/main",
+			shouldUseEntrypoint: true,
 		},
 	}
 
@@ -314,9 +240,10 @@ func TestPreprocessWithBinMigration(t *testing.T) {
 				Root:   ".",
 				TmpDir: "tmp",
 				Build: cfgBuild{
-					Cmd:     "go build -o ./tmp/main .",
-					Bin:     tt.inputBin,
-					ArgsBin: tt.inputArgsBin,
+					Cmd:        "go build -o ./tmp/main .",
+					Entrypoint: tt.entrypoint,
+					Bin:        tt.bin,
+					ArgsBin:    []string{"server", ":8080"},
 				},
 				Log: cfgLog{
 					Silent: true,
@@ -329,17 +256,14 @@ func TestPreprocessWithBinMigration(t *testing.T) {
 			}
 
 			// Bin should be an absolute path ending with our expected path
-			if !strings.HasSuffix(config.Build.Bin, tt.expectedBin) {
-				t.Errorf("expected bin to end with '%s', got '%s'", tt.expectedBin, config.Build.Bin)
+			if !strings.HasSuffix(config.Build.Bin, tt.expectedBinSuffix) {
+				t.Errorf("expected bin to end with '%s', got '%s'", tt.expectedBinSuffix, config.Build.Bin)
 			}
 
-			if len(config.Build.ArgsBin) != len(tt.expectedArgsBin) {
-				t.Errorf("expected args_bin length %d, got %d", len(tt.expectedArgsBin), len(config.Build.ArgsBin))
-			}
-
-			for i, expected := range tt.expectedArgsBin {
-				if i >= len(config.Build.ArgsBin) || config.Build.ArgsBin[i] != expected {
-					t.Errorf("expected args_bin[%d]='%s', got '%s'", i, expected, config.Build.ArgsBin[i])
+			// If entrypoint is used, it should also be converted to absolute path
+			if tt.shouldUseEntrypoint && len(config.Build.Entrypoint) > 0 {
+				if !filepath.IsAbs(config.Build.Entrypoint) {
+					t.Errorf("expected entrypoint to be absolute path, got '%s'", config.Build.Entrypoint)
 				}
 			}
 		})
