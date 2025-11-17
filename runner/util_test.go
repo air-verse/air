@@ -533,11 +533,22 @@ func TestSplitBinArgs(t *testing.T) {
 			expectedArgs: nil,
 		},
 		{
-			name:         "Unix limitation: Cannot distinguish path with spaces from args",
-			bin:          "/path/with spaces/app",
-			expectedPath: "/path/with", // This is a known limitation for Unix paths
-			expectedArgs: []string{"spaces/app"},
-			// Note: For Unix paths with spaces, users should use 'full_bin' or 'args_bin' field
+			name:         "Linux path with spaces (no args)",
+			bin:          "/home/neo/project/airexample/with space/tmp/main",
+			expectedPath: "/home/neo/project/airexample/with space/tmp/main",
+			expectedArgs: nil,
+		},
+		{
+			name:         "Linux path with spaces and flag",
+			bin:          "/home/neo/project/airexample/with space/tmp/main --flag",
+			expectedPath: "/home/neo/project/airexample/with space/tmp/main",
+			expectedArgs: []string{"--flag"},
+		},
+		{
+			name:         "Linux path with spaces and multiple args",
+			bin:          "/path with spaces/app --port 8080",
+			expectedPath: "/path with spaces/app",
+			expectedArgs: []string{"--port", "8080"},
 		},
 	}
 

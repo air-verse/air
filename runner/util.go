@@ -263,10 +263,10 @@ func cmdPath(path string) string {
 //
 // For Windows absolute paths (e.g., C:\Program Files\app.exe), it detects the executable
 // by looking for common Windows executable extensions (.exe, .bat, .cmd, .com).
-// For Unix-like paths or simple names, it splits on the first space.
-//
-// Note: For Unix paths with spaces in the directory name but no arguments, or Windows paths
-// without a recognized extension, users should use 'full_bin' or 'args_bin' fields for clarity.
+// For Unix-like paths, it uses smart detection:
+//   - If remaining part after first space contains '/' AND flags are present, splits before the first flag
+//   - If remaining part after first space contains '/', treats whole string as path (path with spaces, no args)
+//   - Otherwise, splits on first space (legacy format: "binary cmdname")
 //
 // Returns (binaryPath, []arguments)
 func splitBinArgs(bin string) (string, []string) {
@@ -297,16 +297,45 @@ func splitBinArgs(bin string) (string, []string) {
 			return bin, nil
 		}
 		// If there's a space but no extension, we can't reliably split
-		// Fall through to the simple split
+		// Fall through to Unix-style detection
 	}
 
-	// For non-Windows paths or when we can't determine the split point,
-	// use the simple space-based split (legacy behavior)
+	// For Unix paths
+	if !strings.Contains(bin, " ") {
+		return bin, nil
+	}
+
+	// Use simple space-based split
 	parts := strings.SplitN(bin, " ", 2)
 	if len(parts) == 1 {
 		return parts[0], nil
 	}
-	args := strings.Fields(parts[1])
+
+	remaining := strings.TrimSpace(parts[1])
+
+	// Check if remaining part looks like path components (contains /)
+	// This handles: "/path with spaces/in/it"
+	if strings.Contains(remaining, "/") {
+		// Check if there's a flag anywhere in the string
+		// If yes, everything before the flag is the path (even if it has spaces)
+		flagPattern := regexp.MustCompile(`\s+--?[a-zA-Z]`)
+		flagMatch := flagPattern.FindStringIndex(bin)
+
+		if flagMatch != nil {
+			// Split at the flag position
+			binPath := strings.TrimSpace(bin[:flagMatch[0]])
+			remainingArgs := strings.TrimSpace(bin[flagMatch[0]:])
+			args := strings.Fields(remainingArgs)
+			return binPath, args
+		}
+
+		// No flags found and path contains slashes - assume it's all path
+		return bin, nil
+	}
+
+	// At this point: remaining doesn't contain '/'
+	// This is the legacy format: "binary cmdname" or "binary arg1 arg2"
+	args := strings.Fields(remaining)
 	return parts[0], args
 }
 
