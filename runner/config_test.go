@@ -284,6 +284,68 @@ func TestMigrateBinArgs(t *testing.T) {
 	}
 }
 
+func TestPreprocessWithBinMigration(t *testing.T) {
+	tests := []struct {
+		name            string
+		inputBin        string
+		inputArgsBin    []string
+		expectedBin     string // Will check if it ends with this (after abs path conversion)
+		expectedArgsBin []string
+	}{
+		{
+			name:            "bin with arguments gets migrated",
+			inputBin:        "./tmp/main server :8080",
+			inputArgsBin:    []string{},
+			expectedBin:     "/tmp/main",
+			expectedArgsBin: []string{"server", ":8080"},
+		},
+		{
+			name:            "bin without arguments stays clean",
+			inputBin:        "./tmp/main",
+			inputArgsBin:    []string{"server", ":8080"},
+			expectedBin:     "/tmp/main",
+			expectedArgsBin: []string{"server", ":8080"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := Config{
+				Root:   ".",
+				TmpDir: "tmp",
+				Build: cfgBuild{
+					Cmd:     "go build -o ./tmp/main .",
+					Bin:     tt.inputBin,
+					ArgsBin: tt.inputArgsBin,
+				},
+				Log: cfgLog{
+					Silent: true,
+				},
+			}
+
+			err := config.preprocess(nil)
+			if err != nil {
+				t.Fatalf("preprocess failed: %v", err)
+			}
+
+			// Bin should be an absolute path ending with our expected path
+			if !strings.HasSuffix(config.Build.Bin, tt.expectedBin) {
+				t.Errorf("expected bin to end with '%s', got '%s'", tt.expectedBin, config.Build.Bin)
+			}
+
+			if len(config.Build.ArgsBin) != len(tt.expectedArgsBin) {
+				t.Errorf("expected args_bin length %d, got %d", len(tt.expectedArgsBin), len(config.Build.ArgsBin))
+			}
+
+			for i, expected := range tt.expectedArgsBin {
+				if i >= len(config.Build.ArgsBin) || config.Build.ArgsBin[i] != expected {
+					t.Errorf("expected args_bin[%d]='%s', got '%s'", i, expected, config.Build.ArgsBin[i])
+				}
+			}
+		})
+	}
+}
+
 func contains(sl []string, target string) bool {
 	for _, c := range sl {
 		if c == target {
