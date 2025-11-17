@@ -589,8 +589,12 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
-				formattedBin := formatPath(e.config.Build.Bin)
-				command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
+				// Split Build.Bin into binary path and embedded arguments to handle legacy usage
+				binPath, binArgs := splitBinArgs(e.config.Build.Bin)
+				formattedBin := formatPath(binPath)
+				// Combine formatted binary, embedded args from Build.Bin, and e.runArgs
+				allArgs := append(binArgs, e.runArgs...)
+				command := strings.Join(append([]string{formattedBin}, allArgs...), " ")
 				cmd, stdout, stderr, err := e.startCmd(command)
 				if err != nil {
 					e.mainLog("failed to start %s, error: %s", e.config.rel(e.config.binPath()), err.Error())

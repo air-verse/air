@@ -464,3 +464,61 @@ func TestFormatPath(t *testing.T) {
 		runTests(t, tests)
 	})
 }
+
+func TestSplitBinArgs(t *testing.T) {
+	tests := []struct {
+		name         string
+		bin          string
+		expectedPath string
+		expectedArgs []string
+	}{
+		{
+			name:         "Binary path only",
+			bin:          "/usr/local/bin/myapp",
+			expectedPath: "/usr/local/bin/myapp",
+			expectedArgs: nil,
+		},
+		{
+			name:         "Binary with single argument",
+			bin:          "/usr/local/bin/myapp arg1",
+			expectedPath: "/usr/local/bin/myapp",
+			expectedArgs: []string{"arg1"},
+		},
+		{
+			name:         "Binary with multiple arguments",
+			bin:          "/usr/local/bin/myapp arg1 arg2 arg3",
+			expectedPath: "/usr/local/bin/myapp",
+			expectedArgs: []string{"arg1", "arg2", "arg3"},
+		},
+		{
+			name:         "Relative path with arguments",
+			bin:          "./tmp/main serve --port=8080",
+			expectedPath: "./tmp/main",
+			expectedArgs: []string{"serve", "--port=8080"},
+		},
+		{
+			name:         "Binary name only",
+			bin:          "myapp",
+			expectedPath: "myapp",
+			expectedArgs: nil,
+		},
+		{
+			name:         "Legacy case: appname cmdname",
+			bin:          "appname cmdname",
+			expectedPath: "appname",
+			expectedArgs: []string{"cmdname"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, args := splitBinArgs(tt.bin)
+			if path != tt.expectedPath {
+				t.Errorf("splitBinArgs(%q) path = %q, want %q", tt.bin, path, tt.expectedPath)
+			}
+			if !reflect.DeepEqual(args, tt.expectedArgs) {
+				t.Errorf("splitBinArgs(%q) args = %v, want %v", tt.bin, args, tt.expectedArgs)
+			}
+		})
+	}
+}
