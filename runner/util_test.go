@@ -509,11 +509,35 @@ func TestSplitBinArgs(t *testing.T) {
 			expectedArgs: []string{"cmdname"},
 		},
 		{
-			name:         "Limitation: Cannot distinguish path with spaces from args",
+			name:         "Windows path with spaces (no args)",
+			bin:          `C:\Program Files\app.exe`,
+			expectedPath: `C:\Program Files\app.exe`,
+			expectedArgs: nil,
+		},
+		{
+			name:         "Windows path with spaces and arguments",
+			bin:          `C:\Program Files\app.exe --flag value`,
+			expectedPath: `C:\Program Files\app.exe`,
+			expectedArgs: []string{"--flag", "value"},
+		},
+		{
+			name:         "Windows path with forward slashes",
+			bin:          `C:/Program Files/app.exe arg1`,
+			expectedPath: `C:/Program Files/app.exe`,
+			expectedArgs: []string{"arg1"},
+		},
+		{
+			name:         "Windows path without extension",
+			bin:          `C:\NoExtension\app`,
+			expectedPath: `C:\NoExtension\app`,
+			expectedArgs: nil,
+		},
+		{
+			name:         "Unix limitation: Cannot distinguish path with spaces from args",
 			bin:          "/path/with spaces/app",
-			expectedPath: "/path/with", // This is a known limitation
+			expectedPath: "/path/with", // This is a known limitation for Unix paths
 			expectedArgs: []string{"spaces/app"},
-			// Note: For paths with spaces, users should use 'full_bin' or 'args_bin' field
+			// Note: For Unix paths with spaces, users should use 'full_bin' or 'args_bin' field
 		},
 	}
 

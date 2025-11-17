@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -260,18 +261,51 @@ func cmdPath(path string) string {
 // splitBinArgs splits a bin string into the binary path and its arguments.
 // This handles the legacy case where Build.Bin may contain both path and args as a space-separated string.
 //
-// Note: This function splits on the first space, so it cannot distinguish between
-// a space in the binary path itself vs. a space separating the binary from arguments.
-// For binary paths containing spaces, use the 'full_bin' config field or 'args_bin' field instead.
-// This limitation matches the historical behavior of the cmdPath function.
+// For Windows absolute paths (e.g., C:\Program Files\app.exe), it detects the executable
+// by looking for common Windows executable extensions (.exe, .bat, .cmd, .com).
+// For Unix-like paths or simple names, it splits on the first space.
+//
+// Note: For Unix paths with spaces in the directory name but no arguments, or Windows paths
+// without a recognized extension, users should use 'full_bin' or 'args_bin' fields for clarity.
 //
 // Returns (binaryPath, []arguments)
 func splitBinArgs(bin string) (string, []string) {
+	// Check if this looks like a Windows absolute path (e.g., C:\... or C:/...)
+	// Windows absolute paths start with a drive letter followed by colon
+	windowsPathPattern := regexp.MustCompile(`^[a-zA-Z]:[/\\]`)
+
+	if windowsPathPattern.MatchString(bin) {
+		// For Windows paths, try to find the executable extension
+		// Common extensions: .exe, .bat, .cmd, .com
+		exePattern := regexp.MustCompile(`(?i)\.(exe|bat|cmd|com)(\s|$)`)
+		matches := exePattern.FindStringIndex(bin)
+
+		if matches != nil {
+			// Found an extension, split after it
+			splitPoint := matches[1]
+			binPath := strings.TrimSpace(bin[:splitPoint])
+			remaining := strings.TrimSpace(bin[splitPoint:])
+			if remaining == "" {
+				return binPath, nil
+			}
+			args := strings.Fields(remaining)
+			return binPath, args
+		}
+		// No extension found, check if there's a space
+		// If no space, return the whole thing as the path
+		if !strings.Contains(bin, " ") {
+			return bin, nil
+		}
+		// If there's a space but no extension, we can't reliably split
+		// Fall through to the simple split
+	}
+
+	// For non-Windows paths or when we can't determine the split point,
+	// use the simple space-based split (legacy behavior)
 	parts := strings.SplitN(bin, " ", 2)
 	if len(parts) == 1 {
 		return parts[0], nil
 	}
-	// Split the remaining arguments by space
 	args := strings.Fields(parts[1])
 	return parts[0], args
 }
