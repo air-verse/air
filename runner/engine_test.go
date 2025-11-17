@@ -120,7 +120,7 @@ func TestRunCommand(t *testing.T) {
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
-	tmpDir := initTestEnv(t, 8080)
+	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
 	engine, err := NewEngine("", nil, true)
