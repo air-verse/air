@@ -82,14 +82,6 @@ func TestDefaultPathConfig(t *testing.T) {
 		name: "TOML",
 		path: "_testdata/toml",
 		root: "toml_root",
-	}, {
-		name: "Conf",
-		path: "_testdata/conf",
-		root: "conf_root",
-	}, {
-		name: "Both",
-		path: "_testdata/both",
-		root: "both_root",
 	}}
 
 	for _, tt := range tests {

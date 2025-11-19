@@ -17,7 +17,6 @@ import (
 
 const (
 	dftTOML = ".air.toml"
-	dftConf = ".air.conf"
 	airWd   = "air_wd"
 
 	schemaHeader = "#:schema https://json.schemastore.org/any.json"
@@ -142,16 +141,12 @@ func InitConfig(path string, cmdArgs map[string]TomlInfo) (cfg *Config, err erro
 }
 
 func writeDefaultConfig() (string, error) {
-	confFiles := []string{dftTOML, dftConf}
-
-	for _, fname := range confFiles {
-		fstat, err := os.Stat(fname)
-		if err != nil && !os.IsNotExist(err) {
-			return "", fmt.Errorf("failed to check for existing configuration: %w", err)
-		}
-		if err == nil && fstat != nil {
-			return "", errors.New("configuration already exists")
-		}
+	fstat, err := os.Stat(dftTOML)
+	if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to check for existing configuration: %w", err)
+	}
+	if err == nil && fstat != nil {
+		return "", errors.New("configuration already exists")
 	}
 
 	file, err := os.Create(dftTOML)
@@ -178,15 +173,10 @@ func writeDefaultConfig() (string, error) {
 }
 
 func defaultPathConfig() (*Config, error) {
-	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-	for _, name := range []string{dftTOML, dftConf} {
-		cfg, err := readConfByName(name)
-		if err == nil {
-			if name == dftConf && !cfg.Log.Silent {
-				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
-			}
-			return cfg, nil
-		}
+	// when path is blank, first find `.air.toml` in `air_wd` and current working directory, if not found, use defaults
+	cfg, err := readConfByName(dftTOML)
+	if err == nil {
+		return cfg, nil
 	}
 
 	dftCfg := defaultConfig()
