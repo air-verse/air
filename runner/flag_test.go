@@ -4,6 +4,8 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -137,6 +139,14 @@ func TestConfigRuntimeArgs(t *testing.T) {
 				require.Len(t, patterns, 1)
 				assert.True(t, patterns[0].MatchString("test_pattern.go"), "regex should match test_pattern.go")
 				assert.False(t, patterns[0].MatchString("other_file.go"), "regex shouldn't match other_file.go")
+			},
+		},
+		{
+			name: "check entrypoint flag",
+			args: []string{"--build.entrypoint", "./tmp/server"},
+			check: func(t *testing.T, conf *Config) {
+				want := filepath.Join("tmp", "server")
+				assert.True(t, strings.HasSuffix(conf.Build.Entrypoint.binary(), want), "entrypoint %s does not end with %s", conf.Build.Entrypoint.binary(), want)
 			},
 		},
 	}

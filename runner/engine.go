@@ -50,6 +50,15 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	var entryArgs []string
+	if len(cfg.Build.FullBin) == 0 {
+		entryArgs = cfg.Build.Entrypoint.args()
+	}
+	runArgs := make([]string, 0, len(entryArgs)+len(cfg.Build.ArgsBin))
+	if len(entryArgs) > 0 {
+		runArgs = append(runArgs, entryArgs...)
+	}
+	runArgs = append(runArgs, cfg.Build.ArgsBin...)
 	e := Engine{
 		config:         cfg,
 		exiter:         defaultExiter{},
@@ -57,7 +66,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
-		runArgs:        cfg.Build.ArgsBin,
+		runArgs:        runArgs,
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
@@ -592,12 +601,16 @@ func (e *Engine) runBin() error {
 			}
 
 			if e.config.Build.StopOnError {
-				cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
+				relBinPath := e.config.rel(e.config.binPath())
+				if relBinPath == "" || strings.HasPrefix(relBinPath, "..") {
+					return
+				}
+				cmdBinPath := cmdPath(relBinPath)
 				if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
 					return
 				}
 				if err = os.Remove(cmdBinPath); err != nil {
-					e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+					e.mainLog("failed to remove %s, error: %s", relBinPath, err)
 				}
 			}
 		}()
@@ -623,7 +636,7 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
-				formattedBin := formatPath(e.config.Build.Bin)
+				formattedBin := formatPath(e.config.runnerBin())
 				command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
 				cmd, stdout, stderr, err := e.startCmd(command)
 				if err != nil {

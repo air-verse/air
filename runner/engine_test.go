@@ -423,6 +423,9 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	// Silence engine logs to keep this test output readable.
+	engine.config.Log.Silent = true
+	silenceBuildCmd(engine.config)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -468,6 +471,8 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	engine.config.Log.Silent = true
+	silenceBuildCmd(engine.config)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -708,6 +713,17 @@ go 1.17
 	return nil
 }
 
+func silenceBuildCmd(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		cfg.Build.Cmd = fmt.Sprintf("%s >NUL 2>&1", cfg.Build.Cmd)
+		return
+	}
+	cfg.Build.Cmd = fmt.Sprintf("%s >/dev/null 2>&1", cfg.Build.Cmd)
+}
+
 func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	// generate a random port
 	port, f := GetPort()
@@ -796,6 +812,9 @@ func TestWriteDefaultConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	expect := defaultConfig()
+	if len(expect.Build.Entrypoint) == 0 && expect.Build.Bin != "" {
+		expect.Build.Entrypoint = entrypoint{expect.Build.Bin}
+	}
 
 	assert.Equal(t, expect, *actual)
 }
