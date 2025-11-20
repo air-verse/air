@@ -192,6 +192,7 @@ func InitConfig(path string, cmdArgs map[string]TomlInfo) (cfg *Config, err erro
 			return nil, err
 		}
 	}
+	warnDeprecatedBin(cfg)
 	config := defaultConfig()
 	// get addr
 	ret := &config
@@ -508,4 +509,14 @@ func (c *Config) withArgs(args map[string]TomlInfo) {
 		}
 	}
 
+}
+
+func warnDeprecatedBin(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Build.Bin == "" || len(cfg.Build.Entrypoint) > 0 {
+		return
+	}
+	fmt.Fprintln(os.Stdout, "[warning] build.bin is deprecated; set build.entrypoint instead")
 }
