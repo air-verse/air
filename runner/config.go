@@ -284,7 +284,7 @@ func defaultConfig() Config {
 		ExcludeFile:  []string{},
 		IncludeFile:  []string{},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
-		ArgsBin:      []string{},
+		ArgsBin:      nil,
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        1000,
 		Rerun:        false,
