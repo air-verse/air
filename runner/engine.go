@@ -97,7 +97,7 @@ func (e *Engine) Run() {
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
-	if err = e.watching(e.config.Root); err != nil {
+	if err = e.watchConfiguredDirs(); err != nil {
 		os.Exit(1)
 	}
 
@@ -113,6 +113,40 @@ func (e *Engine) checkRunEnv() error {
 			e.runnerLog("failed to mkdir, error: %s", err.Error())
 			return err
 		}
+	}
+	return nil
+}
+
+func (e *Engine) watchConfiguredDirs() error {
+	type watchTarget struct {
+		path     string
+		optional bool
+	}
+	targets := []watchTarget{{path: e.config.Root, optional: false}}
+	for _, dir := range e.config.Build.extraIncludeDirs {
+		targets = append(targets, watchTarget{path: dir, optional: true})
+	}
+
+	seen := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		if target.path == "" {
+			continue
+		}
+		cleaned := filepath.Clean(target.path)
+		if _, ok := seen[cleaned]; ok {
+			continue
+		}
+		if _, err := os.Stat(cleaned); err != nil {
+			if os.IsNotExist(err) && target.optional {
+				e.watcherLog("include_dir %s does not exist, skipping", e.config.rel(cleaned))
+				continue
+			}
+			return err
+		}
+		if err := e.watching(cleaned); err != nil {
+			return err
+		}
+		seen[cleaned] = struct{}{}
 	}
 	return nil
 }

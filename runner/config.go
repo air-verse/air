@@ -60,10 +60,37 @@ type cfgBuild struct {
 	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
 	regexCompiled    []*regexp.Regexp
+	includeDirAbs    []string
+	extraIncludeDirs []string
 }
 
 func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 	return c.regexCompiled, nil
+}
+
+func (c *cfgBuild) normalizeIncludeDirs(root string) {
+	c.includeDirAbs = c.includeDirAbs[:0]
+	c.extraIncludeDirs = c.extraIncludeDirs[:0]
+	if root == "" {
+		return
+	}
+	for _, dir := range c.IncludeDir {
+		dir = cleanPath(dir)
+		if dir == "" {
+			continue
+		}
+		dir = filepath.Clean(dir)
+		abs := dir
+		if !filepath.IsAbs(dir) {
+			abs = filepath.Join(root, dir)
+		}
+		abs = filepath.Clean(abs)
+		if isSubPath(root, abs) {
+			c.includeDirAbs = append(c.includeDirAbs, abs)
+			continue
+		}
+		c.extraIncludeDirs = append(c.extraIncludeDirs, abs)
+	}
 }
 
 type cfgLog struct {
@@ -302,6 +329,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	}
 
 	adaptToVariousPlatforms(c)
+	c.Build.normalizeIncludeDirs(c.Root)
 
 	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()

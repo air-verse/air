@@ -57,6 +57,53 @@ func TestExpandPathWithHomePath(t *testing.T) {
 	}
 }
 
+func TestNormalizeIncludeDirOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	parent := filepath.Dir(root)
+	external := filepath.Join(parent, "pkg")
+
+	cfg := &Config{
+		Root: root,
+		Build: cfgBuild{
+			IncludeDir: []string{"../pkg"},
+		},
+	}
+	cfg.Build.normalizeIncludeDirs(cfg.Root)
+
+	require.Empty(t, cfg.Build.includeDirAbs)
+	require.Equal(t, []string{filepath.Clean(external)}, cfg.Build.extraIncludeDirs)
+
+	engine := &Engine{config: cfg}
+	isIn, walk := engine.checkIncludeDir(filepath.Join(root, "runner"))
+	require.True(t, isIn)
+	require.True(t, walk)
+}
+
+func TestCheckIncludeDirRestrictsWithinRoot(t *testing.T) {
+	root := t.TempDir()
+	runnerDir := filepath.Join(root, "runner")
+	require.NoError(t, os.Mkdir(runnerDir, 0o755))
+	otherDir := filepath.Join(root, "other")
+	require.NoError(t, os.Mkdir(otherDir, 0o755))
+
+	cfg := &Config{
+		Root: root,
+		Build: cfgBuild{
+			IncludeDir: []string{"runner"},
+		},
+	}
+	cfg.Build.normalizeIncludeDirs(cfg.Root)
+
+	engine := &Engine{config: cfg}
+	isIn, walk := engine.checkIncludeDir(runnerDir)
+	require.True(t, isIn)
+	require.True(t, walk)
+
+	isIn, walk = engine.checkIncludeDir(otherDir)
+	require.False(t, isIn)
+	require.False(t, walk)
+}
+
 func TestFileChecksum(t *testing.T) {
 	tests := []struct {
 		name                  string
