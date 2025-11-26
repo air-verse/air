@@ -203,10 +203,10 @@ func TestRunBin(t *testing.T) {
 
 func GetPort() (int, func()) {
 	l, err := net.Listen("tcp", ":0")
+	port := l.Addr().(*net.TCPAddr).Port
 	if err != nil {
 		panic(err)
 	}
-	port := l.Addr().(*net.TCPAddr).Port
 	return port, func() {
 		_ = l.Close()
 	}
@@ -783,8 +783,12 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 }
 
 func TestWriteDefaultConfig(t *testing.T) {
-	// work inside a clean temp directory to avoid touching real project files
-	tmpDir := t.TempDir()
+	port, f := GetPort()
+	f()
+	t.Logf("port: %d", port)
+
+	tmpDir := initTestEnv(t, port)
+	// change dir to tmpDir
 	chdir(t, tmpDir)
 	configName, err := writeDefaultConfig()
 	if err != nil {
