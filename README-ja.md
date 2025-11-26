@@ -43,14 +43,16 @@ air --help
 もしビルドコマンドと起動コマンドを設定したい場合は、設定ファイルを使わずに以下のようにコマンドを使うことができます:
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api"
 ```
 
 入力値としてリストを取る引数には、アイテムを区切るためにコンマを使用します:
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" --build.exclude_dir "templates,build"
 ```
+
+従来の `build.bin` フィールドは非推奨で、今後のリリースで削除される予定です。代わりに `build.entrypoint` を使ってください。
 
 ## インストール
 
