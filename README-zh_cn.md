@@ -29,14 +29,16 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 如果你只是想配置构建命令和运行命令，您可以直接使用以下命令，而无需配置文件:
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api"
 ```
 
 对于以列表形式输入的参数，使用逗号来分隔项目:
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" --build.exclude_dir "templates,build"
 ```
+
+旧的 `build.bin` 字段已弃用，将在未来移除，请改用 `build.entrypoint`。
 
 ## 安装
 
