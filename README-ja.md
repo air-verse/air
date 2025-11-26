@@ -95,6 +95,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 ```
 
+### ソフトウェアパッケージマネージャー [mise](https://github.com/jdx/mise) を使う場合
+
+```shell
+mise use -g air
+```
+
 ### Docker/Podman
 
 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air) という Docker イメージをプルしてください。

@@ -81,6 +81,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 ```
 
+### 使用軟體套件管理器 [mise](https://github.com/jdx/mise)
+
+```shell
+mise use -g air
+```
+
 ### 透過 `go install`
 
 使用 go 1.25 或更高版本:

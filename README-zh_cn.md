@@ -81,6 +81,12 @@ curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
 curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
 ```
 
+### 使用软件包管理器 [mise](https://github.com/jdx/mise)
+
+```shell
+mise use -g air
+```
+
 ### Docker/Podman
 
 请拉取这个 Docker 镜像 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
