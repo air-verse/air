@@ -11,9 +11,9 @@ assignees: xiantang
 Provide a clear and concise description of the issue you encountered.
 
 **To Reproduce**  
-1. If you have a minimal reproducible example, please consider submitting a PR to:  
-   https://github.com/air-verse/air-reproducible-example
-2. Describe the steps to reproduce the issue clearly in that example.
+- [ ] Provide a minimal reproducible example (ideally as a PR to https://github.com/air-verse/air-reproducible-example).  
+- [ ] Include relevant parts of your `.air.toml` (redact secrets) **or** the exact `air` command you ran.  
+- [ ] Describe the steps to reproduce the issue clearly in that example.
 
 **Expected behavior**  
 Describe clearly and concisely what you expected to happen.
