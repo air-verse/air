@@ -172,11 +172,33 @@ func (e *Engine) checkIncludeFile(path string) bool {
 func (e *Engine) isIncludeExt(path string) bool {
 	ext := filepath.Ext(path)
 	for _, v := range e.config.Build.IncludeExt {
+		if strings.TrimSpace(v) == "*" {
+			// Wildcard matches all files, but exclude the binary file
+			return !e.isBinPath(path)
+		}
 		if ext == "."+strings.TrimSpace(v) {
 			return true
 		}
 	}
 	return false
+}
+
+// isBinPath checks if the given path is the binary file path
+func (e *Engine) isBinPath(path string) bool {
+	binPath := e.config.binPath()
+	if binPath == "" {
+		return false
+	}
+	// Normalize the path for comparison
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	absBinPath, err := filepath.Abs(binPath)
+	if err != nil {
+		return false
+	}
+	return absPath == absBinPath
 }
 
 func (e *Engine) isExcludeRegex(path string) (bool, error) {
