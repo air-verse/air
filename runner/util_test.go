@@ -463,9 +463,26 @@ func TestIsBinPath(t *testing.T) {
 		},
 	}
 
+	// Test matching path returns true
 	assert.True(t, e.isBinPath(binPath))
+	// Test non-matching paths return false
 	assert.False(t, e.isBinPath(filepath.Join(tmpDir, "other", "file")))
 	assert.False(t, e.isBinPath("unrelated.go"))
+}
+
+func TestIsBinPathEmptyBinPath(t *testing.T) {
+	// Test when binPath is empty (no entrypoint configured)
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				Entrypoint: entrypoint{}, // empty entrypoint
+			},
+		},
+	}
+
+	// Should return false when binPath is empty
+	assert.False(t, e.isBinPath("/some/path"))
+	assert.False(t, e.isBinPath("main.go"))
 }
 
 func TestJoinPathRelative(t *testing.T) {
