@@ -288,6 +288,7 @@ func defaultConfig() Config {
 		ArgsBin:      nil,
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        1000,
+		StopOnError:  true,
 		Rerun:        false,
 		RerunDelay:   500,
 	}

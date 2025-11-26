@@ -110,6 +110,13 @@ func TestReadConfByName(t *testing.T) {
 	}
 }
 
+func TestDefaultStopOnError(t *testing.T) {
+	df := defaultConfig()
+	if !df.Build.StopOnError {
+		t.Fatal("expected StopOnError to default to true")
+	}
+}
+
 func TestConfPreprocess(t *testing.T) {
 	t.Setenv(airWd, "_testdata/toml")
 	df := defaultConfig()
