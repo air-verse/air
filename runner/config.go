@@ -275,8 +275,8 @@ func readConfByName(name string) (*Config, error) {
 func defaultConfig() Config {
 	build := cfgBuild{
 		Cmd:          "go build -o ./tmp/main .",
-		Bin:          "",
-		Entrypoint:   entrypoint{"./tmp/main"},
+		Bin:          "./tmp/main",
+		Entrypoint:   entrypoint{},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
