@@ -82,7 +82,15 @@ func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	appURL := r.URL
 	appURL.Scheme = "http"
-	appURL.Host = fmt.Sprintf("localhost:%d", p.config.AppPort)
+	host := "localhost"
+	if p.config.UseHostHeader {
+		host = r.Host
+		if idx := strings.Index(host, ":"); idx != -1 {
+			// Strip any existing port from the host
+			host = host[:idx]
+		}
+	}
+	appURL.Host = fmt.Sprintf("%s:%d", host, p.config.AppPort)
 
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "proxy handler: bad form", http.StatusInternalServerError)
@@ -116,7 +124,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	// therefore, we retry until the server becomes available or this retry loop exits with an error.
 	var resp *http.Response
 	resp, err = p.client.Do(req)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < p.config.Retries; i++ {
 		if err == nil {
 			break
 		}
