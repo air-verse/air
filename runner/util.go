@@ -21,6 +21,8 @@ import (
 
 const (
 	sliceCmdArgSeparator = ","
+	// extWildcard is used in include_ext to match all file extensions
+	extWildcard = "*"
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
@@ -172,7 +174,7 @@ func (e *Engine) checkIncludeFile(path string) bool {
 func (e *Engine) isIncludeExt(path string) bool {
 	ext := filepath.Ext(path)
 	for _, v := range e.config.Build.IncludeExt {
-		if strings.TrimSpace(v) == "*" {
+		if strings.TrimSpace(v) == extWildcard {
 			// Wildcard matches all files, but exclude the binary file
 			return !e.isBinPath(path)
 		}
