@@ -50,6 +50,15 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	var entryArgs []string
+	if len(cfg.Build.FullBin) == 0 {
+		entryArgs = cfg.Build.Entrypoint.args()
+	}
+	runArgs := make([]string, 0, len(entryArgs)+len(cfg.Build.ArgsBin))
+	if len(entryArgs) > 0 {
+		runArgs = append(runArgs, entryArgs...)
+	}
+	runArgs = append(runArgs, cfg.Build.ArgsBin...)
 	e := Engine{
 		config:         cfg,
 		exiter:         defaultExiter{},
@@ -57,7 +66,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		logger:         logger,
 		watcher:        watcher,
 		debugMode:      debugMode,
-		runArgs:        cfg.Build.ArgsBin,
+		runArgs:        runArgs,
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
@@ -97,7 +106,7 @@ func (e *Engine) Run() {
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
-	if err = e.watching(e.config.Root); err != nil {
+	if err = e.watchConfiguredDirs(); err != nil {
 		os.Exit(1)
 	}
 
@@ -113,6 +122,40 @@ func (e *Engine) checkRunEnv() error {
 			e.runnerLog("failed to mkdir, error: %s", err.Error())
 			return err
 		}
+	}
+	return nil
+}
+
+func (e *Engine) watchConfiguredDirs() error {
+	type watchTarget struct {
+		path     string
+		optional bool
+	}
+	targets := []watchTarget{{path: e.config.Root, optional: false}}
+	for _, dir := range e.config.Build.extraIncludeDirs {
+		targets = append(targets, watchTarget{path: dir, optional: true})
+	}
+
+	seen := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		if target.path == "" {
+			continue
+		}
+		cleaned := filepath.Clean(target.path)
+		if _, ok := seen[cleaned]; ok {
+			continue
+		}
+		if _, err := os.Stat(cleaned); err != nil {
+			if os.IsNotExist(err) && target.optional {
+				e.watcherLog("include_dir %s does not exist, skipping", e.config.rel(cleaned))
+				continue
+			}
+			return err
+		}
+		if err := e.watching(cleaned); err != nil {
+			return err
+		}
+		seen[cleaned] = struct{}{}
 	}
 	return nil
 }
@@ -446,14 +489,12 @@ func (e *Engine) runCommand(command string) error {
 		stdout.Close()
 		stderr.Close()
 	}()
-	_, _ = io.Copy(os.Stdout, stdout)
-	_, _ = io.Copy(os.Stderr, stderr)
+
+	copyOutput(os.Stdout, stdout)
+	copyOutput(os.Stderr, stderr)
+
 	// wait for command to finish
-	err = cmd.Wait()
-	if err != nil {
-		return err
-	}
-	return nil
+	return cmd.Wait()
 }
 
 func (e *Engine) runCommandCopyOutput(command string) (string, error) {
@@ -560,12 +601,16 @@ func (e *Engine) runBin() error {
 			}
 
 			if e.config.Build.StopOnError {
-				cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
+				relBinPath := e.config.rel(e.config.binPath())
+				if relBinPath == "" || strings.HasPrefix(relBinPath, "..") {
+					return
+				}
+				cmdBinPath := cmdPath(relBinPath)
 				if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
 					return
 				}
 				if err = os.Remove(cmdBinPath); err != nil {
-					e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
+					e.mainLog("failed to remove %s, error: %s", relBinPath, err)
 				}
 			}
 		}()
@@ -591,7 +636,7 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
-				formattedBin := formatPath(e.config.Build.Bin)
+				formattedBin := formatPath(e.config.runnerBin())
 				command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
 				cmd, stdout, stderr, err := e.startCmd(command)
 				if err != nil {
@@ -612,15 +657,9 @@ func (e *Engine) runBin() error {
 					e.binStopCh = killFunc(cmd, stdout, stderr, killCh, processExit)
 				})
 
-				go func() {
-					_, _ = io.Copy(os.Stdout, stdout)
-					_, _ = cmd.Process.Wait()
-				}()
+				go copyOutput(os.Stdout, stdout)
+				go copyOutput(os.Stderr, stderr)
 
-				go func() {
-					_, _ = io.Copy(os.Stderr, stderr)
-					_, _ = cmd.Process.Wait()
-				}()
 				state, _ := cmd.Process.Wait()
 				close(processExit)
 

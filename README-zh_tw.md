@@ -29,14 +29,16 @@ Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 
 如果你想設定建置命令和執行命令，你可以在不需要配置檔案的情況下如下使用命令：
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api"
 ```
 
 對於需要輸入列表的參數，可以使用逗號將項目分隔：
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" --build.exclude_dir "templates,build"
 ```
+
+舊的 `build.bin` 欄位已被棄用，未來版本會移除，請改用 `build.entrypoint`。
 
 ## 安裝
 
@@ -44,8 +46,19 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 需要使用 go 1.25 或更高版本：
 
-```bash
+```shell
 go install github.com/air-verse/air@latest
+```
+
+### 使用 `go get -tool`
+
+需要使用 go 1.24 或更高版本：
+
+```shell
+go get -tool github.com/air-verse/air@latest
+
+# 然後這樣使用：
+go tool air -v
 ```
 
 ### 透過 install.sh
@@ -68,6 +81,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 
 # to put to a custom path
 curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
+```
+
+### 使用軟體套件管理器 [mise](https://github.com/jdx/mise)
+
+```shell
+mise use -g air
 ```
 
 ### 透過 `go install`

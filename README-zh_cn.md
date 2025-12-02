@@ -29,14 +29,16 @@ Air 是为 Go 应用开发设计的另外一个热重载的命令行工具。只
 如果你只是想配置构建命令和运行命令，您可以直接使用以下命令，而无需配置文件:
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api"
 ```
 
 对于以列表形式输入的参数，使用逗号来分隔项目:
 
 ```shell
-air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" --build.exclude_dir "templates,build"
 ```
+
+旧的 `build.bin` 字段已弃用，将在未来移除，请改用 `build.entrypoint`。
 
 ## 安装
 
@@ -46,6 +48,17 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build
 
 ```shell
 go install github.com/air-verse/air@latest
+```
+
+### 使用 `go get -tool`
+
+使用 go 1.24 或更高版本:
+
+```shell
+go get -tool github.com/air-verse/air@latest
+
+# 然后像这样使用：
+go tool air -v
 ```
 
 ### 使用 install.sh
@@ -68,6 +81,12 @@ curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
 
 # 自定义路径安装
 curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
+```
+
+### 使用软件包管理器 [mise](https://github.com/jdx/mise)
+
+```shell
+mise use -g air
 ```
 
 ### Docker/Podman

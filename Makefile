@@ -4,7 +4,7 @@ LDFLAGS += -X "main.airVersion=$(AIRVER)"
 LDFLAGS += -X "main.goVersion=$(shell go version | sed -r 's/go version go(.*)\ .*/\1/')"
 
 GO := GO111MODULE=on CGO_ENABLED=0 go
-GOLANGCI_LINT_VERSION = v2.2.0
+GOLANGCI_LINT_VERSION = v2.6.1
 GOLANGCI_LINT_CURRENT := $(shell golangci-lint --version 2>/dev/null | sed -n 's/.*version \([0-9.]*\).*/v\1/p')
 
 .PHONY: init
@@ -29,7 +29,7 @@ check:
 
 .PHONY: ci
 ci: init
-	@$(GO) mod tidy && $(GO) mod vendor
+	@$(GO) mod tidy
 
 .PHONY: build
 build: check

@@ -57,6 +57,53 @@ func TestExpandPathWithHomePath(t *testing.T) {
 	}
 }
 
+func TestNormalizeIncludeDirOutsideRoot(t *testing.T) {
+	root := t.TempDir()
+	parent := filepath.Dir(root)
+	external := filepath.Join(parent, "pkg")
+
+	cfg := &Config{
+		Root: root,
+		Build: cfgBuild{
+			IncludeDir: []string{"../pkg"},
+		},
+	}
+	cfg.Build.normalizeIncludeDirs(cfg.Root)
+
+	require.Empty(t, cfg.Build.includeDirAbs)
+	require.Equal(t, []string{filepath.Clean(external)}, cfg.Build.extraIncludeDirs)
+
+	engine := &Engine{config: cfg}
+	isIn, walk := engine.checkIncludeDir(filepath.Join(root, "runner"))
+	require.True(t, isIn)
+	require.True(t, walk)
+}
+
+func TestCheckIncludeDirRestrictsWithinRoot(t *testing.T) {
+	root := t.TempDir()
+	runnerDir := filepath.Join(root, "runner")
+	require.NoError(t, os.Mkdir(runnerDir, 0o755))
+	otherDir := filepath.Join(root, "other")
+	require.NoError(t, os.Mkdir(otherDir, 0o755))
+
+	cfg := &Config{
+		Root: root,
+		Build: cfgBuild{
+			IncludeDir: []string{"runner"},
+		},
+	}
+	cfg.Build.normalizeIncludeDirs(cfg.Root)
+
+	engine := &Engine{config: cfg}
+	isIn, walk := engine.checkIncludeDir(runnerDir)
+	require.True(t, isIn)
+	require.True(t, walk)
+
+	isIn, walk = engine.checkIncludeDir(otherDir)
+	require.False(t, isIn)
+	require.False(t, walk)
+}
+
 func TestFileChecksum(t *testing.T) {
 	tests := []struct {
 		name                  string
@@ -225,6 +272,68 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	for _, line := range lines {
 		_, err := strconv.Atoi(line)
 		if err != nil {
+			t.Logf("failed to convert str to int %v", err)
+			continue
+		}
+		_, err = exec.Command("ps", "-p", line, "-o", "comm= ").Output()
+		if err == nil {
+			t.Fatalf("process should be killed %v", line)
+		}
+	}
+}
+
+func Test_killCmd_KillsDetachedChildren(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("requires /proc")
+	}
+
+	_, b, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(b)
+	err := os.Chdir(dir)
+	if err != nil {
+		t.Fatalf("couldn't change directory: %v", err)
+	}
+
+	_ = os.Remove("pid")
+	defer os.Remove("pid")
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: false,
+			},
+		},
+	}
+
+	startChan := make(chan *exec.Cmd)
+	go func() {
+		cmd, _, _, err := e.startCmd("sh _testdata/run-detached-process.sh")
+		if err != nil {
+			t.Errorf("failed to start command: %v", err)
+			return
+		}
+		startChan <- cmd
+		if err := cmd.Wait(); err != nil {
+			t.Logf("failed to wait command: %v", err)
+		}
+	}()
+
+	cmd := <-startChan
+	time.Sleep(2 * time.Second)
+
+	if _, err := e.killCmd(cmd); err != nil {
+		t.Fatalf("failed to kill command: %v", err)
+	}
+
+	bytesRead, err := os.ReadFile("pid")
+	require.NoError(t, err)
+	lines := strings.Split(string(bytesRead), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if _, err := strconv.Atoi(line); err != nil {
 			t.Logf("failed to convert str to int %v", err)
 			continue
 		}

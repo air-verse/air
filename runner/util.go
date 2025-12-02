@@ -1,10 +1,12 @@
 package runner
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -97,6 +99,24 @@ func cleanPath(path string) string {
 	return strings.TrimSuffix(strings.TrimSpace(path), "/")
 }
 
+func isSubPath(base, target string) bool {
+	if base == "" || target == "" {
+		return false
+	}
+	base = filepath.Clean(base)
+	target = filepath.Clean(target)
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	rel = filepath.Clean(rel)
+	prefix := ".." + string(os.PathSeparator)
+	return rel != ".." && !strings.HasPrefix(rel, prefix)
+}
+
 func (e *Engine) isExcludeDir(path string) bool {
 	cleanName := cleanPath(e.config.rel(path))
 	for _, d := range e.config.Build.ExcludeDir {
@@ -109,23 +129,23 @@ func (e *Engine) isExcludeDir(path string) bool {
 
 // return isIncludeDir, walkDir
 func (e *Engine) checkIncludeDir(path string) (bool, bool) {
-	cleanName := cleanPath(e.config.rel(path))
-	iDir := e.config.Build.IncludeDir
-	if len(iDir) == 0 { // ignore empty
+	path = filepath.Clean(path)
+
+	if len(e.config.Build.includeDirAbs) == 0 {
 		return true, true
 	}
-	if cleanName == "." {
-		return false, true
+
+	if !isSubPath(e.config.Root, path) {
+		return true, true
 	}
+
 	walkDir := false
-	for _, d := range iDir {
-		if d == cleanName {
+	for _, dir := range e.config.Build.includeDirAbs {
+		dir = filepath.Clean(dir)
+		if isSubPath(dir, path) {
 			return true, true
 		}
-		if strings.HasPrefix(cleanName, d) { // current dir is sub-directory of `d`
-			return true, true
-		}
-		if strings.HasPrefix(d, cleanName) { // `d` is sub-directory of current dir
+		if isSubPath(path, dir) {
 			walkDir = true
 		}
 	}
@@ -205,6 +225,13 @@ func (e *Engine) logWithLock(f func()) {
 	e.ll.Lock()
 	f()
 	e.ll.Unlock()
+}
+
+func copyOutput(dst io.Writer, src io.Reader) {
+	scanner := bufio.NewScanner(src)
+	for scanner.Scan() {
+		_, _ = dst.Write([]byte(scanner.Text() + "\n"))
+	}
 }
 
 func expandPath(path string) (string, error) {
@@ -343,11 +370,17 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 		case reflect.String:
 			field.SetString(value)
 		case reflect.Slice:
+			var parts []string
 			if len(value) == 0 {
-				field.Set(reflect.ValueOf([]string{}))
+				parts = []string{}
 			} else {
-				field.Set(reflect.ValueOf(strings.Split(value, sliceCmdArgSeparator)))
+				parts = strings.Split(value, sliceCmdArgSeparator)
 			}
+			slice := reflect.MakeSlice(field.Type(), len(parts), len(parts))
+			for i, part := range parts {
+				slice.Index(i).Set(reflect.ValueOf(part))
+			}
+			field.Set(slice)
 		case reflect.Int64:
 			i, _ := strconv.ParseInt(value, 10, 64)
 			field.SetInt(i)

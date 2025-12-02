@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"dario.cat/mergo"
@@ -17,10 +19,10 @@ import (
 
 const (
 	dftTOML = ".air.toml"
-	dftConf = ".air.conf"
 	airWd   = "air_wd"
 
 	defaultProxyAppStartTimeout = 5000
+	schemaHeader = "#:schema https://json.schemastore.org/any.json"
 )
 
 // Config is the main configuration structure for Air.
@@ -36,11 +38,52 @@ type Config struct {
 	Proxy       cfgProxy  `toml:"proxy"`
 }
 
+type entrypoint []string
+
+func (e *entrypoint) UnmarshalTOML(v interface{}) error {
+	switch val := v.(type) {
+	case nil:
+		*e = nil
+		return nil
+	case string:
+		*e = []string{val}
+		return nil
+	case []interface{}:
+		values := make([]string, len(val))
+		for i, raw := range val {
+			s, ok := raw.(string)
+			if !ok {
+				return fmt.Errorf("entrypoint values must be strings, got %T", raw)
+			}
+			values[i] = s
+		}
+		*e = values
+		return nil
+	default:
+		return fmt.Errorf("entrypoint must be a string or array of strings, got %T", v)
+	}
+}
+
+func (e entrypoint) binary() string {
+	if len(e) == 0 {
+		return ""
+	}
+	return e[0]
+}
+
+func (e entrypoint) args() []string {
+	if len(e) <= 1 {
+		return nil
+	}
+	return e[1:]
+}
+
 type cfgBuild struct {
 	PreCmd           []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
 	Cmd              string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
 	PostCmd          []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
-	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd'"`
+	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
+	Entrypoint       entrypoint    `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
 	FullBin          string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
 	ArgsBin          []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
 	Log              string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
@@ -61,10 +104,37 @@ type cfgBuild struct {
 	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
 	regexCompiled    []*regexp.Regexp
+	includeDirAbs    []string
+	extraIncludeDirs []string
 }
 
 func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 	return c.regexCompiled, nil
+}
+
+func (c *cfgBuild) normalizeIncludeDirs(root string) {
+	c.includeDirAbs = c.includeDirAbs[:0]
+	c.extraIncludeDirs = c.extraIncludeDirs[:0]
+	if root == "" {
+		return
+	}
+	for _, dir := range c.IncludeDir {
+		dir = cleanPath(dir)
+		if dir == "" {
+			continue
+		}
+		dir = filepath.Clean(dir)
+		abs := dir
+		if !filepath.IsAbs(dir) {
+			abs = filepath.Join(root, dir)
+		}
+		abs = filepath.Clean(abs)
+		if isSubPath(root, abs) {
+			c.includeDirAbs = append(c.includeDirAbs, abs)
+			continue
+		}
+		c.extraIncludeDirs = append(c.extraIncludeDirs, abs)
+	}
 }
 
 type cfgLog struct {
@@ -124,6 +194,7 @@ func InitConfig(path string, cmdArgs map[string]TomlInfo) (cfg *Config, err erro
 			return nil, err
 		}
 	}
+	warnDeprecatedBin(cfg)
 	config := defaultConfig()
 	// get addr
 	ret := &config
@@ -143,16 +214,12 @@ func InitConfig(path string, cmdArgs map[string]TomlInfo) (cfg *Config, err erro
 }
 
 func writeDefaultConfig() (string, error) {
-	confFiles := []string{dftTOML, dftConf}
-
-	for _, fname := range confFiles {
-		fstat, err := os.Stat(fname)
-		if err != nil && !os.IsNotExist(err) {
-			return "", fmt.Errorf("failed to check for existing configuration: %w", err)
-		}
-		if err == nil && fstat != nil {
-			return "", errors.New("configuration already exists")
-		}
+	fstat, err := os.Stat(dftTOML)
+	if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to check for existing configuration: %w", err)
+	}
+	if err == nil && fstat != nil {
+		return "", errors.New("configuration already exists")
 	}
 
 	file, err := os.Create(dftTOML)
@@ -162,12 +229,18 @@ func writeDefaultConfig() (string, error) {
 	defer file.Close()
 
 	config := defaultConfig()
+	if len(config.Build.Entrypoint) == 0 && config.Build.Bin != "" {
+		config.Build.Entrypoint = entrypoint{config.Build.Bin}
+	}
 	configFile, err := toml.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal the default configuration: %w", err)
 	}
 
-	_, err = file.Write(configFile)
+	headers := []byte(schemaHeader + "\n\n")
+	content := append(headers, configFile...)
+
+	_, err = file.Write(content)
 	if err != nil {
 		return "", fmt.Errorf("failed to write to %s: %w", dftTOML, err)
 	}
@@ -176,15 +249,10 @@ func writeDefaultConfig() (string, error) {
 }
 
 func defaultPathConfig() (*Config, error) {
-	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-	for _, name := range []string{dftTOML, dftConf} {
-		cfg, err := readConfByName(name)
-		if err == nil {
-			if name == dftConf && !cfg.Log.Silent {
-				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
-			}
-			return cfg, nil
-		}
+	// when path is blank, first find `.air.toml` in `air_wd` and current working directory, if not found, use defaults
+	cfg, err := readConfByName(dftTOML)
+	if err == nil {
+		return cfg, nil
 	}
 
 	dftCfg := defaultConfig()
@@ -210,6 +278,7 @@ func defaultConfig() Config {
 	build := cfgBuild{
 		Cmd:          "go build -o ./tmp/main .",
 		Bin:          "./tmp/main",
+		Entrypoint:   entrypoint{},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
@@ -309,7 +378,25 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		ed[i] = cleanPath(ed[i])
 	}
 
+	if len(c.Build.Entrypoint) > 0 {
+		entry := c.Build.Entrypoint.binary()
+		if !filepath.IsAbs(entry) {
+			if resolved := resolveCommandPath(entry); resolved != "" {
+				entry = resolved
+			} else {
+				entry = joinPath(c.Root, entry)
+			}
+		}
+
+		entry, err = filepath.Abs(entry)
+		if err != nil {
+			return err
+		}
+		c.Build.Entrypoint[0] = entry
+	}
+
 	adaptToVariousPlatforms(c)
+	c.Build.normalizeIncludeDirs(c.Root)
 
 	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()
@@ -372,7 +459,17 @@ func (c *Config) killDelay() time.Duration {
 }
 
 func (c *Config) binPath() string {
+	if len(c.Build.Entrypoint) > 0 {
+		return c.Build.Entrypoint.binary()
+	}
 	return joinPath(c.Root, c.Build.Bin)
+}
+
+func (c *Config) runnerBin() string {
+	if len(c.Build.Entrypoint) > 0 && len(c.Build.FullBin) == 0 {
+		return c.Build.Entrypoint.binary()
+	}
+	return c.Build.Bin
 }
 
 func (c *Config) tmpPath() string {
@@ -391,6 +488,18 @@ func (c *Config) rel(path string) string {
 	return s
 }
 
+func resolveCommandPath(entry string) string {
+	if entry == "" || strings.ContainsAny(entry, `/\`) {
+		return ""
+	}
+
+	path, err := exec.LookPath(entry)
+	if err != nil {
+		return ""
+	}
+	return path
+}
+
 // withArgs returns a new config with the given arguments added to the configuration.
 func (c *Config) withArgs(args map[string]TomlInfo) {
 	for _, value := range args {
@@ -402,4 +511,14 @@ func (c *Config) withArgs(args map[string]TomlInfo) {
 		}
 	}
 
+}
+
+func warnDeprecatedBin(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Build.Bin == "" || len(cfg.Build.Entrypoint) > 0 {
+		return
+	}
+	fmt.Fprintln(os.Stdout, "[warning] build.bin is deprecated; set build.entrypoint instead")
 }

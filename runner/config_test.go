@@ -2,7 +2,10 @@ package runner
 
 import (
 	"flag"
+	"io"
 	"os"
+	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -82,14 +85,6 @@ func TestDefaultPathConfig(t *testing.T) {
 		name: "TOML",
 		path: "_testdata/toml",
 		root: "toml_root",
-	}, {
-		name: "Conf",
-		path: "_testdata/conf",
-		root: "conf_root",
-	}, {
-		name: "Both",
-		path: "_testdata/both",
-		root: "both_root",
 	}}
 
 	for _, tt := range tests {
@@ -126,6 +121,90 @@ func TestConfPreprocess(t *testing.T) {
 	binPath := df.Build.Bin
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
+	}
+}
+
+func TestEntrypointResolvesAbsolutePath(t *testing.T) {
+	base := t.TempDir()
+	rootWithSpace := filepath.Join(base, "with space")
+	if err := os.MkdirAll(filepath.Join(rootWithSpace, "tmp"), 0o755); err != nil {
+		t.Fatalf("failed to prepare tmp dir: %v", err)
+	}
+
+	cfg := defaultConfig()
+	cfg.Root = rootWithSpace
+	cfg.Build.Entrypoint = entrypoint{"./tmp/main"}
+
+	if err := cfg.preprocess(nil); err != nil {
+		t.Fatalf("preprocess error %v", err)
+	}
+
+	want := filepath.Join(rootWithSpace, "tmp", "main")
+	if got := cfg.Build.Entrypoint.binary(); got != want {
+		t.Fatalf("entrypoint is %s, but want %s", got, want)
+	}
+
+	if cfg.binPath() != want {
+		t.Fatalf("bin path is %s, but want %s", cfg.binPath(), want)
+	}
+}
+
+func TestEntrypointResolvesFromPath(t *testing.T) {
+	root := t.TempDir()
+	pathDir := t.TempDir()
+
+	binName := "air-entrypoint-path"
+	fileName := binName
+	fileContents := "#!/bin/sh\nexit 0\n"
+	if runtime.GOOS == "windows" {
+		fileName += ".bat"
+		fileContents = "@echo off\r\n"
+		t.Setenv("PATHEXT", ".BAT;.EXE")
+	}
+	fullPath := filepath.Join(pathDir, fileName)
+	if err := os.WriteFile(fullPath, []byte(fileContents), 0o755); err != nil {
+		t.Fatalf("failed to write fake binary: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(fullPath, 0o755); err != nil {
+			t.Fatalf("failed to make fake binary executable: %v", err)
+		}
+	}
+
+	t.Setenv("PATH", pathDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	cfg := defaultConfig()
+	cfg.Root = root
+	cfg.Build.Entrypoint = entrypoint{binName}
+
+	if err := cfg.preprocess(nil); err != nil {
+		t.Fatalf("preprocess error %v", err)
+	}
+
+	want := fullPath
+	if got := cfg.Build.Entrypoint.binary(); got != want {
+		t.Fatalf("entrypoint resolved to %s, want %s", got, want)
+	}
+}
+
+func TestEntrypointPreservesArgs(t *testing.T) {
+	root := t.TempDir()
+	cfg := defaultConfig()
+	cfg.Root = root
+	cfg.Build.Entrypoint = entrypoint{"./tmp/main", "server", ":8080"}
+
+	if err := cfg.preprocess(nil); err != nil {
+		t.Fatalf("preprocess error %v", err)
+	}
+
+	wantBin := filepath.Join(root, "tmp", "main")
+	if cfg.Build.Entrypoint.binary() != wantBin {
+		t.Fatalf("entrypoint binary is %s, want %s", cfg.Build.Entrypoint.binary(), wantBin)
+	}
+
+	wantArgs := []string{"server", ":8080"}
+	if got := cfg.Build.Entrypoint.args(); !reflect.DeepEqual(got, wantArgs) {
+		t.Fatalf("entrypoint args mismatch, got %v want %v", got, wantArgs)
 	}
 }
 
@@ -209,4 +288,40 @@ func contains(sl []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func TestWarnDeprecatedBin(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `
+[build]
+bin = "./tmp/main"
+cmd = "go build -o ./tmp/main ."
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	oldStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdout = w
+
+	_, _ = InitConfig(cfgPath, nil)
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close writer: %v", err)
+	}
+	os.Stdout = oldStdout
+
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("failed to read output: %v", err)
+	}
+	output := string(out)
+	if !strings.Contains(output, "build.bin is deprecated") {
+		t.Fatalf("missing bin deprecation warning in output: %q", output)
+	}
 }

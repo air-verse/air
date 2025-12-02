@@ -1,3 +1,5 @@
+#:schema https://json.schemastore.org/any.json
+
 # Config file for [Air](https://github.com/air-verse/air) in TOML format
 
 # Working directory
@@ -12,8 +14,10 @@ pre_cmd = ["echo 'hello air' > pre_cmd.txt"]
 cmd = "go build -o ./tmp/main ."
 # Array of commands to run after ^C
 post_cmd = ["echo 'hello air' > post_cmd.txt"]
-# Binary file yields from `cmd`.
+# Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint.
 bin = "tmp/main"
+# Entrypoint binary relative to root. First item is the executable, more items are default arguments.
+entrypoint = ["./tmp/main"]
 # Customize binary, can setup environment variables when run your app.
 full_bin = "APP_ENV=dev APP_USER=air ./tmp/main"
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
