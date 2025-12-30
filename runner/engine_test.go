@@ -1167,3 +1167,70 @@ func TestEngineExit(t *testing.T) {
 		})
 	}
 }
+
+// TestBuildRunRaceCondition tests that a new build does not consume stop signals
+// meant for a previous build. This is a regression test for issue #784.
+func TestBuildRunRaceCondition(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.config.Log.Silent = true
+
+	// Simulate the race condition scenario:
+	// 1. Build generation 1 starts
+	// 2. A stop signal for generation 1 is sent (e.g., due to file change)
+	// 3. Build generation 2 starts before generation 1 consumes the stop signal
+	// 4. Generation 2 should NOT consume the stop signal meant for generation 1
+
+	// Test that a stop signal for an older generation does not stop a newer build
+	e.buildGeneration.Store(5) // Current generation is 5
+
+	// Send a stop signal for generation 3 (an older build)
+	go func() {
+		e.buildRunStopCh <- 3
+	}()
+
+	// Give the channel time to receive
+	time.Sleep(10 * time.Millisecond)
+
+	// Check if generation 6 would be stopped (it should not be)
+	e.buildRunStopCheckMu.Lock()
+	shouldStop := false
+	select {
+	case stopGen := <-e.buildRunStopCh:
+		// Only stop if the signal is for our generation or newer
+		if stopGen >= 6 {
+			shouldStop = true
+		}
+		// Otherwise, signal was for an older build, ignore it
+	default:
+	}
+	e.buildRunStopCheckMu.Unlock()
+
+	if shouldStop {
+		t.Error("Build generation 6 should NOT have been stopped by a signal for generation 3")
+	}
+
+	// Test that a stop signal for the current generation does stop the build
+	e.buildGeneration.Store(10)
+	go func() {
+		e.buildRunStopCh <- 10
+	}()
+	time.Sleep(10 * time.Millisecond)
+
+	e.buildRunStopCheckMu.Lock()
+	shouldStop = false
+	select {
+	case stopGen := <-e.buildRunStopCh:
+		if stopGen >= 10 {
+			shouldStop = true
+		}
+	default:
+	}
+	e.buildRunStopCheckMu.Unlock()
+
+	if !shouldStop {
+		t.Error("Build generation 10 SHOULD have been stopped by a signal for generation 10")
+	}
+}

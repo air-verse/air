@@ -27,10 +27,15 @@ type Engine struct {
 	runArgs   []string
 	running   atomic.Bool
 
-	eventCh        chan string
-	watcherStopCh  chan bool
-	buildRunCh     chan bool
-	buildRunStopCh chan bool
+	eventCh       chan string
+	watcherStopCh chan bool
+	buildRunCh    chan bool
+	// buildGeneration is used to prevent race conditions where a new build
+	// receives a stop signal meant for a previous build. Each build is assigned
+	// a generation number, and stop signals include the target generation.
+	buildGeneration     atomic.Uint64
+	buildRunStopCh      chan uint64
+	buildRunStopCheckMu sync.Mutex
 	// binStopCh is a channel for process termination control
 	// Type chan<- chan int indicates it's a send-only channel that transmits another channel(chan int)
 	binStopCh chan<- chan int
@@ -70,7 +75,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		eventCh:        make(chan string, 1000),
 		watcherStopCh:  make(chan bool, 10),
 		buildRunCh:     make(chan bool, 1),
-		buildRunStopCh: make(chan bool, 1),
+		buildRunStopCh: make(chan uint64, 1),
 		exitCh:         make(chan bool),
 		fileChecksums:  &checksumMap{m: make(map[string]string)},
 		watchers:       0,
@@ -406,30 +411,46 @@ func (e *Engine) start() {
 		}
 
 		// already build and run now
+		e.buildRunStopCheckMu.Lock()
 		select {
 		case <-e.buildRunCh:
-			e.buildRunStopCh <- true
+			// Signal the current build to stop using its generation number
+			e.buildRunStopCh <- e.buildGeneration.Load()
 		default:
 		}
+		// Increment generation for the new build before releasing the lock
+		// This ensures the new build gets a fresh generation number
+		newGen := e.buildGeneration.Add(1)
+		e.buildRunStopCheckMu.Unlock()
 
 		// if current app is running, stop it
 		e.stopBin()
 
-		go e.buildRun()
+		go e.buildRun(newGen)
 	}
 }
 
-func (e *Engine) buildRun() {
+func (e *Engine) buildRun(generation uint64) {
 	e.buildRunCh <- true
 	defer func() {
 		<-e.buildRunCh
 	}()
 
+	// Check if we should stop. The mutex ensures that the generation check
+	// and stop signal consumption are atomic with respect to new build triggers.
+	e.buildRunStopCheckMu.Lock()
 	select {
-	case <-e.buildRunStopCh:
-		return
+	case stopGen := <-e.buildRunStopCh:
+		// Only stop if the signal is for our generation or older
+		if stopGen >= generation {
+			e.buildRunStopCheckMu.Unlock()
+			return
+		}
+		// Signal was for an older build, ignore it
 	default:
 	}
+	e.buildRunStopCheckMu.Unlock()
+
 	var err error
 	if err = e.runPreCmd(); err != nil {
 		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
@@ -455,14 +476,21 @@ func (e *Engine) buildRun() {
 		}
 	}
 
+	e.buildRunStopCheckMu.Lock()
 	select {
-	case <-e.buildRunStopCh:
-		return
+	case stopGen := <-e.buildRunStopCh:
+		if stopGen >= generation {
+			e.buildRunStopCheckMu.Unlock()
+			return
+		}
 	case <-e.exitCh:
+		e.buildRunStopCheckMu.Unlock()
 		e.mainDebug("exit in buildRun")
 		return
 	default:
 	}
+	e.buildRunStopCheckMu.Unlock()
+
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
 	}
