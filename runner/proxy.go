@@ -140,13 +140,41 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Via", viaHeaderValue)
-	w.WriteHeader(resp.StatusCode)
+
+	// Determine if this is a streaming response that should be forwarded verbatim
+	isStreaming := resp.Header.Get("Transfer-Encoding") == "chunked" ||
+		strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
-		if _, err := io.Copy(w, resp.Body); err != nil {
-			http.Error(w, "proxy handler: failed to forward the response body", http.StatusInternalServerError)
-			return
+		if !isStreaming {
+			w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
+		}
+		w.WriteHeader(resp.StatusCode)
+		if isStreaming {
+			// For streaming responses, flush each chunk immediately
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				http.Error(w, "proxy handler: streaming unsupported", http.StatusInternalServerError)
+				return
+			}
+			buf := make([]byte, 1024)
+			for {
+				n, err := resp.Body.Read(buf)
+				if n > 0 {
+					if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+						return
+					}
+					flusher.Flush()
+				}
+				if err != nil {
+					break
+				}
+			}
+		} else {
+			if _, err := io.Copy(w, resp.Body); err != nil {
+				http.Error(w, "proxy handler: failed to forward the response body", http.StatusInternalServerError)
+				return
+			}
 		}
 	} else {
 		page, err := p.injectLiveReload(resp)
@@ -155,6 +183,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
+		w.WriteHeader(resp.StatusCode)
 		if _, err := io.WriteString(w, page); err != nil {
 			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
 			return

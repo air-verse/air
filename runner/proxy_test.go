@@ -293,3 +293,49 @@ func TestProxy_reloadHandler(t *testing.T) {
 		}
 	}
 }
+
+func TestProxy_proxyHandler_SSE(t *testing.T) {
+	events := []string{
+		"event: message\ndata: {\"id\":1}\n\n",
+		"event: message\ndata: {\"id\":2}\n\n",
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		w.WriteHeader(http.StatusOK)
+		for _, event := range events {
+			fmt.Fprint(w, event)
+			flusher.Flush()
+		}
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/events", proxyPort), nil)
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	expected := strings.Join(events, "")
+	assert.Equal(t, expected, string(body))
+}
