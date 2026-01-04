@@ -398,6 +398,93 @@ func TestCheckIncludeFile(t *testing.T) {
 	assert.False(t, e.checkIncludeFile("."))
 }
 
+func TestIsIncludeExt(t *testing.T) {
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				IncludeExt: []string{"go", "html"},
+			},
+		},
+	}
+	assert.True(t, e.isIncludeExt("main.go"))
+	assert.True(t, e.isIncludeExt("/path/to/file.html"))
+	assert.False(t, e.isIncludeExt("main.js"))
+	assert.False(t, e.isIncludeExt("file"))
+}
+
+func TestIsIncludeExtWildcard(t *testing.T) {
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "tmp", "main")
+
+	e := Engine{
+		config: &Config{
+			Root: tmpDir,
+			Build: cfgBuild{
+				IncludeExt: []string{"*"},
+				Entrypoint: entrypoint{binPath},
+			},
+		},
+	}
+	// Wildcard should match all file extensions
+	assert.True(t, e.isIncludeExt("main.go"))
+	assert.True(t, e.isIncludeExt("/path/to/file.html"))
+	assert.True(t, e.isIncludeExt("main.js"))
+	assert.True(t, e.isIncludeExt("file.css"))
+	assert.True(t, e.isIncludeExt("file"))           // files without extension
+	assert.True(t, e.isIncludeExt("/path/noext"))    // files without extension
+	assert.False(t, e.isIncludeExt(binPath))         // binary file should be excluded
+	assert.True(t, e.isIncludeExt("some/other/bin")) // other files without extension are ok
+}
+
+func TestIsIncludeExtWildcardWithSpaces(t *testing.T) {
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				IncludeExt: []string{" * "},
+				Entrypoint: entrypoint{"/tmp/main"},
+			},
+		},
+	}
+	// Wildcard with spaces should still work
+	assert.True(t, e.isIncludeExt("main.go"))
+	assert.True(t, e.isIncludeExt("file.html"))
+}
+
+func TestIsBinPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "tmp", "main")
+
+	e := Engine{
+		config: &Config{
+			Root: tmpDir,
+			Build: cfgBuild{
+				Entrypoint: entrypoint{binPath},
+			},
+		},
+	}
+
+	// Test matching path returns true
+	assert.True(t, e.isBinPath(binPath))
+	// Test non-matching paths return false
+	assert.False(t, e.isBinPath(filepath.Join(tmpDir, "other", "file")))
+	assert.False(t, e.isBinPath("unrelated.go"))
+}
+
+func TestIsBinPathEmptyBinPath(t *testing.T) {
+	// Test when binPath is empty (no entrypoint configured)
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				Entrypoint: entrypoint{}, // empty entrypoint
+			},
+		},
+	}
+
+	// Should return false when binPath is empty
+	assert.False(t, e.isBinPath("/some/path"))
+	assert.False(t, e.isBinPath("main.go"))
+}
+
 func TestJoinPathRelative(t *testing.T) {
 	root, err := filepath.Abs("test")
 
