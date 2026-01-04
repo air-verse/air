@@ -1168,8 +1168,12 @@ func TestEngineExit(t *testing.T) {
 	}
 }
 
-// TestBuildRunRaceCondition tests that a new build does not consume stop signals
-// meant for a previous build. This is a regression test for issue #784.
+// TestBuildRunRaceCondition tests that a new build does not receive
+// stop signals meant for a previous build. This is a regression test for issue #784.
+//
+// The fix uses a channel-of-channels pattern where each build gets its own unique
+// stop channel. When a new build is triggered, it retrieves the previous build's
+// stop channel and closes it to signal cancellation.
 func TestBuildRunRaceCondition(t *testing.T) {
 	e, err := NewEngine("", nil, true)
 	if err != nil {
@@ -1177,60 +1181,110 @@ func TestBuildRunRaceCondition(t *testing.T) {
 	}
 	e.config.Log.Silent = true
 
-	// Simulate the race condition scenario:
-	// 1. Build generation 1 starts
-	// 2. A stop signal for generation 1 is sent (e.g., due to file change)
-	// 3. Build generation 2 starts before generation 1 consumes the stop signal
-	// 4. Generation 2 should NOT consume the stop signal meant for generation 1
+	// Simulate the race condition scenario from issue #784:
+	// 1. Build A starts and puts its stop channel in buildRunCh
+	// 2. Build B is triggered, retrieves Build A's channel and closes it
+	// 3. Build B puts its own fresh channel in buildRunCh
+	// 4. Build B should NOT be affected by Build A's closed channel
 
-	// Test that a stop signal for an older generation does not stop a newer build
-	e.buildGeneration.Store(5) // Current generation is 5
+	// Simulate Build A putting its stop channel in buildRunCh
+	buildAStopCh := make(chan struct{})
+	e.buildRunCh <- buildAStopCh
 
-	// Send a stop signal for generation 3 (an older build)
-	go func() {
-		e.buildRunStopCh <- 3
-	}()
-
-	// Give the channel time to receive
-	time.Sleep(10 * time.Millisecond)
-
-	// Check if generation 6 would be stopped (it should not be)
-	e.buildRunStopCheckMu.Lock()
-	shouldStop := false
+	// Simulate Build B being triggered (mimics what start() does)
+	var retrievedChannel chan struct{}
 	select {
-	case stopGen := <-e.buildRunStopCh:
-		// Only stop if the signal is for our generation or newer
-		if stopGen >= 6 {
-			shouldStop = true
-		}
-		// Otherwise, signal was for an older build, ignore it
+	case retrievedChannel = <-e.buildRunCh:
+		close(retrievedChannel) // Signal Build A to stop
 	default:
-	}
-	e.buildRunStopCheckMu.Unlock()
-
-	if shouldStop {
-		t.Error("Build generation 6 should NOT have been stopped by a signal for generation 3")
+		t.Fatal("Expected Build A's stop channel to be in buildRunCh")
 	}
 
-	// Test that a stop signal for the current generation does stop the build
-	e.buildGeneration.Store(10)
-	go func() {
-		e.buildRunStopCh <- 10
-	}()
-	time.Sleep(10 * time.Millisecond)
+	// Verify we got Build A's channel
+	if retrievedChannel != buildAStopCh {
+		t.Error("Should have retrieved Build A's stop channel")
+	}
 
-	e.buildRunStopCheckMu.Lock()
-	shouldStop = false
+	// Verify Build A's channel is closed
 	select {
-	case stopGen := <-e.buildRunStopCh:
-		if stopGen >= 10 {
-			shouldStop = true
-		}
+	case <-buildAStopCh:
+		// Good - Build A was signaled to stop
 	default:
+		t.Error("Build A's stop channel should have been closed")
 	}
-	e.buildRunStopCheckMu.Unlock()
 
-	if !shouldStop {
-		t.Error("Build generation 10 SHOULD have been stopped by a signal for generation 10")
+	// Now simulate Build B starting with its own channel
+	buildBStopCh := make(chan struct{})
+	e.buildRunCh <- buildBStopCh
+
+	// Build B should NOT be affected by Build A's closed channel
+	select {
+	case <-buildBStopCh:
+		t.Error("Build B's stop channel should NOT be closed yet")
+	case <-time.After(50 * time.Millisecond):
+		// Good - Build B is still running
 	}
+
+	// Test that closing Build B's channel does signal Build B to stop
+	close(buildBStopCh)
+	select {
+	case <-buildBStopCh:
+		// Good - Build B received the stop signal
+	case <-time.After(50 * time.Millisecond):
+		t.Error("Build B should have been stopped when its channel was closed")
+	}
+
+	// Clean up - remove Build B's channel from buildRunCh
+	select {
+	case <-e.buildRunCh:
+		// Successfully cleaned up
+	default:
+		t.Error("Expected Build B's channel to still be in buildRunCh")
+	}
+}
+
+// TestBuildRunRaceConditionRapidChanges tests rapid file changes don't cause deadlock
+func TestBuildRunRaceConditionRapidChanges(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.config.Log.Silent = true
+
+	// Simulate 5 rapid builds in succession
+	channels := make([]chan struct{}, 5)
+
+	for i := 0; i < 5; i++ {
+		// If there's a previous build, stop it
+		select {
+		case oldCh := <-e.buildRunCh:
+			close(oldCh)
+		default:
+		}
+
+		// Start new build
+		channels[i] = make(chan struct{})
+		e.buildRunCh <- channels[i]
+	}
+
+	// All previous builds should be signaled to stop
+	for i := 0; i < 4; i++ {
+		select {
+		case <-channels[i]:
+			// Good - was signaled to stop
+		default:
+			t.Errorf("Build %d should have been signaled to stop", i)
+		}
+	}
+
+	// Last build should NOT be stopped
+	select {
+	case <-channels[4]:
+		t.Error("Last build should still be running")
+	default:
+		// Good
+	}
+
+	// Clean up
+	<-e.buildRunCh
 }
