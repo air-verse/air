@@ -123,11 +123,8 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	var resp *http.Response
-	resp, err = p.client.Do(req)
-	for {
-		if err == nil {
-			break
-		}
+	resp, err = p.client.Do(req.WithContext(ctx))
+	for err != nil {
 		// Check if timeout has been exceeded
 		if ctx.Err() != nil {
 			err = ctx.Err()
@@ -153,21 +150,26 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Via", viaHeaderValue)
-	w.WriteHeader(resp.StatusCode)
 
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
+		// Non-HTML: forward response as-is
+		if cl := resp.Header.Get("Content-Length"); cl != "" {
+			w.Header().Set("Content-Length", cl)
+		}
+		w.WriteHeader(resp.StatusCode)
 		if _, err := io.Copy(w, resp.Body); err != nil {
 			http.Error(w, "proxy handler: failed to forward the response body", http.StatusInternalServerError)
 			return
 		}
 	} else {
+		// HTML: inject live reload script
 		page, err := p.injectLiveReload(resp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
+		w.Header().Set("Content-Length", strconv.Itoa(len(page)))
+		w.WriteHeader(resp.StatusCode)
 		if _, err := io.WriteString(w, page); err != nil {
 			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
 			return

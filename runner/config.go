@@ -22,6 +22,7 @@ const (
 	airWd   = "air_wd"
 
 	defaultProxyAppStartTimeout = 5000
+
 	schemaHeader = "#:schema https://json.schemastore.org/any.json"
 )
 
