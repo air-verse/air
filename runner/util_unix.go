@@ -3,8 +3,6 @@
 package runner
 
 import (
-	"context"
-	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -15,66 +13,44 @@ import (
 func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	pid = cmd.Process.Pid
 
-	var killDelay time.Duration
-
-	waitResult := make(chan error)
+	// Start a goroutine to wait for the process to exit
+	done := make(chan struct{})
 	go func() {
-		defer close(waitResult)
-		// ignore any error from Wait
 		_, _ = cmd.Process.Wait()
+		close(done)
 	}()
 
-	if e.config.Build.SendInterrupt {
-		e.mainDebug("sending interrupt to process %d", pid)
-		// Sending a signal to make it clear to the process group that it is time to turn off
-		if err = syscall.Kill(-pid, syscall.SIGINT); err != nil {
-			return
-		}
-		// the kill delay is 0 by default unless the user has configured send_interrupt=true
-		// in which case it is fetched from the kill_delay setting in the .air.toml
-		killDelay = e.config.killDelay()
-		e.mainDebug("setting a kill timer for %s", killDelay.String())
+	// If not using send_interrupt, just kill immediately
+	if !e.config.Build.SendInterrupt {
+		e.mainDebug("sending SIGKILL to process %d", pid)
+		// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
+		err = syscall.Kill(-pid, syscall.SIGKILL)
+		<-done // Wait for process to exit
+		return
 	}
 
-	// prepare a cancel context that can stop the killing if it is not needed
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Send SIGINT first to allow graceful shutdown
+	e.mainDebug("sending interrupt to process %d", pid)
+	if err = syscall.Kill(-pid, syscall.SIGINT); err != nil {
+		return
+	}
 
-	killResult := make(chan error)
-	// Spawn a goroutine that will kill the process after kill delay if we have not
-	// received a wait result before that.
-	go func() {
-		select {
-		case <-time.After(killDelay):
-			e.mainDebug("kill timer expired")
-			// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
-			killResult <- syscall.Kill(-pid, syscall.SIGKILL)
-		case <-ctx.Done():
-			e.mainDebug("kill timer canceled")
-			return
-		}
-	}()
+	killDelay := e.config.killDelay()
+	e.mainDebug("waiting up to %s for graceful shutdown", killDelay.String())
 
-	results := make([]error, 0, 2)
-
-	for {
-		// collect the responses from the kill and wait goroutines
-		select {
-		case err = <-killResult:
-			results = append(results, err)
-		case err = <-waitResult:
-			results = append(results, err)
-			// if we have a kill delay, but have not received a kill
-			// result yet, we fake the kill result to exit the loop below
-			if killDelay > 0 && len(results) == 1 {
-				results = append(results, nil)
-			}
-		}
-
-		if len(results) >= 2 {
-			err = errors.Join(results...)
-			return
-		}
+	// Wait for either the process to exit gracefully or the kill delay to expire
+	select {
+	case <-done:
+		// Process exited gracefully after SIGINT - excellent!
+		e.mainDebug("process exited gracefully after SIGINT")
+		return
+	case <-time.After(killDelay):
+		// Timeout expired, need to force kill
+		e.mainDebug("kill delay expired, sending SIGKILL")
+		// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
+		err = syscall.Kill(-pid, syscall.SIGKILL)
+		<-done // Wait for process to exit after SIGKILL
+		return
 	}
 }
 
