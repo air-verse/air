@@ -14,6 +14,7 @@ import (
 )
 
 func TestFlag(t *testing.T) {
+	t.Parallel()
 	// table driven tests
 	type testCase struct {
 		name     string
@@ -55,6 +56,7 @@ func TestFlag(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			require.NoError(t, flag.Parse(tc.args))

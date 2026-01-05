@@ -31,7 +31,9 @@ jobs:
       - name: Build
         run: make build
       - name: Run unit tests
-        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -covermode=count -coverprofile=coverage.txt
+        env:
+          CI: "true"
+        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -timeout=5m -covermode=count -coverprofile=coverage.txt
       - name: Upload Coverage report to CodeCov
         uses: codecov/codecov-action@v4
         with:

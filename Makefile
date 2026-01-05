@@ -27,6 +27,14 @@ setup: init
 check:
 	@./hack/check.sh ${scope}
 
+.PHONY: test
+test:
+	@go test ./... -v -race -timeout=3m
+
+.PHONY: test-ci
+test-ci:
+	@CI=true go test ./... -v -timeout=5m
+
 .PHONY: ci
 ci: init
 	@$(GO) mod tidy
