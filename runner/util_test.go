@@ -58,6 +58,7 @@ func TestExpandPathWithHomePath(t *testing.T) {
 }
 
 func TestNormalizeIncludeDirOutsideRoot(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	parent := filepath.Dir(root)
 	external := filepath.Join(parent, "pkg")
@@ -80,6 +81,7 @@ func TestNormalizeIncludeDirOutsideRoot(t *testing.T) {
 }
 
 func TestCheckIncludeDirRestrictsWithinRoot(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	runnerDir := filepath.Join(root, "runner")
 	require.NoError(t, os.Mkdir(runnerDir, 0o755))
@@ -105,6 +107,7 @@ func TestCheckIncludeDirRestrictsWithinRoot(t *testing.T) {
 }
 
 func TestFileChecksum(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                  string
 		fileContents          []byte
@@ -165,6 +168,7 @@ func TestFileChecksum(t *testing.T) {
 }
 
 func TestChecksumMap(t *testing.T) {
+	t.Parallel()
 	m := &checksumMap{m: make(map[string]string, 3)}
 
 	if !m.updateFileChecksum("foo.txt", "abcxyz") {
@@ -185,6 +189,7 @@ func TestChecksumMap(t *testing.T) {
 }
 
 func TestAdaptToVariousPlatforms(t *testing.T) {
+	t.Parallel()
 	config := &Config{
 		Build: cfgBuild{
 			Bin: "tmp\\main.exe  -dev",
@@ -345,6 +350,7 @@ func Test_killCmd_KillsDetachedChildren(t *testing.T) {
 }
 
 func TestGetStructureFieldTagMap(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	tagMap := flatConfig(c)
 	assert.NotEmpty(t, tagMap)
@@ -354,6 +360,7 @@ func TestGetStructureFieldTagMap(t *testing.T) {
 }
 
 func TestSetStructValue(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "TmpDir", "asdasd")
@@ -361,6 +368,7 @@ func TestSetStructValue(t *testing.T) {
 }
 
 func TestNestStructValue(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "Build.Cmd", "asdasd")
@@ -368,6 +376,7 @@ func TestNestStructValue(t *testing.T) {
 }
 
 func TestNestStructArrayValue(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "Build.ExcludeDir", "dir1,dir2")
@@ -375,6 +384,7 @@ func TestNestStructArrayValue(t *testing.T) {
 }
 
 func TestNestStructArrayValueOverride(t *testing.T) {
+	t.Parallel()
 	c := Config{
 		Build: cfgBuild{
 			ExcludeDir: []string{"default1", "default2"},
@@ -386,6 +396,7 @@ func TestNestStructArrayValueOverride(t *testing.T) {
 }
 
 func TestCheckIncludeFile(t *testing.T) {
+	t.Parallel()
 	e := Engine{
 		config: &Config{
 			Build: cfgBuild{
@@ -486,6 +497,7 @@ func TestIsBinPathEmptyBinPath(t *testing.T) {
 }
 
 func TestJoinPathRelative(t *testing.T) {
+	t.Parallel()
 	root, err := filepath.Abs("test")
 
 	if err != nil {
@@ -516,6 +528,7 @@ func TestJoinPathAbsolute(t *testing.T) {
 }
 
 func TestFormatPath(t *testing.T) {
+	t.Parallel()
 	type testCase struct {
 		name     string
 		path     string

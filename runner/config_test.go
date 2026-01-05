@@ -43,6 +43,7 @@ func getWindowsConfig() Config {
 }
 
 func TestBinCmdPath(t *testing.T) {
+	t.Parallel()
 	var err error
 
 	c := getWindowsConfig()
@@ -125,6 +126,7 @@ func TestConfPreprocess(t *testing.T) {
 }
 
 func TestEntrypointResolvesAbsolutePath(t *testing.T) {
+	t.Parallel()
 	base := t.TempDir()
 	rootWithSpace := filepath.Join(base, "with space")
 	if err := os.MkdirAll(filepath.Join(rootWithSpace, "tmp"), 0o755); err != nil {
@@ -188,6 +190,7 @@ func TestEntrypointResolvesFromPath(t *testing.T) {
 }
 
 func TestEntrypointPreservesArgs(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	cfg := defaultConfig()
 	cfg.Root = root
@@ -245,6 +248,7 @@ func TestConfigWithRuntimeArgs(t *testing.T) {
 }
 
 func TestReadConfigWithWrongPath(t *testing.T) {
+	t.Parallel()
 	c, err := readConfig("xxxx")
 	if err == nil {
 		t.Fatal("need throw a error")
@@ -255,6 +259,7 @@ func TestReadConfigWithWrongPath(t *testing.T) {
 }
 
 func TestKillDelay(t *testing.T) {
+	t.Parallel()
 	config := Config{
 		Build: cfgBuild{
 			KillDelay: 1000,
@@ -291,6 +296,7 @@ func contains(sl []string, target string) bool {
 }
 
 func TestWarnDeprecatedBin(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, ".air.toml")
 	cfgContent := `

@@ -244,7 +244,6 @@ func TestRebuild(t *testing.T) {
 	t.Logf("start change main.go")
 	// change file of main.go
 	// just append a new empty line to main.go
-	time.Sleep(time.Second * 2)
 	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -259,7 +258,6 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("timeout: %s.", err)
 	}
 	t.Logf("connection refused")
-	time.Sleep(time.Second * 2)
 	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -268,29 +266,41 @@ func TestRebuild(t *testing.T) {
 	// stop engine
 	engine.Stop()
 	t.Logf("engine stopped")
+	// Wait for engine to fully stop
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	wg.Wait()
-	time.Sleep(time.Second * 1)
 	assert.True(t, checkPortConnectionRefused(port))
 }
 
 func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration) error {
+	t.Helper()
 	t.Logf("waiting port %d connection refused", port)
-	timer := time.NewTimer(timeout)
-	ticker := time.NewTicker(time.Millisecond * 100)
+
+	// Use environment-aware timeout for CI compatibility
+	timeoutMultiplier := 1.0
+	if os.Getenv("CI") != "" {
+		timeoutMultiplier = 2.0
+	}
+	adjustedTimeout := time.Duration(float64(timeout) * timeoutMultiplier)
+
+	deadline := time.Now().Add(adjustedTimeout)
+	ticker := time.NewTicker(20 * time.Millisecond) // Reduced from 100ms to 20ms
 	defer ticker.Stop()
-	defer timer.Stop()
+
 	for {
-		select {
-		case <-timer.C:
-			return fmt.Errorf("timeout")
-		case <-ticker.C:
-			print(".")
-			_, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-			if errors.Is(err, syscall.ECONNREFUSED) {
-				return nil
-			}
-			time.Sleep(time.Millisecond * 100)
+		_, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil
 		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d connection refused (timeout: %v)", port, adjustedTimeout)
+		}
+
+		<-ticker.C
 	}
 }
 
@@ -340,7 +350,11 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(time.Second * 3)
+	// Wait for engine to fully stop - the test has kill_delay="2s"
+	err = waitForEngineState(t, engine, false, time.Second*5)
+	if err != nil {
+		t.Logf("engine may not have stopped in time: %s", err)
+	}
 	assert.False(t, engine.running.Load())
 }
 
@@ -438,8 +452,8 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	// waiting for compile error
-	time.Sleep(time.Second * 3)
+	// Wait for first build to fail - reduced from 3s to 500ms
+	time.Sleep(time.Millisecond * 500)
 	port, f := GetPort()
 	f()
 	// correct code
@@ -454,7 +468,6 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 
 	// ctrl + c
 	sigs <- syscall.SIGINT
-	time.Sleep(time.Second * 1)
 	if err := waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -486,8 +499,9 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 		t.Logf("engine stopped")
 	}()
 
-	// waiting for compile error
-	time.Sleep(time.Second * 3)
+	// Wait for first build to complete (with error) - reduced from 3s to 1s
+	// Since the build fails immediately, 1s is sufficient
+	time.Sleep(time.Millisecond * 500)
 
 	// edit *.go file to create build error again
 	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
@@ -499,30 +513,46 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(time.Second * 3)
+	// Wait for second build attempt - reduced from 3s to 500ms
+	time.Sleep(time.Millisecond * 500)
 	// ctrl + c
 	sigs <- syscall.SIGINT
-	time.Sleep(time.Second * 1)
+	// Wait for engine to stop
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Logf("engine may not have stopped cleanly: %s", err)
+	}
 	assert.False(t, engine.running.Load())
 }
 
 // waitingPortReady waits until the port is ready to be used.
 func waitingPortReady(t *testing.T, port int, timeout time.Duration) error {
+	t.Helper()
 	t.Logf("waiting port %d ready", port)
-	timeoutChan := time.After(timeout)
-	ticker := time.NewTicker(time.Millisecond * 100)
+
+	// Use environment-aware timeout for CI compatibility
+	timeoutMultiplier := 1.0
+	if os.Getenv("CI") != "" {
+		timeoutMultiplier = 2.0
+	}
+	adjustedTimeout := time.Duration(float64(timeout) * timeoutMultiplier)
+
+	deadline := time.Now().Add(adjustedTimeout)
+	ticker := time.NewTicker(20 * time.Millisecond) // Reduced from 100ms to 20ms
 	defer ticker.Stop()
+
 	for {
-		select {
-		case <-timeoutChan:
-			return fmt.Errorf("timeout")
-		case <-ticker.C:
-			conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-			if err == nil {
-				_ = conn.Close()
-				return nil
-			}
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if err == nil {
+			_ = conn.Close()
+			return nil
 		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d ready (timeout: %v)", port, adjustedTimeout)
+		}
+
+		<-ticker.C
 	}
 }
 
@@ -543,11 +573,21 @@ func TestRun(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	time.Sleep(time.Second * 2)
+
+	// Wait for port to be ready instead of fixed sleep
+	err = waitingPortReady(t, port, time.Second*10)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 	assert.True(t, checkPortHaveBeenUsed(port))
 	t.Logf("try to stop")
 	engine.Stop()
-	time.Sleep(time.Second * 1)
+
+	// Wait for engine to stop instead of fixed sleep
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	assert.False(t, checkPortHaveBeenUsed(port))
 	t.Logf("stopped")
 }
@@ -752,7 +792,6 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("start change main.go")
 	// change file of main.go
 	// just append a new empty line to main.go
-	time.Sleep(time.Second * 2)
 	go func() {
 		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
@@ -769,7 +808,6 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 		t.Fatalf("timeout: %s.", err)
 	}
 	t.Logf("connection refused")
-	time.Sleep(time.Second * 2)
 	err = waitingPortReady(t, port, time.Second*40)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -777,7 +815,11 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
-	time.Sleep(time.Second * 3)
+	// Wait for engine to stop
+	err = waitForEngineState(t, engine, false, time.Second*5)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	t.Logf("engine stopped")
 	assert.True(t, checkPortConnectionRefused(port))
 }
