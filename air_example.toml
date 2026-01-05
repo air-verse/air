@@ -89,4 +89,4 @@ app_port = 8080
 # Useful when your app has slow startup time (e.g., database connections, config loading).
 # The proxy will retry connecting to your app for this duration before giving up.
 # Default is 5000ms (5 seconds). Increase this if you see "unable to reach app" errors.
-# app_start_timeout = 5000
+app_start_timeout = 5000
