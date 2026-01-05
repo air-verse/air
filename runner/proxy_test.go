@@ -533,3 +533,106 @@ func TestProxy_proxyHandler_NonStreaming(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, content, string(body))
 }
+
+func TestProxy_appStartTimeout(t *testing.T) {
+	tests := []struct {
+		name            string
+		appStartDelay   int // milliseconds - simulated app startup delay
+		configTimeout   int // milliseconds - configured timeout (0 = use default)
+		expectSuccess   bool
+		expectInBody    string
+		expectNotInBody string
+	}{
+		{
+			name:          "fast_startup_succeeds",
+			appStartDelay: 50,
+			configTimeout: 1000,
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+		{
+			name:          "slow_startup_within_timeout_succeeds",
+			appStartDelay: 500,
+			configTimeout: 1000,
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+		{
+			name:            "slow_startup_exceeds_timeout_fails",
+			appStartDelay:   1500,
+			configTimeout:   500,
+			expectSuccess:   false,
+			expectInBody:    "unable to reach app",
+			expectNotInBody: "OK",
+		},
+		{
+			name:          "uses_default_timeout_when_zero",
+			appStartDelay: 500,
+			configTimeout: 0, // Should use defaultProxyAppStartTimeout (5000ms)
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+		{
+			name:          "custom_timeout_respected",
+			appStartDelay: 800,
+			configTimeout: 1000,
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Track whether server has "started"
+			var serverReady sync.WaitGroup
+			serverReady.Add(1)
+
+			// Create a test server that delays before responding
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				// Wait for simulated startup delay on first request
+				serverReady.Wait()
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, "OK")
+			}))
+			defer srv.Close()
+
+			// Simulate app startup delay in background
+			go func() {
+				if tt.appStartDelay > 0 {
+					// Sleep to simulate app initialization time
+					time.Sleep(time.Duration(tt.appStartDelay) * time.Millisecond)
+				}
+				serverReady.Done()
+			}()
+
+			srvPort := getServerPort(t, srv)
+			proxy := NewProxy(&cfgProxy{
+				Enabled:         true,
+				ProxyPort:       proxyPort,
+				AppPort:         srvPort,
+				AppStartTimeout: tt.configTimeout,
+			})
+
+			req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", proxyPort), nil)
+			rec := httptest.NewRecorder()
+
+			proxy.proxyHandler(rec, req)
+
+			resp := rec.Result()
+			bodyBytes, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			body := string(bodyBytes)
+
+			if tt.expectSuccess {
+				assert.Equal(t, http.StatusOK, resp.StatusCode, "expected successful response")
+				assert.Contains(t, body, tt.expectInBody, "response body should contain expected content")
+			} else {
+				assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "expected error response")
+				assert.Contains(t, body, tt.expectInBody, "error message should contain expected text")
+				if tt.expectNotInBody != "" {
+					assert.NotContains(t, body, tt.expectNotInBody, "response should not contain unexpected content")
+				}
+			}
+		})
+	}
+}

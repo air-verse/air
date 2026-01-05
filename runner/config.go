@@ -21,6 +21,8 @@ const (
 	dftTOML = ".air.toml"
 	airWd   = "air_wd"
 
+	defaultProxyAppStartTimeout = 5000
+
 	schemaHeader = "#:schema https://json.schemastore.org/any.json"
 )
 
@@ -160,9 +162,10 @@ type cfgScreen struct {
 }
 
 type cfgProxy struct {
-	Enabled   bool `toml:"enabled" usage:"Enable live-reloading on the browser"`
-	ProxyPort int  `toml:"proxy_port" usage:"Port for proxy server"`
-	AppPort   int  `toml:"app_port" usage:"Port for your app"`
+	Enabled         bool `toml:"enabled" usage:"Enable live-reloading on the browser"`
+	ProxyPort       int  `toml:"proxy_port" usage:"Port for proxy server"`
+	AppPort         int  `toml:"app_port" usage:"Port for your app"`
+	AppStartTimeout int  `toml:"app_start_timeout" usage:"Timeout for waiting for app to start in milliseconds (default 5000)"`
 }
 
 type sliceTransformer struct{}
