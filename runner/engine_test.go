@@ -244,7 +244,6 @@ func TestRebuild(t *testing.T) {
 	t.Logf("start change main.go")
 	// change file of main.go
 	// just append a new empty line to main.go
-	time.Sleep(time.Second * 2)
 	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -259,7 +258,6 @@ func TestRebuild(t *testing.T) {
 		t.Fatalf("timeout: %s.", err)
 	}
 	t.Logf("connection refused")
-	time.Sleep(time.Second * 2)
 	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -268,29 +266,41 @@ func TestRebuild(t *testing.T) {
 	// stop engine
 	engine.Stop()
 	t.Logf("engine stopped")
+	// Wait for engine to fully stop
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	wg.Wait()
-	time.Sleep(time.Second * 1)
 	assert.True(t, checkPortConnectionRefused(port))
 }
 
 func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration) error {
+	t.Helper()
 	t.Logf("waiting port %d connection refused", port)
-	timer := time.NewTimer(timeout)
-	ticker := time.NewTicker(time.Millisecond * 100)
+
+	// Use environment-aware timeout for CI compatibility
+	timeoutMultiplier := 1.0
+	if os.Getenv("CI") != "" {
+		timeoutMultiplier = 2.0
+	}
+	adjustedTimeout := time.Duration(float64(timeout) * timeoutMultiplier)
+
+	deadline := time.Now().Add(adjustedTimeout)
+	ticker := time.NewTicker(20 * time.Millisecond) // Reduced from 100ms to 20ms
 	defer ticker.Stop()
-	defer timer.Stop()
+
 	for {
-		select {
-		case <-timer.C:
-			return fmt.Errorf("timeout")
-		case <-ticker.C:
-			print(".")
-			_, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-			if errors.Is(err, syscall.ECONNREFUSED) {
-				return nil
-			}
-			time.Sleep(time.Millisecond * 100)
+		_, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil
 		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d connection refused (timeout: %v)", port, adjustedTimeout)
+		}
+
+		<-ticker.C
 	}
 }
 
@@ -340,7 +350,11 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(time.Second * 3)
+	// Wait for engine to fully stop - the test has kill_delay="2s"
+	err = waitForEngineState(t, engine, false, time.Second*5)
+	if err != nil {
+		t.Logf("engine may not have stopped in time: %s", err)
+	}
 	assert.False(t, engine.running.Load())
 }
 
@@ -438,8 +452,8 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	// waiting for compile error
-	time.Sleep(time.Second * 3)
+	// Wait for first build to fail - reduced from 3s to 500ms
+	time.Sleep(time.Millisecond * 500)
 	port, f := GetPort()
 	f()
 	// correct code
@@ -454,7 +468,6 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 
 	// ctrl + c
 	sigs <- syscall.SIGINT
-	time.Sleep(time.Second * 1)
 	if err := waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -486,8 +499,9 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 		t.Logf("engine stopped")
 	}()
 
-	// waiting for compile error
-	time.Sleep(time.Second * 3)
+	// Wait for first build to complete (with error) - reduced from 3s to 1s
+	// Since the build fails immediately, 1s is sufficient
+	time.Sleep(time.Millisecond * 500)
 
 	// edit *.go file to create build error again
 	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
@@ -499,30 +513,46 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(time.Second * 3)
+	// Wait for second build attempt - reduced from 3s to 500ms
+	time.Sleep(time.Millisecond * 500)
 	// ctrl + c
 	sigs <- syscall.SIGINT
-	time.Sleep(time.Second * 1)
+	// Wait for engine to stop
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Logf("engine may not have stopped cleanly: %s", err)
+	}
 	assert.False(t, engine.running.Load())
 }
 
 // waitingPortReady waits until the port is ready to be used.
 func waitingPortReady(t *testing.T, port int, timeout time.Duration) error {
+	t.Helper()
 	t.Logf("waiting port %d ready", port)
-	timeoutChan := time.After(timeout)
-	ticker := time.NewTicker(time.Millisecond * 100)
+
+	// Use environment-aware timeout for CI compatibility
+	timeoutMultiplier := 1.0
+	if os.Getenv("CI") != "" {
+		timeoutMultiplier = 2.0
+	}
+	adjustedTimeout := time.Duration(float64(timeout) * timeoutMultiplier)
+
+	deadline := time.Now().Add(adjustedTimeout)
+	ticker := time.NewTicker(20 * time.Millisecond) // Reduced from 100ms to 20ms
 	defer ticker.Stop()
+
 	for {
-		select {
-		case <-timeoutChan:
-			return fmt.Errorf("timeout")
-		case <-ticker.C:
-			conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-			if err == nil {
-				_ = conn.Close()
-				return nil
-			}
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if err == nil {
+			_ = conn.Close()
+			return nil
 		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d ready (timeout: %v)", port, adjustedTimeout)
+		}
+
+		<-ticker.C
 	}
 }
 
@@ -543,11 +573,21 @@ func TestRun(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	time.Sleep(time.Second * 2)
+
+	// Wait for port to be ready instead of fixed sleep
+	err = waitingPortReady(t, port, time.Second*10)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 	assert.True(t, checkPortHaveBeenUsed(port))
 	t.Logf("try to stop")
 	engine.Stop()
-	time.Sleep(time.Second * 1)
+
+	// Wait for engine to stop instead of fixed sleep
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	assert.False(t, checkPortHaveBeenUsed(port))
 	t.Logf("stopped")
 }
@@ -752,7 +792,6 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("start change main.go")
 	// change file of main.go
 	// just append a new empty line to main.go
-	time.Sleep(time.Second * 2)
 	go func() {
 		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
@@ -769,7 +808,6 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 		t.Fatalf("timeout: %s.", err)
 	}
 	t.Logf("connection refused")
-	time.Sleep(time.Second * 2)
 	err = waitingPortReady(t, port, time.Second*40)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -777,7 +815,11 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
-	time.Sleep(time.Second * 3)
+	// Wait for engine to stop
+	err = waitForEngineState(t, engine, false, time.Second*5)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	t.Logf("engine stopped")
 	assert.True(t, checkPortConnectionRefused(port))
 }
@@ -1166,4 +1208,125 @@ func TestEngineExit(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestBuildRunRaceCondition tests that a new build does not receive
+// stop signals meant for a previous build. This is a regression test for issue #784.
+//
+// The fix uses a channel-of-channels pattern where each build gets its own unique
+// stop channel. When a new build is triggered, it retrieves the previous build's
+// stop channel and closes it to signal cancellation.
+func TestBuildRunRaceCondition(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.config.Log.Silent = true
+
+	// Simulate the race condition scenario from issue #784:
+	// 1. Build A starts and puts its stop channel in buildRunCh
+	// 2. Build B is triggered, retrieves Build A's channel and closes it
+	// 3. Build B puts its own fresh channel in buildRunCh
+	// 4. Build B should NOT be affected by Build A's closed channel
+
+	// Simulate Build A putting its stop channel in buildRunCh
+	buildAStopCh := make(chan struct{})
+	e.buildRunCh <- buildAStopCh
+
+	// Simulate Build B being triggered (mimics what start() does)
+	var retrievedChannel chan struct{}
+	select {
+	case retrievedChannel = <-e.buildRunCh:
+		close(retrievedChannel) // Signal Build A to stop
+	default:
+		t.Fatal("Expected Build A's stop channel to be in buildRunCh")
+	}
+
+	// Verify we got Build A's channel
+	if retrievedChannel != buildAStopCh {
+		t.Error("Should have retrieved Build A's stop channel")
+	}
+
+	// Verify Build A's channel is closed
+	select {
+	case <-buildAStopCh:
+		// Good - Build A was signaled to stop
+	default:
+		t.Error("Build A's stop channel should have been closed")
+	}
+
+	// Now simulate Build B starting with its own channel
+	buildBStopCh := make(chan struct{})
+	e.buildRunCh <- buildBStopCh
+
+	// Build B should NOT be affected by Build A's closed channel
+	select {
+	case <-buildBStopCh:
+		t.Error("Build B's stop channel should NOT be closed yet")
+	case <-time.After(50 * time.Millisecond):
+		// Good - Build B is still running
+	}
+
+	// Test that closing Build B's channel does signal Build B to stop
+	close(buildBStopCh)
+	select {
+	case <-buildBStopCh:
+		// Good - Build B received the stop signal
+	case <-time.After(50 * time.Millisecond):
+		t.Error("Build B should have been stopped when its channel was closed")
+	}
+
+	// Clean up - remove Build B's channel from buildRunCh
+	select {
+	case <-e.buildRunCh:
+		// Successfully cleaned up
+	default:
+		t.Error("Expected Build B's channel to still be in buildRunCh")
+	}
+}
+
+// TestBuildRunRaceConditionRapidChanges tests rapid file changes don't cause deadlock
+func TestBuildRunRaceConditionRapidChanges(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.config.Log.Silent = true
+
+	// Simulate 5 rapid builds in succession
+	channels := make([]chan struct{}, 5)
+
+	for i := 0; i < 5; i++ {
+		// If there's a previous build, stop it
+		select {
+		case oldCh := <-e.buildRunCh:
+			close(oldCh)
+		default:
+		}
+
+		// Start new build
+		channels[i] = make(chan struct{})
+		e.buildRunCh <- channels[i]
+	}
+
+	// All previous builds should be signaled to stop
+	for i := 0; i < 4; i++ {
+		select {
+		case <-channels[i]:
+			// Good - was signaled to stop
+		default:
+			t.Errorf("Build %d should have been signaled to stop", i)
+		}
+	}
+
+	// Last build should NOT be stopped
+	select {
+	case <-channels[4]:
+		t.Error("Last build should still be running")
+	default:
+		// Good
+	}
+
+	// Clean up
+	<-e.buildRunCh
 }

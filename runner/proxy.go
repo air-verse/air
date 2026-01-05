@@ -151,12 +151,37 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Via", viaHeaderValue)
 
+	// Determine if this is a streaming response
+	streaming := isStreamingResponse(resp)
+
+	// Handle non-HTML responses
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
-		// Non-HTML: forward response as-is
-		if cl := resp.Header.Get("Content-Length"); cl != "" {
-			w.Header().Set("Content-Length", cl)
+		// Check flusher support BEFORE writing headers for streaming responses
+		var flusher http.Flusher
+		if streaming {
+			var ok bool
+			flusher, ok = w.(http.Flusher)
+			if !ok {
+				http.Error(w, "proxy handler: streaming not supported", http.StatusInternalServerError)
+				return
+			}
 		}
+
+		// Set Content-Length only for non-streaming responses
+		if !streaming {
+			if cl := resp.Header.Get("Content-Length"); cl != "" {
+				w.Header().Set("Content-Length", cl)
+			}
+		}
+
 		w.WriteHeader(resp.StatusCode)
+
+		if streaming {
+			// Use streaming copy with immediate flushing
+			_ = streamCopy(w, resp.Body, flusher)
+			return
+		}
+		// Use standard copy for non-streaming responses
 		if _, err := io.Copy(w, resp.Body); err != nil {
 			http.Error(w, "proxy handler: failed to forward the response body", http.StatusInternalServerError)
 			return
@@ -168,7 +193,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Length", strconv.Itoa(len(page)))
+		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
 		w.WriteHeader(resp.StatusCode)
 		if _, err := io.WriteString(w, page); err != nil {
 			http.Error(w, "proxy handler: unable to inject live reload script", http.StatusInternalServerError)
@@ -207,4 +232,51 @@ func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
 func (p *Proxy) Stop() error {
 	p.stream.Stop()
 	return p.server.Close()
+}
+
+// isStreamingResponse determines if the response should be streamed immediately
+// without buffering. This applies to:
+// 1. Server-Sent Events (SSE): Content-Type contains "text/event-stream"
+// 2. Chunked transfer encoding: Transfer-Encoding is "chunked"
+func isStreamingResponse(resp *http.Response) bool {
+	// Check for SSE
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "text/event-stream") {
+		return true
+	}
+
+	// Check for chunked encoding
+	transferEncoding := resp.Header.Get("Transfer-Encoding")
+	return transferEncoding == "chunked"
+}
+
+// streamCopy copies data from src to dst, flushing after each read.
+// This ensures real-time delivery for streaming responses like SSE.
+// Uses a 512-byte buffer to balance between latency and performance.
+func streamCopy(dst io.Writer, src io.Reader, flusher http.Flusher) error {
+	// Use 512-byte buffer for better responsiveness
+	buf := make([]byte, 512)
+
+	for {
+		nr, readErr := src.Read(buf)
+		if nr > 0 {
+			nw, writeErr := dst.Write(buf[:nr])
+			if writeErr != nil {
+				return writeErr
+			}
+			if nr != nw {
+				return io.ErrShortWrite
+			}
+
+			// Flush immediately after each write
+			flusher.Flush()
+		}
+
+		if readErr != nil {
+			if readErr == io.EOF {
+				return nil
+			}
+			return readErr
+		}
+	}
 }

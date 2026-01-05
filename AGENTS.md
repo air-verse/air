@@ -5,6 +5,7 @@ Guidelines for contributors and AI coding agents working in this repository.
 ## Goals
 
 - Keep changes minimal, focused, and idiomatic to Go.
+- Code and comments must be write in English
 - Prefer root‑cause fixes over band‑aids; don’t refactor unrelated code.
 - Maintain user‑facing behavior and CLI flags unless explicitly changing them.
 
