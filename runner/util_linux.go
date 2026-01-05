@@ -16,20 +16,43 @@ import (
 func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	pid = cmd.Process.Pid
 
-	if e.config.Build.SendInterrupt {
-		// Sending a signal to make it clear to the process that it is time to turn off
-		if err = sendSignalToProcessTree(pid, syscall.SIGINT); err != nil {
-			return
-		}
-		time.Sleep(e.config.killDelay())
+	// Start a goroutine to wait for the process to exit
+	done := make(chan struct{})
+	go func() {
+		_, _ = cmd.Process.Wait()
+		close(done)
+	}()
+
+	// If not using send_interrupt, just kill immediately
+	if !e.config.Build.SendInterrupt {
+		e.mainDebug("sending SIGKILL to process tree")
+		err = sendSignalToProcessTree(pid, syscall.SIGKILL)
+		<-done // Wait for process to exit
+		return
 	}
 
-	// https://stackoverflow.com/questions/22470193/why-wont-go-kill-a-child-process-correctly
-	err = sendSignalToProcessTree(pid, syscall.SIGKILL)
+	// Send SIGINT first to allow graceful shutdown
+	e.mainDebug("sending interrupt to process tree")
+	if err = sendSignalToProcessTree(pid, syscall.SIGINT); err != nil {
+		return
+	}
 
-	// Wait releases any resources associated with the Process.
-	_, _ = cmd.Process.Wait()
-	return
+	killDelay := e.config.killDelay()
+	e.mainDebug("waiting up to %s for graceful shutdown", killDelay.String())
+
+	// Wait for either the process to exit gracefully or the kill delay to expire
+	select {
+	case <-done:
+		// Process exited gracefully after SIGINT - excellent!
+		e.mainDebug("process exited gracefully after SIGINT")
+		return
+	case <-time.After(killDelay):
+		// Timeout expired, need to force kill
+		e.mainDebug("kill delay expired, sending SIGKILL")
+		err = sendSignalToProcessTree(pid, syscall.SIGKILL)
+		<-done // Wait for process to exit after SIGKILL
+		return
+	}
 }
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {

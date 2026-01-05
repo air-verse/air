@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,7 +9,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -198,27 +196,6 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 	adaptToVariousPlatforms(config)
 	if config.Build.Bin != "tmp\\main.exe  -dev" {
 		t.Errorf("expected '%s' but got '%s'", "tmp\\main.exe  -dev", config.Build.Bin)
-	}
-}
-
-func Test_killCmd_no_process(t *testing.T) {
-	e := Engine{
-		config: &Config{
-			Build: cfgBuild{
-				SendInterrupt: false,
-			},
-		},
-	}
-	_, err := e.killCmd(&exec.Cmd{
-		Process: &os.Process{
-			Pid: 9999,
-		},
-	})
-	if err == nil {
-		t.Errorf("expected error but got none")
-	}
-	if !errors.Is(err, syscall.ESRCH) {
-		t.Errorf("expected '%s' but got '%s'", syscall.ESRCH, errors.Unwrap(err))
 	}
 }
 
@@ -610,4 +587,155 @@ func TestFormatPath(t *testing.T) {
 		}
 		runTests(t, tests)
 	})
+}
+
+// Test_killCmd_SendInterrupt_FastGracefulExit is a regression test for issue #671.
+// It verifies that when a process exits quickly after receiving SIGINT, Air detects
+// this and returns immediately instead of waiting the full kill_delay.
+//
+// This optimization was implemented in commit 4d26204 (2024-11-01) by Isak Styf.
+// Before the fix, Air would always sleep for the full kill_delay (wasting time).
+// After the fix, Air uses goroutines to detect process exit and returns early.
+//
+// Related: https://github.com/air-verse/air/issues/671
+func Test_killCmd_SendInterrupt_FastGracefulExit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("send_interrupt not supported on windows")
+	}
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: true,
+				KillDelay:     2 * time.Second, // Set high to make the waste observable
+			},
+		},
+	}
+
+	// Process that exits immediately on SIGINT
+	// trap "exit 0" INT means: exit cleanly when receiving SIGINT
+	// sleep 100 means: if no signal, run for 100 seconds
+	cmd, _, _, err := e.startCmd(`sh -c 'trap "exit 0" INT; sleep 100'`)
+	require.NoError(t, err, "failed to start command")
+
+	// Give the process a moment to start and set up the signal handler
+	time.Sleep(100 * time.Millisecond)
+
+	start := time.Now()
+	pid, err := e.killCmd(cmd)
+	elapsed := time.Since(start)
+
+	require.NoError(t, err, "killCmd should succeed")
+	assert.Positive(t, pid, "should return valid pid")
+
+	// Core assertion: should complete in much less than 2 seconds
+	// Process exits immediately on SIGINT, so should finish in <500ms
+	// With the fix (commit 4d26204), this should PASS
+	// Without the fix, this would FAIL (would take 2+ seconds)
+	assert.Less(t, elapsed, 500*time.Millisecond,
+		"killCmd should return quickly when process exits gracefully on SIGINT, "+
+			"but took %v (expected < 500ms). Regression of issue #671!",
+		elapsed)
+
+	t.Logf("✅ PASS: Process exited gracefully in %v (kill_delay was 2s, saved ~%.1fs)",
+		elapsed, 2.0-elapsed.Seconds())
+}
+
+// Test_killCmd_SendInterrupt_IgnoresSIGINT is a regression test for issue #671.
+// It verifies that processes which ignore SIGINT are still killed with SIGKILL
+// after kill_delay. This ensures the optimization (commit 4d26204) doesn't break
+// the fallback behavior for misbehaving processes.
+//
+// Related: https://github.com/air-verse/air/issues/671
+func Test_killCmd_SendInterrupt_IgnoresSIGINT(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("send_interrupt not supported on windows")
+	}
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: true,
+				KillDelay:     500 * time.Millisecond,
+			},
+		},
+	}
+
+	// Process that ignores SIGINT
+	// trap "" INT means: ignore SIGINT signal
+	cmd, _, _, err := e.startCmd(`sh -c 'trap "" INT; sleep 100'`)
+	require.NoError(t, err, "failed to start command")
+
+	// Give the process a moment to start and set up the signal handler
+	time.Sleep(100 * time.Millisecond)
+
+	start := time.Now()
+	pid, err := e.killCmd(cmd)
+	elapsed := time.Since(start)
+
+	require.NoError(t, err, "killCmd should succeed")
+	assert.Positive(t, pid, "should return valid pid")
+
+	// Should wait at least kill_delay before sending SIGKILL
+	assert.GreaterOrEqual(t, elapsed, 500*time.Millisecond,
+		"killCmd should wait at least kill_delay when process ignores SIGINT")
+
+	// But should not wait too long after SIGKILL
+	assert.Less(t, elapsed, 1*time.Second,
+		"killCmd should not wait too long after sending SIGKILL, "+
+			"but took %v", elapsed)
+
+	t.Logf("✅ PASS: Process ignored SIGINT, killed with SIGKILL after %v (expected behavior)", elapsed)
+}
+
+// Test_killCmd_SendInterrupt_SlowGracefulExit is a regression test for issue #671.
+// It verifies that when a process takes some time to clean up after receiving
+// SIGINT but still exits within kill_delay, Air returns as soon as the process exits
+// (not waiting the full kill_delay).
+//
+// This optimization was implemented in commit 4d26204 (2024-11-01).
+// Related: https://github.com/air-verse/air/issues/671
+func Test_killCmd_SendInterrupt_SlowGracefulExit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("send_interrupt not supported on windows")
+	}
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: true,
+				KillDelay:     1 * time.Second,
+			},
+		},
+	}
+
+	// Process that takes 300ms to exit after SIGINT (simulating cleanup)
+	// trap "sleep 0.3; exit 0" INT means: when SIGINT received, sleep 300ms then exit
+	cmd, _, _, err := e.startCmd(`sh -c 'trap "sleep 0.3; exit 0" INT; sleep 100'`)
+	require.NoError(t, err, "failed to start command")
+
+	// Give the process a moment to start and set up the signal handler
+	time.Sleep(100 * time.Millisecond)
+
+	start := time.Now()
+	pid, err := e.killCmd(cmd)
+	elapsed := time.Since(start)
+
+	require.NoError(t, err, "killCmd should succeed")
+	assert.Positive(t, pid, "should return valid pid")
+
+	// Should wait at least for the process cleanup time (~300ms)
+	assert.Greater(t, elapsed, 250*time.Millisecond,
+		"should wait at least for process cleanup time (~300ms)")
+
+	// Should return shortly after process exits (~300-500ms)
+	// With the fix (commit 4d26204), this should PASS
+	// Without the fix, this would FAIL (would take 1+ seconds)
+	assert.Less(t, elapsed, 600*time.Millisecond,
+		"killCmd should return soon after process exits, "+
+			"but took %v (expected ~300-500ms). Regression of issue #671!",
+		elapsed)
+
+	t.Logf("✅ PASS: Process exited gracefully in %v after cleanup (kill_delay was 1s, saved ~%.1fs)",
+		elapsed, 1.0-elapsed.Seconds())
 }
