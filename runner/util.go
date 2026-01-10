@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -20,12 +21,22 @@ import (
 )
 
 const (
+	extWildcard          = "*"
 	sliceCmdArgSeparator = ","
-	// extWildcard is used in include_ext to match all file extensions
-	extWildcard = "*"
+)
+
+var (
+	getGOOSFunc = func() string {
+		return runtime.GOOS
+	}
+
+	isPowershellFunc = func() bool {
+		return isPowershell()
+	}
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
+
 	if e.config.Log.Silent {
 		return
 	}
@@ -299,22 +310,65 @@ func cmdPath(path string) string {
 	return strings.Split(path, " ")[0]
 }
 
+func isPowershell() bool {
+	if runtime.GOOS != PlatformWindows {
+		return false
+	}
+
+	c := exec.Command("powershell", "(dir 2>&1 *`|echo CMD);&<# rem #>echo PowerShell")
+	stdout, err := c.Output()
+	if err != nil {
+		return false
+	}
+
+	if string(stdout) == "CMD" {
+		return false
+	}
+
+	return true
+}
+
 func adaptToVariousPlatforms(c *Config) {
 	// Fix the default configuration is not used in Windows
 	// Use the unix configuration on Windows
-	if runtime.GOOS == PlatformWindows {
-
+	if getGOOSFunc() == PlatformWindows {
 		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
 
-		if 0 < len(c.Build.FullBin) {
+		if c.Build.FullBin != "" {
+			if isPowershellFunc() {
+				exe := ""
+				args := ""
 
-			if !strings.HasSuffix(c.Build.FullBin, extName) {
-				c.Build.FullBin += extName
-			}
-			if !strings.HasPrefix(c.Build.FullBin, runName) {
-				c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
+				if strings.HasPrefix(c.Build.FullBin, `"`) {
+					end := strings.Index(c.Build.FullBin[1:], `"`)
+					if end > 0 {
+						exe = c.Build.FullBin[1 : end+1]
+						if len(c.Build.FullBin) > end+2 {
+							args = strings.TrimSpace(c.Build.FullBin[end+2:])
+						}
+					}
+				} else {
+					parts := strings.SplitN(c.Build.FullBin, " ", 2)
+					exe = parts[0]
+					if len(parts) > 1 {
+						args = parts[1]
+					}
+				}
+
+				if !strings.HasSuffix(strings.ToLower(exe), extName) {
+					exe += extName
+				}
+
+				c.Build.FullBin = fmt.Sprintf(`Start-Process -FilePath "%s" -ArgumentList "%s" -Wait -NoNewWindow`, exe, args)
+			} else {
+				if !strings.HasSuffix(strings.ToLower(c.Build.FullBin), extName) {
+					c.Build.FullBin += extName
+				}
+				if !strings.HasPrefix(c.Build.FullBin, runName) {
+					c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
+				}
 			}
 		}
 

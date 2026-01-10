@@ -9,12 +9,15 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var adaptPlatformMu sync.Mutex
 
 func TestIsDirRootPath(t *testing.T) {
 	result := isDir(".")
@@ -187,7 +190,9 @@ func TestChecksumMap(t *testing.T) {
 }
 
 func TestAdaptToVariousPlatforms(t *testing.T) {
-	t.Parallel()
+	adaptPlatformMu.Lock()
+	t.Cleanup(adaptPlatformMu.Unlock)
+
 	config := &Config{
 		Build: cfgBuild{
 			Bin: "tmp\\main.exe  -dev",
@@ -197,6 +202,36 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 	if config.Build.Bin != "tmp\\main.exe  -dev" {
 		t.Errorf("expected '%s' but got '%s'", "tmp\\main.exe  -dev", config.Build.Bin)
 	}
+}
+
+func TestAdaptToVariousPlatforms_PowershellFullBin(t *testing.T) {
+	adaptPlatformMu.Lock()
+	originalGOOS := getGOOSFunc
+	originalIsPowershell := isPowershellFunc
+
+	getGOOSFunc = func() string {
+		return PlatformWindows
+	}
+	isPowershellFunc = func() bool {
+		return true
+	}
+
+	t.Cleanup(func() {
+		getGOOSFunc = originalGOOS
+		isPowershellFunc = originalIsPowershell
+		adaptPlatformMu.Unlock()
+	})
+
+	config := &Config{
+		Build: cfgBuild{
+			FullBin: "\"C:\\Program Files\\Acme App\\app\" --port 3000",
+		},
+	}
+
+	adaptToVariousPlatforms(config)
+
+	expected := `Start-Process -FilePath "C:\Program Files\Acme App\app.exe" -ArgumentList "--port 3000" -Wait -NoNewWindow`
+	assert.Equal(t, expected, config.Build.FullBin)
 }
 
 func Test_killCmd_SendInterrupt_false(t *testing.T) {
