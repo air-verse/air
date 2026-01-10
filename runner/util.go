@@ -361,7 +361,11 @@ func adaptToVariousPlatforms(c *Config) {
 					exe += extName
 				}
 
-				c.Build.FullBin = fmt.Sprintf(`Start-Process -FilePath "%s" -ArgumentList "%s" -Wait -NoNewWindow`, exe, args)
+				if strings.TrimSpace(args) == "" {
+					c.Build.FullBin = fmt.Sprintf(`Start-Process -FilePath "%s" -Wait -NoNewWindow`, exe)
+				} else {
+					c.Build.FullBin = fmt.Sprintf(`Start-Process -FilePath "%s" -ArgumentList "%s" -Wait -NoNewWindow`, exe, args)
+				}
 			} else {
 				if !strings.HasSuffix(strings.ToLower(c.Build.FullBin), extName) {
 					c.Build.FullBin += extName

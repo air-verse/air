@@ -234,6 +234,36 @@ func TestAdaptToVariousPlatforms_PowershellFullBin(t *testing.T) {
 	assert.Equal(t, expected, config.Build.FullBin)
 }
 
+func TestAdaptToVariousPlatforms_PowershellFullBinWithoutArgs(t *testing.T) {
+	adaptPlatformMu.Lock()
+	originalGOOS := getGOOSFunc
+	originalIsPowershell := isPowershellFunc
+
+	getGOOSFunc = func() string {
+		return PlatformWindows
+	}
+	isPowershellFunc = func() bool {
+		return true
+	}
+
+	t.Cleanup(func() {
+		getGOOSFunc = originalGOOS
+		isPowershellFunc = originalIsPowershell
+		adaptPlatformMu.Unlock()
+	})
+
+	config := &Config{
+		Build: cfgBuild{
+			FullBin: "\"C:\\Program Files\\Acme App\\app\"",
+		},
+	}
+
+	adaptToVariousPlatforms(config)
+
+	expected := `Start-Process -FilePath "C:\Program Files\Acme App\app.exe" -Wait -NoNewWindow`
+	assert.Equal(t, expected, config.Build.FullBin)
+}
+
 func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	_, b, _, _ := runtime.Caller(0)
 
