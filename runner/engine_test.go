@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewEngine(t *testing.T) {
@@ -42,10 +44,12 @@ func TestCheckRunEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	nestedTmpDir := filepath.Join(t.TempDir(), "nested", "build")
+	engine.config.TmpDir = nestedTmpDir
+
 	err = engine.checkRunEnv()
-	if err == nil {
-		t.Fatal("should throw a err")
-	}
+	require.NoError(t, err)
+	assert.DirExists(t, nestedTmpDir)
 }
 
 func TestWatching(t *testing.T) {
