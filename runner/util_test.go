@@ -187,15 +187,161 @@ func TestChecksumMap(t *testing.T) {
 }
 
 func TestAdaptToVariousPlatforms(t *testing.T) {
-	t.Parallel()
-	config := &Config{
-		Build: cfgBuild{
-			Bin: "tmp\\main.exe  -dev",
+	tests := []struct {
+		name         string
+		goos         string
+		isPowershell bool
+		config       *Config
+		expectedBin  string
+		expectedCmd  string
+	}{
+		{
+			name:         "Non-Windows no changes",
+			goos:         "linux",
+			isPowershell: false,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "app",
+					FullBin: "app",
+					Cmd:     "go build -o app main.go",
+				},
+			},
+			expectedBin: "app",
+			expectedCmd: "go build -o app main.go",
+		},
+		{
+			name:         "Windows - Cmd wrapper applied",
+			goos:         PlatformWindows,
+			isPowershell: false,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "tmp/main",
+					FullBin: "tmp/main",
+					Cmd:     "go build -o ./tmp/main.exe main.go",
+				},
+			},
+			expectedBin: "start /wait /b tmp/main.exe",
+			expectedCmd: "go build -o ./tmp/main.exe main.go",
+		},
+		{
+			name:         "Windows - Powershell wrapper applied",
+			goos:         PlatformWindows,
+			isPowershell: true,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "tmp/main",
+					FullBin: "tmp/main arg1 arg2",
+					Cmd:     "go build -o ./tmp/main.exe main.go",
+				},
+			},
+			expectedBin: `Start-Process -FilePath "tmp/main.exe" -ArgumentList "arg1 arg2" -Wait -NoNewWindow`,
+			expectedCmd: "go build -o ./tmp/main.exe main.go",
+		},
+		{
+			name:         "Windows - Powershell unquoted exe with args",
+			goos:         PlatformWindows,
+			isPowershell: true,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "myapp",
+					FullBin: "myapp --debug",
+					Cmd:     "",
+				},
+			},
+			expectedBin: `Start-Process -FilePath "myapp.exe" -ArgumentList "--debug" -Wait -NoNewWindow`,
+			expectedCmd: "go build -o ./myapp.exe main.go",
+		},
+		{
+			name:         "Windows - Cmd wrapper with relative bin",
+			goos:         PlatformWindows,
+			isPowershell: false,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "myapp",
+					FullBin: "myapp",
+					Cmd:     "",
+				},
+			},
+			expectedBin: "start /wait /b myapp.exe",
+			expectedCmd: "go build -o ./myapp.exe main.go",
+		},
+		{
+			name:         "Windows - Cmd wrapper with absolute C:\\ path",
+			goos:         PlatformWindows,
+			isPowershell: false,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "C:\\apps\\myapp",
+					FullBin: "C:\\apps\\myapp",
+					Cmd:     "",
+				},
+			},
+			expectedBin: "start /wait /b C:\\apps\\myapp.exe",
+			expectedCmd: "go build -o C:\\apps\\myapp.exe main.go",
+		},
+		{
+			name:         "Windows - Custom Cmd preserved",
+			goos:         PlatformWindows,
+			isPowershell: false,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "myapp",
+					FullBin: "myapp",
+					Cmd:     "go build -tags netgo -o myapp.exe main.go",
+				},
+			},
+			expectedBin: "start /wait /b myapp.exe",
+			expectedCmd: "go build -tags netgo -o myapp.exe main.go",
+		},
+		{
+			name:         "Windows - Uppercase .EXE not duplicated",
+			goos:         PlatformWindows,
+			isPowershell: false,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "myapp.EXE",
+					FullBin: "myapp.EXE",
+					Cmd:     "",
+				},
+			},
+			expectedBin: "start /wait /b myapp.EXE",
+			expectedCmd: "go build -o ./myapp.EXE main.go",
+		},
+		{
+			name:         "Windows - Empty Bin but FullBin set",
+			goos:         PlatformWindows,
+			isPowershell: false,
+			config: &Config{
+				Build: cfgBuild{
+					Bin:     "",
+					FullBin: "tool",
+					Cmd:     "",
+				},
+			},
+			expectedBin: "start /wait /b tool.exe",
+			expectedCmd: "",
 		},
 	}
-	adaptToVariousPlatforms(config)
-	if config.Build.Bin != "tmp\\main.exe  -dev" {
-		t.Errorf("expected '%s' but got '%s'", "tmp\\main.exe  -dev", config.Build.Bin)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			getGOOSFunc = func() string {
+				return tt.goos
+			}
+
+			isPowershellFunc = func() bool {
+				return tt.isPowershell
+			}
+
+			adaptToVariousPlatforms(tt.config)
+
+			if tt.config.Build.FullBin != tt.expectedBin {
+				t.Errorf("FullBin got=%q, want=%q", tt.config.Build.FullBin, tt.expectedBin)
+			}
+			if tt.config.Build.Cmd != tt.expectedCmd {
+				t.Errorf("Cmd got=%q, want=%q", tt.config.Build.Cmd, tt.expectedCmd)
+			}
+		})
 	}
 }
 
