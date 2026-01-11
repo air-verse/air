@@ -500,3 +500,36 @@ func formatPath(path string) string {
 
 	return quotedPath
 }
+
+// isDangerousRoot checks if the given path is a dangerous root directory
+// that could cause excessive file watching (home dir, root dir, etc.)
+// Returns true and a description if the path is dangerous.
+func isDangerousRoot(path string) (bool, string) {
+	// Get absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false, ""
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Check root directory
+	if absPath == "/" {
+		return true, "root directory (/)"
+	}
+
+	// Check home directory
+	home, err := os.UserHomeDir()
+	if err == nil {
+		home = filepath.Clean(home)
+		if absPath == home {
+			return true, "home directory (~)"
+		}
+	}
+
+	// Check /root (root user's home, in case UserHomeDir returns something else)
+	if absPath == "/root" {
+		return true, "/root directory"
+	}
+
+	return false, ""
+}
