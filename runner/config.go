@@ -104,6 +104,7 @@ type cfgBuild struct {
 	KillDelay        time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
 	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
+	WatchMode        string        `toml:"watch_mode" usage:"Watch mode: auto (default) or manual"`
 	regexCompiled    []*regexp.Regexp
 	includeDirAbs    []string
 	extraIncludeDirs []string
@@ -293,6 +294,7 @@ func defaultConfig() Config {
 		Delay:        1000,
 		Rerun:        false,
 		RerunDelay:   500,
+		WatchMode:    "auto",
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
