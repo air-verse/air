@@ -111,6 +111,22 @@ func TestReadConfByName(t *testing.T) {
 	}
 }
 
+func TestDefaultPathConfigWithInvalidTOML(t *testing.T) {
+	// Test that defaultPathConfig returns an error when .air.toml exists but has parse errors
+	// This is a regression test for issue #678
+	t.Setenv(airWd, "_testdata/invalid_toml")
+	_, err := defaultPathConfig()
+	if err == nil {
+		t.Fatal("expected error when .air.toml has parse errors, but got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to parse") {
+		t.Fatalf("expected error message to contain 'failed to parse', got: %s", err.Error())
+	}
+	if !strings.Contains(err.Error(), "defined twice") {
+		t.Fatalf("expected error message to contain 'defined twice', got: %s", err.Error())
+	}
+}
+
 func TestConfPreprocess(t *testing.T) {
 	t.Setenv(airWd, "_testdata/toml")
 	df := defaultConfig()
