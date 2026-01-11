@@ -2,7 +2,6 @@ package runner
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -64,8 +63,7 @@ X2=${X1}_bar
 X3=${X2}_baz
 `
 
-	tmpDir := t.TempDir()
-	envPath := filepath.Join(tmpDir, ".env")
+	envPath := t.TempDir() + "/.env"
 	if err := os.WriteFile(envPath, []byte(fileContents), 0o644); err != nil {
 		t.Fatalf("failed to write env file: %v", err)
 	}
@@ -86,7 +84,7 @@ X3=${X2}_baz
 	}
 	defer file.Close()
 
-	if err := loadEnvFile(file); err != nil {
+	if _, err := loadEnvFile(file); err != nil {
 		t.Fatalf("loadEnvFile failed: %v", err)
 	}
 

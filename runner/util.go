@@ -501,11 +501,10 @@ func formatPath(path string) string {
 	return quotedPath
 }
 
-// loadEnvFile preloads environment variables from a .env file.
-func loadEnvFile(file *os.File) error {
-	type kv struct{ k, v string }
-	var pairs []kv
-	keys := make(map[string]int) // key -> index in pairs
+type envPair struct{ K, V string }
+
+func parseEnvFile(file *os.File) ([]envPair, error) {
+	var pairs []envPair
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -535,34 +534,40 @@ func loadEnvFile(file *os.File) error {
 			}
 		}
 
-		keys[k] = len(pairs)
-		pairs = append(pairs, kv{k, v})
+		pairs = append(pairs, envPair{k, v})
 	}
 
-	if err := scanner.Err(); err != nil {
-		return err
+	return pairs, scanner.Err()
+}
+
+// applyEnvPairs sets environment variables from parsed pairs.
+// Variables are topologically sorted by dependencies and expanded.
+func applyEnvPairs(pairs []envPair) error {
+	keys := make(map[string]int, len(pairs)) // key -> index
+	for i, p := range pairs {
+		keys[p.K] = i
 	}
 
 	// Topologically sort pairs by dependencies and expand
 	expanded := make(map[int]struct{})
-	var expand func(idx int) error
-	expand = func(idx int) error {
-		if _, ok := expanded[idx]; ok {
+	var expand func(i int) error
+	expand = func(i int) error {
+		if _, ok := expanded[i]; ok {
 			return nil
 		}
-		expanded[idx] = struct{}{}
+		expanded[i] = struct{}{}
 
-		p := pairs[idx]
+		p := pairs[i]
 		// Find and expand dependencies first
 		for dep := range keys {
-			if dep != p.k && (strings.Contains(p.v, "$"+dep) || strings.Contains(p.v, "${"+dep+"}")) {
+			if dep != p.K && (strings.Contains(p.V, "$"+dep) || strings.Contains(p.V, "${"+dep+"}")) {
 				if err := expand(keys[dep]); err != nil {
 					return err
 				}
 			}
 		}
 
-		return os.Setenv(p.k, os.ExpandEnv(p.v))
+		return os.Setenv(p.K, os.ExpandEnv(p.V))
 	}
 
 	for i := range pairs {
@@ -572,6 +577,25 @@ func loadEnvFile(file *os.File) error {
 	}
 
 	return nil
+}
+
+// loadEnvFile parses and applies environment variables from a .env file.
+// Returns the set of keys that were loaded.
+func loadEnvFile(file *os.File) (map[string]struct{}, error) {
+	pairs, err := parseEnvFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := applyEnvPairs(pairs); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]struct{}, len(pairs))
+	for _, p := range pairs {
+		result[p.K] = struct{}{}
+	}
+	return result, nil
 }
 
 // isDangerousRoot checks if the given path is a dangerous root directory

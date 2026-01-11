@@ -47,23 +47,16 @@ type Engine struct {
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
+
+	// envOriginal stores the original env values before air modified them
+	// key:original value (empty string means it was unset)
+	envOriginal map[string]string
+	// envKeys tracks which keys were set by the last env file load
+	envKeys map[string]struct{}
 }
 
 // NewEngineWithConfig ...
 func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
-	if cfg.EnvFile != "" {
-		envPath := cfg.EnvFile
-		if !filepath.IsAbs(envPath) {
-			envPath = filepath.Join(cfg.Root, envPath)
-		}
-		if file, err := os.Open(envPath); err == nil {
-			defer file.Close()
-			if err := loadEnvFile(file); err != nil {
-				return nil, fmt.Errorf("failed to load env file %q: %w", cfg.EnvFile, err)
-			}
-		}
-	}
-
 	logger := newLogger(cfg)
 	watcher, err := newWatcher(cfg)
 	if err != nil {
@@ -92,6 +85,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		exitCh:        make(chan bool),
 		fileChecksums: &checksumMap{m: make(map[string]string)},
 		watchers:      0,
+		envOriginal:   map[string]string{},
 	}
 
 	return &e, nil
@@ -439,7 +433,63 @@ func (e *Engine) start() {
 	}
 }
 
+func (e *Engine) loadEnvFile() {
+	if e.config.EnvFile == "" {
+		return
+	}
+	envPath := e.config.EnvFile
+	if !filepath.IsAbs(envPath) {
+		envPath = filepath.Join(e.config.Root, envPath)
+	}
+	file, err := os.Open(envPath)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	pairs, err := parseEnvFile(file)
+	if err != nil {
+		e.runnerLog("failed to parse env file %s: %s", e.config.EnvFile, err.Error())
+		return
+	}
+
+	newKeys := make(map[string]struct{}, len(pairs))
+	for _, p := range pairs {
+		newKeys[p.K] = struct{}{}
+	}
+
+	// store global env vars that existed outside of .env file
+	for _, p := range pairs {
+		if _, tracked := e.envOriginal[p.K]; !tracked {
+			// First time seeing this key, store current value
+			e.envOriginal[p.K] = os.Getenv(p.K)
+		}
+	}
+
+	// if any keys were removed from .env file, restore the global value
+	for k := range e.envKeys {
+		if _, exists := newKeys[k]; !exists {
+			// key was removed from .env file, restore the global value
+			if orig, ok := e.envOriginal[k]; ok && orig != "" {
+				os.Setenv(k, orig)
+			} else {
+				os.Unsetenv(k)
+			}
+		}
+	}
+
+	// reapply env pairs
+	if err := applyEnvPairs(pairs); err != nil {
+		e.runnerLog("failed to apply env file %s: %s", e.config.EnvFile, err.Error())
+		return
+	}
+
+	e.envKeys = newKeys
+}
+
 func (e *Engine) buildRun() {
+	e.loadEnvFile()
+
 	// Create this build's unique stop channel
 	myStopCh := make(chan struct{})
 

@@ -1334,3 +1334,59 @@ func TestBuildRunRaceConditionRapidChanges(t *testing.T) {
 	// Clean up
 	<-e.buildRunCh
 }
+
+func TestEngineLoadEnvFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	envPath := filepath.Join(tmpDir, ".env")
+
+	originalValue := "original_global_value"
+	t.Setenv("TEST_GLOBAL_VAR", originalValue)
+
+	const initialEnv = `TEST_VAR1=value1
+TEST_VAR2=value2
+TEST_GLOBAL_VAR=overridden_value
+`
+
+	err := os.WriteFile(envPath, []byte(initialEnv), 0o644)
+	require.NoError(t, err)
+
+	cfg := defaultConfig()
+	cfg.Root = tmpDir
+	cfg.EnvFile = ".env"
+
+	engine, err := NewEngineWithConfig(&cfg, false)
+	require.NoError(t, err)
+
+	// First load
+	engine.loadEnvFile()
+
+	assert.Equal(t, "value1", os.Getenv("TEST_VAR1"), "TEST_VAR1 should be set")
+	assert.Equal(t, "value2", os.Getenv("TEST_VAR2"), "TEST_VAR2 should be set")
+	assert.Equal(t, "overridden_value", os.Getenv("TEST_GLOBAL_VAR"), "TEST_GLOBAL_VAR should be overridden")
+
+	const updatedEnv = `TEST_VAR1=updated_value1
+TEST_GLOBAL_VAR=still_overridden
+`
+	// Update .env file - change value and remove TEST_VAR2
+	err = os.WriteFile(envPath, []byte(updatedEnv), 0o644)
+	require.NoError(t, err)
+
+	// Reload
+	engine.loadEnvFile()
+
+	assert.Equal(t, "updated_value1", os.Getenv("TEST_VAR1"), "TEST_VAR1 should be updated")
+	_, exists := os.LookupEnv("TEST_VAR2")
+	assert.False(t, exists, "TEST_VAR2 should be unset after removal from .env")
+	assert.Equal(t, "still_overridden", os.Getenv("TEST_GLOBAL_VAR"), "TEST_GLOBAL_VAR should still be overridden")
+
+	// Remove TEST_GLOBAL_VAR from .env - should restore original value
+	const finalEnv = `TEST_VAR1=final_value`
+	err = os.WriteFile(envPath, []byte(finalEnv), 0o644)
+	require.NoError(t, err)
+
+	// Reload again
+	engine.loadEnvFile()
+
+	assert.Equal(t, "final_value", os.Getenv("TEST_VAR1"), "TEST_VAR1 should be final")
+	assert.Equal(t, originalValue, os.Getenv("TEST_GLOBAL_VAR"), "TEST_GLOBAL_VAR should be restored to original value")
+}
