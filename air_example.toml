@@ -56,6 +56,9 @@ kill_delay = 500 # nanosecond
 rerun = false
 # Delay after each execution
 rerun_delay = 500
+# Watch mode: "auto" (default) restarts on file changes, "manual" only restarts on 'r' key press.
+# Use "manual" mode when your app has slow startup (e.g., database connections).
+watch_mode = "auto"
 
 [log]
 # Show log time

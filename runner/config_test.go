@@ -347,3 +347,60 @@ cmd = "go build -o ./tmp/main ."
 		t.Fatalf("missing bin deprecation warning in output: %q", output)
 	}
 }
+func TestWatchModeConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		toml     string
+		expected string
+	}{
+		{
+			name:     "default is auto",
+			toml:     ``,
+			expected: "auto",
+		},
+		{
+			name: "explicit auto mode",
+			toml: `[build]
+watch_mode = "auto"`,
+			expected: "auto",
+		},
+		{
+			name: "manual mode",
+			toml: `[build]
+watch_mode = "manual"`,
+			expected: "manual",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, ".air.toml")
+
+			if tt.toml != "" {
+				if err := os.WriteFile(configPath, []byte(tt.toml), 0644); err != nil {
+					t.Fatalf("failed to write config file: %v", err)
+				}
+			}
+
+			var cfg *Config
+			var err error
+			if tt.toml == "" {
+				// Test default config
+				defaultCfg := defaultConfig()
+				cfg = &defaultCfg
+			} else {
+				cfg, err = InitConfig(configPath, nil)
+				if err != nil {
+					t.Fatalf("InitConfig failed: %v", err)
+				}
+			}
+
+			if cfg.Build.WatchMode != tt.expected {
+				t.Errorf("WatchMode = %q, want %q", cfg.Build.WatchMode, tt.expected)
+			}
+		})
+	}
+}
