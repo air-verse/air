@@ -256,6 +256,12 @@ func defaultPathConfig() (*Config, error) {
 		return cfg, nil
 	}
 
+	// If the config file exists but failed to parse, report the error
+	// Only use defaults if no config file exists
+	if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to parse %s: %w", dftTOML, err)
+	}
+
 	dftCfg := defaultConfig()
 	return &dftCfg, nil
 }
