@@ -51,6 +51,19 @@ type Engine struct {
 
 // NewEngineWithConfig ...
 func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
+	if cfg.EnvFile != "" {
+		envPath := cfg.EnvFile
+		if !filepath.IsAbs(envPath) {
+			envPath = filepath.Join(cfg.Root, envPath)
+		}
+		if file, err := os.Open(envPath); err == nil {
+			defer file.Close()
+			if err := loadEnvFile(file); err != nil {
+				return nil, fmt.Errorf("failed to load env file %q: %w", cfg.EnvFile, err)
+			}
+		}
+	}
+
 	logger := newLogger(cfg)
 	watcher, err := newWatcher(cfg)
 	if err != nil {

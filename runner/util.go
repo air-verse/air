@@ -501,6 +501,79 @@ func formatPath(path string) string {
 	return quotedPath
 }
 
+// loadEnvFile preloads environment variables from a .env file.
+func loadEnvFile(file *os.File) error {
+	type kv struct{ k, v string }
+	var pairs []kv
+	keys := make(map[string]int) // key -> index in pairs
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+
+		if k == "" {
+			continue
+		}
+
+		// Handle quoted values (single or double quotes)
+		if len(v) >= 2 {
+			if (v[0] == '"' && v[len(v)-1] == '"') ||
+				(v[0] == '\'' && v[len(v)-1] == '\'') {
+				v = v[1 : len(v)-1]
+			}
+		}
+
+		keys[k] = len(pairs)
+		pairs = append(pairs, kv{k, v})
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// Topologically sort pairs by dependencies and expand
+	expanded := make(map[int]struct{})
+	var expand func(idx int) error
+	expand = func(idx int) error {
+		if _, ok := expanded[idx]; ok {
+			return nil
+		}
+		expanded[idx] = struct{}{}
+
+		p := pairs[idx]
+		// Find and expand dependencies first
+		for dep := range keys {
+			if dep != p.k && (strings.Contains(p.v, "$"+dep) || strings.Contains(p.v, "${"+dep+"}")) {
+				if err := expand(keys[dep]); err != nil {
+					return err
+				}
+			}
+		}
+
+		return os.Setenv(p.k, os.ExpandEnv(p.v))
+	}
+
+	for i := range pairs {
+		if err := expand(i); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // isDangerousRoot checks if the given path is a dangerous root directory
 // that could cause excessive file watching (home dir, root dir, etc.)
 // Returns true and a description if the path is dangerous.

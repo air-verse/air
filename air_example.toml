@@ -7,6 +7,10 @@
 root = "."
 tmp_dir = "tmp"
 
+# Set to empty string "" to disable preloading.
+# Currently set to default value.
+env_file = ".env"
+
 [build]
 # Array of commands to run before each build
 pre_cmd = ["echo 'hello air' > pre_cmd.txt"]

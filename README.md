@@ -25,6 +25,7 @@ Note: This tool has nothing to do with hot-deploy for production.
 - Support excluding subdirectories
 - Allow watching new directories after Air started
 - Better building process
+- Automatic `.env` file loading
 
 ### Overwrite specify configuration from arguments
 
@@ -225,6 +226,21 @@ entrypoint = [
   "dlv", "exec", "--accept-multiclient", "--log", "--headless", "--continue",
   "--listen=:8999", "--api-version", "2", "./tmp/main",
 ]
+```
+
+### .env File
+
+Air can automatically load environment variables from a `.env` file before both building and running.
+
+```toml
+# Load from .env file (default)
+env_file = ".env"
+
+# Load from a custom file
+env_file = ".env.development"
+
+# Disable env file loading
+env_file = ""
 ```
 
 ### Docker Compose
