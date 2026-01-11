@@ -739,3 +739,70 @@ func Test_killCmd_SendInterrupt_SlowGracefulExit(t *testing.T) {
 	t.Logf("✅ PASS: Process exited gracefully in %v after cleanup (kill_delay was 1s, saved ~%.1fs)",
 		elapsed, 1.0-elapsed.Seconds())
 }
+
+func TestIsDangerousRoot(t *testing.T) {
+	t.Parallel()
+
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err, "failed to get user home directory")
+
+	tests := []struct {
+		name        string
+		path        string
+		isDangerous bool
+		description string
+	}{
+		{
+			name:        "root directory",
+			path:        "/",
+			isDangerous: true,
+			description: "root directory (/)",
+		},
+		{
+			name:        "root user home",
+			path:        "/root",
+			isDangerous: true,
+			description: "/root directory",
+		},
+		{
+			name:        "user home directory",
+			path:        homeDir,
+			isDangerous: true,
+			description: "home directory (~)",
+		},
+		{
+			name:        "normal project directory",
+			path:        "/home/user/myproject",
+			isDangerous: false,
+			description: "",
+		},
+		{
+			name:        "tmp directory",
+			path:        "/tmp/test-project",
+			isDangerous: false,
+			description: "",
+		},
+		{
+			name:        "current directory in project",
+			path:        ".",
+			isDangerous: false,
+			description: "",
+		},
+		{
+			name:        "subdirectory of home",
+			path:        filepath.Join(homeDir, "projects", "myapp"),
+			isDangerous: false,
+			description: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isDangerous, desc := isDangerousRoot(tt.path)
+			assert.Equal(t, tt.isDangerous, isDangerous, "isDangerous mismatch for path %s", tt.path)
+			if tt.isDangerous {
+				assert.Equal(t, tt.description, desc, "description mismatch for path %s", tt.path)
+			}
+		})
+	}
+}

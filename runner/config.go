@@ -368,6 +368,12 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	if err != nil {
 		return err
 	}
+
+	// Check for dangerous root directories that could cause excessive file watching
+	if isDangerous, dirName := isDangerousRoot(c.Root); isDangerous {
+		return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
+	}
+
 	if c.TmpDir == "" {
 		c.TmpDir = "tmp"
 	}
