@@ -1,18 +1,52 @@
 (() => {
-    const eventSource = new EventSource("/__air_internal/sse");
+    let worker = null;
 
-    window.addEventListener('beforeunload', function() {
-        eventSource.close();
-    })
+    // Try to use SharedWorker for shared SSE connection across all windows
+    if (window.SharedWorker) {
+        try {
+            worker = new SharedWorker('/__air_internal/worker.js', { name: 'air-sse-worker' });
+            worker.port.onmessage = (event) => {
+                const message = event.data;
 
-    eventSource.addEventListener('reload', () => {
-        location.reload();
-    });
+                switch (message.type) {
+                    case 'reload':
+                        location.reload();
+                        break;
+                    case 'build-failed':
+                        const data = JSON.parse(message.data);
+                        showErrorInModal(data);
+                        break;
+                }
+            };
+            worker.port.start();
 
-    eventSource.addEventListener('build-failed', (event) => {
-        const data = JSON.parse(event.data);
-        showErrorInModal(data);
-    });
+            // Gracefully disconnect from SharedWorker when the window is closed
+            window.addEventListener('beforeunload', () => {
+                worker.port.postMessage('disconnect');
+            });
+        } catch (e) {
+            // Setting up SharedWorker failed, so fall back to per-window EventSource
+            worker = null;
+        }
+    }
+
+    // SharedWorker is not available or failed somehow. Use per-window EventSource as fallback
+    if (!worker) {
+        const eventSource = new EventSource("/__air_internal/sse");
+
+        window.addEventListener('beforeunload', function () {
+            eventSource.close();
+        });
+
+        eventSource.addEventListener('reload', () => {
+            location.reload();
+        });
+
+        eventSource.addEventListener('build-failed', (event) => {
+            const data = JSON.parse(event.data);
+            showErrorInModal(data);
+        });
+    }
 
     function showErrorInModal(data) {
         document.body.insertAdjacentHTML(`beforeend`, `

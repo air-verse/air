@@ -13,8 +13,13 @@ import (
 	"time"
 )
 
-//go:embed proxy.js
-var ProxyScript string
+var (
+	//go:embed proxy.js
+	ProxyScript string
+
+	//go:embed worker.js
+	WorkerScript string
+)
 
 type Streamer interface {
 	AddSubscriber() *Subscriber
@@ -50,6 +55,7 @@ func NewProxy(cfg *cfgProxy) *Proxy {
 func (p *Proxy) Run() {
 	http.HandleFunc("/", p.proxyHandler)
 	http.HandleFunc("/__air_internal/sse", p.reloadHandler)
+	http.HandleFunc("GET /__air_internal/worker.js", p.workerScriptHandler)
 	if err := p.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(p.Stop())
 	}
@@ -227,6 +233,12 @@ func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, msg.AsSSE())
 		flusher.Flush()
 	}
+}
+
+func (p *Proxy) workerScriptHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript")
+	w.WriteHeader(http.StatusOK)
+	_, _ = io.WriteString(w, WorkerScript)
 }
 
 func (p *Proxy) Stop() error {
