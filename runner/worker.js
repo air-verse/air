@@ -7,7 +7,7 @@
         const port = event.ports[0];
         ports.add(port);
 
-        if (terminationTimer) {
+        if (terminationTimer) { // We're still alive
             cancelTermination();
         }
 
@@ -43,7 +43,7 @@
             try {
                 port.postMessage(data)
             } catch (e) {
-                // This port is dead so we remove it. If this was the last port, schedule a shutdown
+                // This port is dead so we remove it. If this was the last port, schedule termination.
                 ports.delete(port);
 
                 if (ports.size === 0) {
