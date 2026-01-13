@@ -39,8 +39,9 @@ type Engine struct {
 	buildRunCh chan chan struct{}
 	// binStopCh is a channel for process termination control
 	// Type chan<- chan int indicates it's a send-only channel that transmits another channel(chan int)
-	binStopCh chan<- chan int
-	exitCh    chan bool
+	binStopCh       chan<- chan int
+	exitCh          chan bool
+	manualRestartCh chan struct{}
 
 	mu            sync.RWMutex
 	watchers      uint
@@ -66,19 +67,20 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	}
 	runArgs = append(runArgs, cfg.Build.ArgsBin...)
 	e := Engine{
-		config:        cfg,
-		exiter:        defaultExiter{},
-		proxy:         NewProxy(&cfg.Proxy),
-		logger:        logger,
-		watcher:       watcher,
-		debugMode:     debugMode,
-		runArgs:       runArgs,
-		eventCh:       make(chan string, 1000),
-		watcherStopCh: make(chan bool, 10),
-		buildRunCh:    make(chan chan struct{}, 1),
-		exitCh:        make(chan bool),
-		fileChecksums: &checksumMap{m: make(map[string]string)},
-		watchers:      0,
+		config:          cfg,
+		exiter:          defaultExiter{},
+		proxy:           NewProxy(&cfg.Proxy),
+		logger:          logger,
+		watcher:         watcher,
+		debugMode:       debugMode,
+		runArgs:         runArgs,
+		eventCh:         make(chan string, 1000),
+		watcherStopCh:   make(chan bool, 10),
+		buildRunCh:      make(chan chan struct{}, 1),
+		exitCh:          make(chan bool),
+		manualRestartCh: make(chan struct{}, 1),
+		fileChecksums:   &checksumMap{m: make(map[string]string)},
+		watchers:        0,
 	}
 
 	return &e, nil
@@ -380,6 +382,11 @@ func (e *Engine) start() {
 			e.mainDebug("exit in start")
 			return
 		case filename = <-e.eventCh:
+			// In manual mode, ignore file change events
+			if e.config.Build.WatchMode == "manual" {
+				e.mainDebug("manual mode: ignoring file change %s", filename)
+				continue
+			}
 			if !e.isIncludeExt(filename) && !e.checkIncludeFile(filename) {
 				continue
 			}
@@ -406,6 +413,9 @@ func (e *Engine) start() {
 			}
 
 			e.mainLog("%s has changed", e.config.rel(filename))
+		case <-e.manualRestartCh:
+			e.mainLog("manual restart triggered")
+			// fall through to restart logic
 		case <-firstRunCh:
 			// go down
 		}
@@ -773,4 +783,15 @@ func (e *Engine) Stop() {
 		e.runnerLog("failed to execute post_cmd, error: %s", err.Error())
 	}
 	close(e.exitCh)
+}
+
+// TriggerManualRestart triggers a manual restart of the application.
+// This is used in manual watch mode when the user presses 'r' key.
+func (e *Engine) TriggerManualRestart() {
+	select {
+	case e.manualRestartCh <- struct{}{}:
+		// Successfully sent restart signal
+	default:
+		// Channel buffer full, restart already pending
+	}
 }

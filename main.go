@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -83,6 +84,26 @@ func printSplash() {
 `, versionInfo.airVersion, versionInfo.goVersion)
 }
 
+// startKeyboardListener starts a goroutine to listen for keyboard input in manual mode.
+func startKeyboardListener(r *runner.Engine, cfg *runner.Config) {
+	if cfg.Build.WatchMode != "manual" {
+		return
+	}
+
+	go func() {
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			char, _, err := reader.ReadRune()
+			if err != nil {
+				return
+			}
+			if char == 'r' || char == 'R' {
+				r.TriggerManualRestart()
+			}
+		}
+	}()
+}
+
 func main() {
 	switch colorMode {
 	case "always":
@@ -118,6 +139,15 @@ func main() {
 		log.Fatal(err)
 		return
 	}
+
+	// Print watch mode hint in manual mode
+	if cfg.Build.WatchMode == "manual" {
+		fmt.Println("watching mode: manual (press 'r' to restart)")
+	}
+
+	// Start keyboard listener for manual mode
+	startKeyboardListener(r, cfg)
+
 	go func() {
 		<-sigs
 		r.Stop()
