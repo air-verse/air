@@ -324,7 +324,7 @@ func defaultConfig() Config {
 		Root:        ".",
 		TmpDir:      "tmp",
 		TestDataDir: "testdata",
-		EnvFile:     ".env",
+		EnvFile:     "",
 		Build:       build,
 		Color:       color,
 		Log:         log,

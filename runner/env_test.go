@@ -21,17 +21,6 @@ UNQUOTED=no quotes
 
 # Expansion from existing env
 BASED=${BASE_ENV}_123
-NESTED1=${QUOTED1}_suffix
-
-# Expansion from other keys in the file in dependency order
-CHILD=${PARENT}/kid
-PARENT=${GRANDPARENT}/parent
-GRANDPARENT=grand
-
-# Out-of-order recursive dependency
-DEEP3=${DEEP2}/c
-DEEP2=${DEEP1}/b
-DEEP1=deepbase
 
 # Invalid lines (ignore)
 justsomegarbage
@@ -51,13 +40,17 @@ TRIMMED =trimmedVal
 EMPTY1=
 EMPTY2 =   
 
-# More comments
-# final marker
+# Inline comments should be stripped
+WITH_COMMENT=actual_value # this is a comment
+ANOTHER=test#notcomment
+QUOTED_HASH="value with # hash"
+QUOTED_WITH_COMMENT="quoted value" # trailing comment
+SINGLE_QUOTED_COMMENT='single quoted' # also a comment
 
 # Self-referencing
 SELF=${SELF}_again
 
-# Complex chained expansion
+# Expansion
 X1=foo
 X2=${X1}_bar
 X3=${X2}_baz
@@ -69,9 +62,10 @@ X3=${X2}_baz
 	}
 
 	unset := []string{
-		"FOO", "BAZ", "QUOTED1", "QUOTED2", "UNQUOTED", "BASED", "NESTED1",
-		"CHILD", "PARENT", "GRANDPARENT", "DEEP3", "DEEP2", "DEEP1",
+		"FOO", "BAZ", "QUOTED1", "QUOTED2", "UNQUOTED", "BASED",
 		"WITH_EQUALS", "SPACY_1", "TRIMMED", "EMPTY1", "EMPTY2",
+		"WITH_COMMENT", "ANOTHER", "QUOTED_HASH",
+		"QUOTED_WITH_COMMENT", "SINGLE_QUOTED_COMMENT",
 		"SELF", "X1", "X2", "X3",
 	}
 	for _, k := range unset {
@@ -96,20 +90,19 @@ X3=${X2}_baz
 		{"QUOTED1", "hello world"},
 		{"QUOTED2", "foo bar"},
 		{"UNQUOTED", "no quotes"},
-		{"BASED", "base_123"}, // must pick up pre existing env var BASE_ENV
-		{"NESTED1", "hello world_suffix"},
-		{"CHILD", "grand/parent/kid"},
-		{"PARENT", "grand/parent"},
-		{"GRANDPARENT", "grand"},
-		{"DEEP1", "deepbase"},
-		{"DEEP2", "deepbase/b"},
-		{"DEEP3", "deepbase/b/c"},
+		{"BASED", "base_123"},
+		{"INCOMPLETE", ""},
 		{"WITH_EQUALS", "host=localhost;port=5432"},
 		{"SPACY_1", "value with spaces"},
 		{"TRIMMED", "trimmedVal"},
 		{"EMPTY1", ""},
 		{"EMPTY2", ""},
-		{"SELF", "_again"}, // Because it starts unset, so ${SELF} expands to ""
+		{"WITH_COMMENT", "actual_value"},           // inline comment stripped
+		{"ANOTHER", "test#notcomment"},             // no space before #, not a comment
+		{"QUOTED_HASH", "value with # hash"},       // quoted values preserve #
+		{"QUOTED_WITH_COMMENT", "quoted value"},    // quoted with trailing comment
+		{"SINGLE_QUOTED_COMMENT", "single quoted"}, // single quoted with trailing comment
+		{"SELF", "_again"},
 		{"X1", "foo"},
 		{"X2", "foo_bar"},
 		{"X3", "foo_bar_baz"},

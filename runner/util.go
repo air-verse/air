@@ -526,11 +526,16 @@ func parseEnvFile(file *os.File) ([]envPair, error) {
 			continue
 		}
 
-		// Handle quoted values (single or double quotes)
-		if len(v) >= 2 {
-			if (v[0] == '"' && v[len(v)-1] == '"') ||
-				(v[0] == '\'' && v[len(v)-1] == '\'') {
-				v = v[1 : len(v)-1]
+		// handle quoted values - find closing quote and ignore anything after
+		if len(v) >= 2 && (v[0] == '"' || v[0] == '\'') {
+			quote := v[0]
+			if end := strings.IndexByte(v[1:], quote); end != -1 {
+				v = v[1 : end+1]
+			}
+		} else {
+			// strip inline comments for unquoted values
+			if idx := strings.Index(v, " #"); idx != -1 {
+				v = strings.TrimSpace(v[:idx])
 			}
 		}
 
@@ -540,38 +545,9 @@ func parseEnvFile(file *os.File) ([]envPair, error) {
 	return pairs, scanner.Err()
 }
 
-// applyEnvPairs sets environment variables from parsed pairs.
-// Variables are topologically sorted by dependencies and expanded.
 func applyEnvPairs(pairs []envPair) error {
-	keys := make(map[string]int, len(pairs)) // key -> index
-	for i, p := range pairs {
-		keys[p.K] = i
-	}
-
-	// Topologically sort pairs by dependencies and expand
-	expanded := make(map[int]struct{})
-	var expand func(i int) error
-	expand = func(i int) error {
-		if _, ok := expanded[i]; ok {
-			return nil
-		}
-		expanded[i] = struct{}{}
-
-		p := pairs[i]
-		// Find and expand dependencies first
-		for dep := range keys {
-			if dep != p.K && (strings.Contains(p.V, "$"+dep) || strings.Contains(p.V, "${"+dep+"}")) {
-				if err := expand(keys[dep]); err != nil {
-					return err
-				}
-			}
-		}
-
-		return os.Setenv(p.K, os.ExpandEnv(p.V))
-	}
-
-	for i := range pairs {
-		if err := expand(i); err != nil {
+	for _, p := range pairs {
+		if err := os.Setenv(p.K, os.ExpandEnv(p.V)); err != nil {
 			return err
 		}
 	}
