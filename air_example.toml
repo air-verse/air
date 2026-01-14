@@ -36,6 +36,8 @@ exclude_file = []
 exclude_regex = ["_test\\.go"]
 # Exclude unchanged files.
 exclude_unchanged = true
+# Ignore dangerous root directory that could cause excessive file watching
+ignore_dangerous_root_dir = false
 # Follow symlink for directories
 follow_symlink = true
 # This log file is placed in your tmp_dir.

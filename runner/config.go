@@ -80,33 +80,34 @@ func (e entrypoint) args() []string {
 }
 
 type cfgBuild struct {
-	PreCmd           []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
-	Cmd              string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
-	PostCmd          []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
-	Bin              string        `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
-	Entrypoint       entrypoint    `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
-	FullBin          string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
-	ArgsBin          []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
-	Log              string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
-	IncludeExt       []string      `toml:"include_ext" usage:"Watch these filename extensions"`
-	ExcludeDir       []string      `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
-	IncludeDir       []string      `toml:"include_dir" usage:"Watch these directories if you specified"`
-	ExcludeFile      []string      `toml:"exclude_file" usage:"Exclude files"`
-	IncludeFile      []string      `toml:"include_file" usage:"Watch these files"`
-	ExcludeRegex     []string      `toml:"exclude_regex" usage:"Exclude specific regular expressions"`
-	ExcludeUnchanged bool          `toml:"exclude_unchanged" usage:"Exclude unchanged files"`
-	FollowSymlink    bool          `toml:"follow_symlink" usage:"Follow symlink for directories"`
-	Poll             bool          `toml:"poll" usage:"Poll files for changes instead of using fsnotify"`
-	PollInterval     int           `toml:"poll_interval" usage:"Poll interval (defaults to the minimum interval of 500ms)"`
-	Delay            int           `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
-	StopOnError      bool          `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
-	SendInterrupt    bool          `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
-	KillDelay        time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
-	Rerun            bool          `toml:"rerun" usage:"Rerun binary or not"`
-	RerunDelay       int           `toml:"rerun_delay" usage:"Delay after each execution"`
-	regexCompiled    []*regexp.Regexp
-	includeDirAbs    []string
-	extraIncludeDirs []string
+	PreCmd                 []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
+	Cmd                    string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
+	PostCmd                []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
+	Bin                    string        `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
+	Entrypoint             entrypoint    `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
+	FullBin                string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
+	ArgsBin                []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
+	Log                    string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
+	IncludeExt             []string      `toml:"include_ext" usage:"Watch these filename extensions"`
+	ExcludeDir             []string      `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
+	IncludeDir             []string      `toml:"include_dir" usage:"Watch these directories if you specified"`
+	ExcludeFile            []string      `toml:"exclude_file" usage:"Exclude files"`
+	IncludeFile            []string      `toml:"include_file" usage:"Watch these files"`
+	ExcludeRegex           []string      `toml:"exclude_regex" usage:"Exclude specific regular expressions"`
+	ExcludeUnchanged       bool          `toml:"exclude_unchanged" usage:"Exclude unchanged files"`
+	IgnoreDangerousRootDir bool          `toml:"ignore_dangerous_root_dir" usage:"Ignore dangerous root directory that could cause excessive file watching"`
+	FollowSymlink          bool          `toml:"follow_symlink" usage:"Follow symlink for directories"`
+	Poll                   bool          `toml:"poll" usage:"Poll files for changes instead of using fsnotify"`
+	PollInterval           int           `toml:"poll_interval" usage:"Poll interval (defaults to the minimum interval of 500ms)"`
+	Delay                  int           `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
+	StopOnError            bool          `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
+	SendInterrupt          bool          `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
+	KillDelay              time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
+	Rerun                  bool          `toml:"rerun" usage:"Rerun binary or not"`
+	RerunDelay             int           `toml:"rerun_delay" usage:"Delay after each execution"`
+	regexCompiled          []*regexp.Regexp
+	includeDirAbs          []string
+	extraIncludeDirs       []string
 }
 
 func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
@@ -377,7 +378,10 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 
 	// Check for dangerous root directories that could cause excessive file watching
 	if isDangerous, dirName := isDangerousRoot(c.Root); isDangerous {
-		return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
+		if !c.Build.IgnoreDangerousRootDir {
+			return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
+		}
+		fmt.Fprintln(os.Stdout, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
 	}
 
 	if c.TmpDir == "" {
