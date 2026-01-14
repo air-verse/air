@@ -347,3 +347,119 @@ cmd = "go build -o ./tmp/main ."
 		t.Fatalf("missing bin deprecation warning in output: %q", output)
 	}
 }
+
+func TestWarnIgnoreDangerousRootDirProtection(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Run("when ignore_dangerous_root_dir is true", func(t *testing.T) {
+		cfgPath := filepath.Join(tmpDir, ".air.toml")
+		cfgContent := `
+root = "/"
+
+[build]
+entrypoint = "tmp/main"
+cmd = "go build -o ./tmp/main ."
+ignore_dangerous_root_dir = true
+`
+		if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+			t.Fatalf("failed to write config: %v", err)
+		}
+
+		oldStdout := os.Stdout
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatalf("failed to create pipe: %v", err)
+		}
+		os.Stdout = w
+
+		_, _ = InitConfig(cfgPath, nil)
+
+		if err := w.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+		os.Stdout = oldStdout
+
+		out, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatalf("failed to read output: %v", err)
+		}
+		output := string(out)
+		if !strings.Contains(output, "ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory") {
+			t.Fatalf("missing root directory protection warning in output: %q", output)
+		}
+	})
+	t.Run("when ignore_dangerous_root_dir is false", func(t *testing.T) {
+		cfgPath := filepath.Join(tmpDir, ".air.toml")
+		cfgContent := `
+root = "/"
+
+[build]
+entrypoint = "tmp/main"
+cmd = "go build -o ./tmp/main ."
+ignore_dangerous_root_dir = false
+`
+		if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+			t.Fatalf("failed to write config: %v", err)
+		}
+
+		oldStdout := os.Stdout
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatalf("failed to create pipe: %v", err)
+		}
+		os.Stdout = w
+
+		_, _ = InitConfig(cfgPath, nil)
+
+		if err := w.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+		os.Stdout = oldStdout
+
+		out, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatalf("failed to read output: %v", err)
+		}
+		output := string(out)
+		if strings.Contains(output, "ignoring root directory protections") {
+			t.Fatalf("unexpected root directory protection warning in output: %q", output)
+		}
+	})
+
+	t.Run("when ignore_dangerous_root_dir is not set", func(t *testing.T) {
+		cfgPath := filepath.Join(tmpDir, ".air.toml")
+		cfgContent := `
+root = "/"
+
+[build]
+entrypoint = "tmp/main"
+cmd = "go build -o ./tmp/main ."
+`
+		if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+			t.Fatalf("failed to write config: %v", err)
+		}
+
+		oldStdout := os.Stdout
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatalf("failed to create pipe: %v", err)
+		}
+		os.Stdout = w
+
+		_, _ = InitConfig(cfgPath, nil)
+
+		if err := w.Close(); err != nil {
+			t.Fatalf("failed to close writer: %v", err)
+		}
+		os.Stdout = oldStdout
+
+		out, err := io.ReadAll(r)
+		if err != nil {
+			t.Fatalf("failed to read output: %v", err)
+		}
+		output := string(out)
+		if strings.Contains(output, "ignoring root directory protections") {
+			t.Fatalf("unexpected root directory protection warning in output: %q", output)
+		}
+	})
+}
