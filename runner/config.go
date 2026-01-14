@@ -381,7 +381,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		if !c.Build.IgnoreDangerousRootDir {
 			return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
 		}
-		fmt.Fprintln(os.Stdout, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory", dirName)
+		fmt.Fprintln(os.Stdout, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
 	}
 
 	if c.TmpDir == "" {
