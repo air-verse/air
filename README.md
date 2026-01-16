@@ -228,13 +228,14 @@ entrypoint = [
 ]
 ```
 
-### .env File
+### Environment Files
 
-Air can automatically load environment variables from a `.env` files before both building and running.
+Air can automatically load environment variables from `.env` files before both building and running.
 
 ```toml
-# Load first from .env.development and then from .env file,
-# values that are present in the lattermost file will take precendence.
+# Load .env.development and then .env files/
+# Values in the lattermost file overwrite any preceding ones.
+# Does not overwrite variables that were present before running air.
 env_files = [".env.development", ".env"]
 ```
 
