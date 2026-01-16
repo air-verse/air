@@ -1352,7 +1352,7 @@ TEST_GLOBAL_VAR=overridden_value
 
 	cfg := defaultConfig()
 	cfg.Root = tmpDir
-	cfg.EnvFile = ".env"
+	cfg.EnvFiles = []string{".env"}
 
 	engine, err := NewEngineWithConfig(&cfg, false)
 	require.NoError(t, err)
