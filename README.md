@@ -230,17 +230,12 @@ entrypoint = [
 
 ### .env File
 
-Air can automatically load environment variables from a `.env` file before both building and running.
+Air can automatically load environment variables from a `.env` files before both building and running.
 
 ```toml
-# Load from .env file (default)
-env_file = ".env"
-
-# Load from a custom file
-env_file = ".env.development"
-
-# Disable env file loading
-env_file = ""
+# Load first from .env.development and then from .env file,
+# values that are present in the lattermost file will take precendence.
+env_files = [".env.development", ".env"]
 ```
 
 ### Docker Compose
