@@ -545,35 +545,6 @@ func parseEnvFile(file *os.File) ([]envPair, error) {
 	return pairs, scanner.Err()
 }
 
-func applyEnvPairs(pairs []envPair) error {
-	for _, p := range pairs {
-		if err := os.Setenv(p.K, os.ExpandEnv(p.V)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// loadEnvFile parses and applies environment variables from a .env file.
-// Returns the set of keys that were loaded.
-func loadEnvFile(file *os.File) (map[string]struct{}, error) {
-	pairs, err := parseEnvFile(file)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := applyEnvPairs(pairs); err != nil {
-		return nil, err
-	}
-
-	result := make(map[string]struct{}, len(pairs))
-	for _, p := range pairs {
-		result[p.K] = struct{}{}
-	}
-	return result, nil
-}
-
 // isDangerousRoot checks if the given path is a dangerous root directory
 // that could cause excessive file watching (home dir, root dir, etc.)
 // Returns true and a description if the path is dangerous.
