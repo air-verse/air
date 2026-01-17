@@ -501,50 +501,6 @@ func formatPath(path string) string {
 	return quotedPath
 }
 
-type envPair struct{ K, V string }
-
-func parseEnvFile(file *os.File) ([]envPair, error) {
-	var pairs []envPair
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		k, v, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-
-		k = strings.TrimSpace(k)
-		v = strings.TrimSpace(v)
-
-		if k == "" {
-			continue
-		}
-
-		// handle quoted values - find closing quote and ignore anything after
-		if len(v) >= 2 && (v[0] == '"' || v[0] == '\'') {
-			quote := v[0]
-			if end := strings.IndexByte(v[1:], quote); end != -1 {
-				v = v[1 : end+1]
-			}
-		} else {
-			// strip inline comments for unquoted values
-			if idx := strings.Index(v, " #"); idx != -1 {
-				v = strings.TrimSpace(v[:idx])
-			}
-		}
-
-		pairs = append(pairs, envPair{k, v})
-	}
-
-	return pairs, scanner.Err()
-}
-
 // isDangerousRoot checks if the given path is a dangerous root directory
 // that could cause excessive file watching (home dir, root dir, etc.)
 // Returns true and a description if the path is dangerous.
