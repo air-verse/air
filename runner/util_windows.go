@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
@@ -27,7 +29,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	// Hide the taskkill console window
 	killCmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+		CreationFlags: windows.CREATE_NO_WINDOW,
 	}
 
 	err = killCmd.Run()
@@ -52,7 +54,7 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	// Hide the PowerShell console window
 	c.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+		CreationFlags: windows.CREATE_NO_WINDOW,
 	}
 
 	stderr, err := c.StderrPipe()
