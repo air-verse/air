@@ -1,0 +1,45 @@
+name: Smoke test (Windows)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke_test_windows:
+    name: Smoke test (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+      - name: Setup Go
+        id: go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ^1.25
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          install-mode: goinstall
+          version: latest
+      - name: Install
+        run: make install
+      - name: Check rebuild
+        id: check_rebuild
+        working-directory: ./smoke_test/check_rebuild
+        shell: pwsh
+        run: |
+          Start-Process -FilePath air -RedirectStandardOutput nohup.out -RedirectStandardError nohup.err -NoNewWindow
+          Start-Sleep -Seconds 15
+          Add-Content -Path main.go -Value ""
+          Start-Sleep -Seconds 5
+          Get-Content nohup.out
+          $runningCount = (Select-String -Path nohup.out -Pattern "running").Count
+          if ($runningCount -eq 2) {
+            "value=PASS" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            "value=FAIL" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+      - uses: nick-invision/assert-action@v2
+        with:
+          expected: "PASS"
+          actual: ${{ steps.check_rebuild.outputs.value }}
