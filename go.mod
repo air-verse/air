@@ -7,6 +7,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gohugoio/hugo v0.149.1
+	github.com/joho/godotenv v1.5.1
 	github.com/pelletier/go-toml v1.9.5
 	github.com/stretchr/testify v1.11.1
 )
@@ -18,7 +19,6 @@ require (
 	github.com/bep/gowebp v0.4.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect

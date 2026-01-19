@@ -502,8 +502,6 @@ func (e *Engine) loadEnvFile() {
 }
 
 func (e *Engine) buildRun() {
-	e.loadEnvFile()
-
 	// Create this build's unique stop channel
 	myStopCh := make(chan struct{})
 
@@ -522,6 +520,8 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
+
+	e.loadEnvFile()
 
 	var err error
 	if err = e.runPreCmd(); err != nil {
