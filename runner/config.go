@@ -102,7 +102,7 @@ type cfgBuild struct {
 	PollInterval           int           `toml:"poll_interval" usage:"Poll interval (defaults to the minimum interval of 500ms)"`
 	Delay                  int           `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
 	StopOnError            bool          `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
-	SendInterrupt          bool          `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
+	SendInterrupt          bool          `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (ignored on Windows; uses TASKKILL)"`
 	KillDelay              time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
 	Rerun                  bool          `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay             int           `toml:"rerun_delay" usage:"Delay after each execution"`
