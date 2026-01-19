@@ -469,11 +469,10 @@ func (e *Engine) loadEnvFile() {
 					// not used yet, but might be useful for a future "override" feature
 					e.globalEnv[k] = &origVal
 					continue // untracked env values are likely global - don't override them
-				} else {
-					// on first encounter of a key, if no global value exists, mark as nil so
-					// that on next load of .env file, globalEnv map value will not be overwritten
-					e.globalEnv[k] = nil
 				}
+				// on first encounter of a key, if no global value exists, mark as nil so
+				// that on next load of .env file, globalEnv map value will not be overwritten
+				e.globalEnv[k] = nil
 			} else if tracked && v != nil {
 				// only set values from file if not already present in the environment
 				e.mainDebug("key %q already exists in the environment, skipping", k)
