@@ -1,18 +1,79 @@
 (() => {
-    const eventSource = new EventSource("/__air_internal/sse");
+    let worker = null;
 
-    window.addEventListener('beforeunload', function() {
-        eventSource.close();
-    })
+    const disconnectWorker = () => {
+        if (worker) {
+            worker.port.postMessage('disconnect');
+        }
+    };
 
-    eventSource.addEventListener('reload', () => {
-        location.reload();
-    });
+    // Try to use SharedWorker for shared SSE connection across all windows
+    if (window.SharedWorker) {
+        try {
+            worker = new SharedWorker('/__air_internal/worker.js', { name: 'air-sse-worker' });
+            worker.port.onmessage = (event) => {
+                const message = event.data;
 
-    eventSource.addEventListener('build-failed', (event) => {
-        const data = JSON.parse(event.data);
-        showErrorInModal(data);
-    });
+                switch (message.type) {
+                    case 'reload':
+                        location.reload();
+                        break;
+                    case 'build-failed':
+                        const data = parseBuildFailed(message.data);
+                        showErrorInModal(data);
+                        break;
+                }
+            };
+            worker.port.start();
+
+            // Gracefully disconnect from SharedWorker when the window is closed
+            window.addEventListener('beforeunload', disconnectWorker);
+            window.addEventListener('pagehide', disconnectWorker);
+        } catch (e) {
+            // Setting up SharedWorker failed, so fall back to per-window EventSource
+            console.warn('air: SharedWorker setup failed, falling back to EventSource', e);
+            worker = null;
+        }
+    }
+
+    // SharedWorker is not available or failed somehow. Use per-window EventSource as fallback
+    if (!worker) {
+        const eventSource = new EventSource("/__air_internal/sse");
+
+        window.addEventListener('beforeunload', function () {
+            eventSource.close();
+        });
+        window.addEventListener('pagehide', function () {
+            eventSource.close();
+        });
+
+        eventSource.addEventListener('reload', () => {
+            location.reload();
+        });
+
+        eventSource.addEventListener('build-failed', (event) => {
+            const data = parseBuildFailed(event.data);
+            showErrorInModal(data);
+        });
+    }
+
+    function parseBuildFailed(raw) {
+        try {
+            const parsed = JSON.parse(raw);
+            return {
+                error: parsed.error ?? "Build failed",
+                command: parsed.command ?? "",
+                output: parsed.output ?? "",
+            };
+        } catch (e) {
+            console.warn("air: failed to parse build-failed payload", e);
+            return {
+                error: "Build failed",
+                command: "",
+                output: String(raw),
+            };
+        }
+    }
 
     function showErrorInModal(data) {
         document.body.insertAdjacentHTML(`beforeend`, `
