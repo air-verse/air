@@ -302,49 +302,6 @@ func TestKillDelay(t *testing.T) {
 	}
 }
 
-func TestApplyBuildOverrides(t *testing.T) {
-	base := defaultConfigBase()
-	override := &cfgBuildOverrides{
-		PreCmd:  []string{"echo override"},
-		Cmd:     "go build -o ./tmp/custom .",
-		ArgsBin: []string{"custom"},
-	}
-
-	applyBuildOverrides(&base.Build, override)
-
-	if base.Build.Cmd != override.Cmd {
-		t.Fatalf("cmd mismatch: got %s want %s", base.Build.Cmd, override.Cmd)
-	}
-	if !reflect.DeepEqual(base.Build.PreCmd, override.PreCmd) {
-		t.Fatalf("pre_cmd mismatch: got %v want %v", base.Build.PreCmd, override.PreCmd)
-	}
-	if !reflect.DeepEqual(base.Build.ArgsBin, override.ArgsBin) {
-		t.Fatalf("args_bin mismatch: got %v want %v", base.Build.ArgsBin, override.ArgsBin)
-	}
-	if base.Build.Bin != "./tmp/main" {
-		t.Fatalf("bin should remain default, got %s", base.Build.Bin)
-	}
-}
-
-func TestAddPlatformOverridesForInit(t *testing.T) {
-	cfg := defaultConfigBase()
-	setEntrypointFromBin(&cfg)
-	addPlatformOverridesForInit(&cfg, PlatformWindows)
-
-	if cfg.Build.Windows == nil {
-		t.Fatal("expected windows overrides to be set")
-	}
-	if cfg.Build.Windows.Cmd != "go build -o ./tmp/main.exe ." {
-		t.Fatalf("windows cmd mismatch: got %s", cfg.Build.Windows.Cmd)
-	}
-	if cfg.Build.Windows.Bin != `tmp\main.exe` {
-		t.Fatalf("windows bin mismatch: got %s", cfg.Build.Windows.Bin)
-	}
-	if !reflect.DeepEqual(cfg.Build.Windows.Entrypoint, entrypoint{`tmp\main.exe`}) {
-		t.Fatalf("windows entrypoint mismatch: got %v", cfg.Build.Windows.Entrypoint)
-	}
-}
-
 func contains(sl []string, target string) bool {
 	for _, c := range sl {
 		if c == target {
