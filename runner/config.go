@@ -31,6 +31,7 @@ type Config struct {
 	Root        string    `toml:"root" usage:"Working directory, . or absolute path, please note that the directories following must be under root"`
 	TmpDir      string    `toml:"tmp_dir" usage:"Temporary directory for air"`
 	TestDataDir string    `toml:"testdata_dir"`
+	EnvFiles    []string  `toml:"env_files" usage:"Paths to .env files to load before build/run"`
 	Build       cfgBuild  `toml:"build"`
 	Color       cfgColor  `toml:"color"`
 	Log         cfgLog    `toml:"log"`
@@ -378,7 +379,10 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 
 	// Check for dangerous root directories that could cause excessive file watching
 	if isDangerous, dirName := isDangerousRoot(c.Root); isDangerous {
-		return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
+		if !c.Build.IgnoreDangerousRootDir {
+			return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
+		}
+		fmt.Fprintln(os.Stdout, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
 	}
 
 	if c.TmpDir == "" {
