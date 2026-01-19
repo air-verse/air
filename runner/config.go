@@ -79,32 +79,45 @@ func (e entrypoint) args() []string {
 	return e[1:]
 }
 
+type cfgBuildOverrides struct {
+	PreCmd     []string   `toml:"pre_cmd,omitempty" usage:"Array of commands to run before each build"`
+	Cmd        string     `toml:"cmd,omitempty" usage:"Just plain old shell command. You could use 'make' as well"`
+	PostCmd    []string   `toml:"post_cmd,omitempty" usage:"Array of commands to run after ^C"`
+	Bin        string     `toml:"bin,omitempty" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
+	Entrypoint entrypoint `toml:"entrypoint,omitempty" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
+	FullBin    string     `toml:"full_bin,omitempty" usage:"Customize binary, can setup environment variables when run your app"`
+	ArgsBin    []string   `toml:"args_bin,omitempty" usage:"Add additional arguments when running binary (bin/full_bin)."`
+}
+
 type cfgBuild struct {
-	PreCmd                 []string      `toml:"pre_cmd" usage:"Array of commands to run before each build"`
-	Cmd                    string        `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
-	PostCmd                []string      `toml:"post_cmd" usage:"Array of commands to run after ^C"`
-	Bin                    string        `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
-	Entrypoint             entrypoint    `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
-	FullBin                string        `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
-	ArgsBin                []string      `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
-	Log                    string        `toml:"log" usage:"This log file is placed in your tmp_dir"`
-	IncludeExt             []string      `toml:"include_ext" usage:"Watch these filename extensions"`
-	ExcludeDir             []string      `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
-	IncludeDir             []string      `toml:"include_dir" usage:"Watch these directories if you specified"`
-	ExcludeFile            []string      `toml:"exclude_file" usage:"Exclude files"`
-	IncludeFile            []string      `toml:"include_file" usage:"Watch these files"`
-	ExcludeRegex           []string      `toml:"exclude_regex" usage:"Exclude specific regular expressions"`
-	ExcludeUnchanged       bool          `toml:"exclude_unchanged" usage:"Exclude unchanged files"`
-	IgnoreDangerousRootDir bool          `toml:"ignore_dangerous_root_dir" usage:"Ignore dangerous root directory that could cause excessive file watching"`
-	FollowSymlink          bool          `toml:"follow_symlink" usage:"Follow symlink for directories"`
-	Poll                   bool          `toml:"poll" usage:"Poll files for changes instead of using fsnotify"`
-	PollInterval           int           `toml:"poll_interval" usage:"Poll interval (defaults to the minimum interval of 500ms)"`
-	Delay                  int           `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
-	StopOnError            bool          `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
-	SendInterrupt          bool          `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
-	KillDelay              time.Duration `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
-	Rerun                  bool          `toml:"rerun" usage:"Rerun binary or not"`
-	RerunDelay             int           `toml:"rerun_delay" usage:"Delay after each execution"`
+	PreCmd                 []string           `toml:"pre_cmd" usage:"Array of commands to run before each build"`
+	Cmd                    string             `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
+	PostCmd                []string           `toml:"post_cmd" usage:"Array of commands to run after ^C"`
+	Bin                    string             `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
+	Entrypoint             entrypoint         `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
+	FullBin                string             `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
+	ArgsBin                []string           `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
+	Log                    string             `toml:"log" usage:"This log file is placed in your tmp_dir"`
+	IncludeExt             []string           `toml:"include_ext" usage:"Watch these filename extensions"`
+	ExcludeDir             []string           `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
+	IncludeDir             []string           `toml:"include_dir" usage:"Watch these directories if you specified"`
+	ExcludeFile            []string           `toml:"exclude_file" usage:"Exclude files"`
+	IncludeFile            []string           `toml:"include_file" usage:"Watch these files"`
+	ExcludeRegex           []string           `toml:"exclude_regex" usage:"Exclude specific regular expressions"`
+	ExcludeUnchanged       bool               `toml:"exclude_unchanged" usage:"Exclude unchanged files"`
+	IgnoreDangerousRootDir bool               `toml:"ignore_dangerous_root_dir" usage:"Ignore dangerous root directory that could cause excessive file watching"`
+	FollowSymlink          bool               `toml:"follow_symlink" usage:"Follow symlink for directories"`
+	Poll                   bool               `toml:"poll" usage:"Poll files for changes instead of using fsnotify"`
+	PollInterval           int                `toml:"poll_interval" usage:"Poll interval (defaults to the minimum interval of 500ms)"`
+	Delay                  int                `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
+	StopOnError            bool               `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
+	SendInterrupt          bool               `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
+	KillDelay              time.Duration      `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
+	Rerun                  bool               `toml:"rerun" usage:"Rerun binary or not"`
+	RerunDelay             int                `toml:"rerun_delay" usage:"Delay after each execution"`
+	Windows                *cfgBuildOverrides `toml:"windows,omitempty"`
+	Darwin                 *cfgBuildOverrides `toml:"darwin,omitempty"`
+	Linux                  *cfgBuildOverrides `toml:"linux,omitempty"`
 	regexCompiled          []*regexp.Regexp
 	includeDirAbs          []string
 	extraIncludeDirs       []string
@@ -196,7 +209,6 @@ func InitConfig(path string, cmdArgs map[string]TomlInfo) (cfg *Config, err erro
 			return nil, err
 		}
 	}
-	warnDeprecatedBin(cfg)
 	config := defaultConfig()
 	// get addr
 	ret := &config
@@ -210,6 +222,12 @@ func InitConfig(path string, cmdArgs map[string]TomlInfo) (cfg *Config, err erro
 	if err != nil {
 		return nil, err
 	}
+
+	if err = applyPlatformOverrides(ret); err != nil {
+		return nil, err
+	}
+
+	warnDeprecatedBin(ret)
 
 	err = ret.preprocess(cmdArgs)
 	return ret, err
@@ -230,10 +248,9 @@ func writeDefaultConfig() (string, error) {
 	}
 	defer file.Close()
 
-	config := defaultConfig()
-	if len(config.Build.Entrypoint) == 0 && config.Build.Bin != "" {
-		config.Build.Entrypoint = entrypoint{config.Build.Bin}
-	}
+	config := defaultConfigBase()
+	setEntrypointFromBin(&config)
+	addPlatformOverridesForInit(&config, runtime.GOOS)
 	configFile, err := toml.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal the default configuration: %w", err)
@@ -282,7 +299,7 @@ func readConfByName(name string) (*Config, error) {
 	return cfg, err
 }
 
-func defaultConfig() Config {
+func defaultConfigBase() Config {
 	build := cfgBuild{
 		Cmd:          "go build -o ./tmp/main .",
 		Bin:          "./tmp/main",
@@ -300,10 +317,6 @@ func defaultConfig() Config {
 		Delay:        1000,
 		Rerun:        false,
 		RerunDelay:   500,
-	}
-	if runtime.GOOS == PlatformWindows {
-		build.Bin = `tmp\main.exe`
-		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
 	log := cfgLog{
 		AddTime:  false,
@@ -332,6 +345,151 @@ func defaultConfig() Config {
 			KeepScroll:     true,
 		},
 	}
+}
+
+func defaultConfigForOS(goos string) Config {
+	cfg := defaultConfigBase()
+	applyPlatformDefaults(&cfg, goos)
+	return cfg
+}
+
+func defaultConfig() Config {
+	return defaultConfigForOS(runtime.GOOS)
+}
+
+func applyPlatformDefaults(cfg *Config, goos string) {
+	if cfg == nil {
+		return
+	}
+	if goos == PlatformWindows {
+		cfg.Build.Bin = `tmp\main.exe`
+		cfg.Build.Cmd = "go build -o ./tmp/main.exe ."
+	}
+}
+
+func applyPlatformOverrides(cfg *Config) error {
+	if cfg == nil {
+		return nil
+	}
+
+	override := platformBuildOverrides(&cfg.Build, runtime.GOOS)
+	if override == nil {
+		return nil
+	}
+
+	applyBuildOverrides(&cfg.Build, override)
+	return nil
+}
+
+func platformBuildOverrides(build *cfgBuild, goos string) *cfgBuildOverrides {
+	if build == nil {
+		return nil
+	}
+	switch goos {
+	case PlatformWindows:
+		return build.Windows
+	case "darwin":
+		return build.Darwin
+	case "linux":
+		return build.Linux
+	default:
+		return nil
+	}
+}
+
+func applyBuildOverrides(build *cfgBuild, override *cfgBuildOverrides) {
+	if build == nil || override == nil {
+		return
+	}
+	if override.PreCmd != nil {
+		build.PreCmd = override.PreCmd
+	}
+	if override.Cmd != "" {
+		build.Cmd = override.Cmd
+	}
+	if override.PostCmd != nil {
+		build.PostCmd = override.PostCmd
+	}
+	if override.Bin != "" {
+		build.Bin = override.Bin
+	}
+	if override.Entrypoint != nil {
+		build.Entrypoint = override.Entrypoint
+	}
+	if override.FullBin != "" {
+		build.FullBin = override.FullBin
+	}
+	if override.ArgsBin != nil {
+		build.ArgsBin = override.ArgsBin
+	}
+}
+
+func setEntrypointFromBin(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if len(cfg.Build.Entrypoint) == 0 && cfg.Build.Bin != "" {
+		cfg.Build.Entrypoint = entrypoint{cfg.Build.Bin}
+	}
+}
+
+func addPlatformOverridesForInit(cfg *Config, goos string) {
+	if cfg == nil {
+		return
+	}
+	platformConfig := defaultConfigForOS(goos)
+	setEntrypointFromBin(&platformConfig)
+	override := buildOverridesFromDiff(cfg.Build, platformConfig.Build)
+	if override == nil {
+		return
+	}
+	switch goos {
+	case PlatformWindows:
+		cfg.Build.Windows = override
+	case "darwin":
+		cfg.Build.Darwin = override
+	case "linux":
+		cfg.Build.Linux = override
+	}
+}
+
+func buildOverridesFromDiff(base cfgBuild, target cfgBuild) *cfgBuildOverrides {
+	var override cfgBuildOverrides
+	changed := false
+
+	if !reflect.DeepEqual(base.PreCmd, target.PreCmd) {
+		override.PreCmd = target.PreCmd
+		changed = true
+	}
+	if base.Cmd != target.Cmd {
+		override.Cmd = target.Cmd
+		changed = true
+	}
+	if !reflect.DeepEqual(base.PostCmd, target.PostCmd) {
+		override.PostCmd = target.PostCmd
+		changed = true
+	}
+	if base.Bin != target.Bin {
+		override.Bin = target.Bin
+		changed = true
+	}
+	if !reflect.DeepEqual(base.Entrypoint, target.Entrypoint) {
+		override.Entrypoint = target.Entrypoint
+		changed = true
+	}
+	if base.FullBin != target.FullBin {
+		override.FullBin = target.FullBin
+		changed = true
+	}
+	if !reflect.DeepEqual(base.ArgsBin, target.ArgsBin) {
+		override.ArgsBin = target.ArgsBin
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+	return &override
 }
 
 func readConfig(path string) (*Config, error) {
