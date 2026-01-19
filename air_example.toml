@@ -59,12 +59,6 @@ rerun = false
 # Delay after each execution
 rerun_delay = 500
 
-# Platform-specific build overrides
-[build.windows]
-cmd = "go build -o ./tmp/main.exe ."
-bin = "tmp\\main.exe"
-entrypoint = ["tmp\\main.exe"]
-
 [log]
 # Show log time
 time = false
