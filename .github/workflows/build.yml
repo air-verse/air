@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     name: Build
     runs-on: ${{ matrix.os }}
     steps:
@@ -27,7 +27,8 @@ jobs:
           install-mode: goinstall
           version: latest
       - name: Install dependency
-        run: if [ $(uname) == "Darwin" ]; then brew install gnu-sed ;fi
+        if: runner.os == 'macOS'
+        run: brew install gnu-sed
       - name: Build
         run: make build
       - name: Run unit tests
