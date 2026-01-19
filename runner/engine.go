@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gohugoio/hugo/watcher/filenotify"
+	"github.com/joho/godotenv"
 )
 
 // Engine ...
@@ -47,6 +48,12 @@ type Engine struct {
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
+
+	// globalEnv stores the original env values before air modified them
+	// key:original value (empty string means it was unset)
+	globalEnv map[string]*string
+	// loadedEnv tracks env values that were set by the last env file load
+	loadedEnv map[string]string
 }
 
 // NewEngineWithConfig ...
@@ -79,6 +86,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		exitCh:        make(chan bool),
 		fileChecksums: &checksumMap{m: make(map[string]string)},
 		watchers:      0,
+		globalEnv:     map[string]*string{},
 	}
 
 	return &e, nil
@@ -426,6 +434,72 @@ func (e *Engine) start() {
 	}
 }
 
+func (e *Engine) loadEnvFile() {
+	if len(e.config.EnvFiles) == 0 {
+		return
+	}
+
+	// assume refreshed env is as big as the loaded env
+	newEnv := make(map[string]string, len(e.loadedEnv))
+
+	for _, envPath := range e.config.EnvFiles {
+		if !filepath.IsAbs(envPath) {
+			envPath = filepath.Join(e.config.Root, envPath)
+		}
+		file, err := os.Open(envPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				e.mainDebug("env file %q does not exist, skipping", envPath)
+			} else {
+				e.runnerLog("failed to open env file %q: %s", envPath, err.Error())
+			}
+			continue
+		}
+		defer file.Close()
+		fileEnv, err := godotenv.Parse(file)
+		if err != nil {
+			e.runnerLog("failed to parse env file %q: %s", envPath, err.Error())
+			return
+		}
+
+		for k, v := range fileEnv {
+			if v, tracked := e.globalEnv[k]; !tracked {
+				origVal, exists := os.LookupEnv(k)
+				if exists {
+					// not used yet, but might be useful for a future "override" feature
+					e.globalEnv[k] = &origVal
+					continue // untracked env values are likely global - don't override them
+				}
+				// on first encounter of a key, if no global value exists, mark as nil so
+				// that on next load of .env file, globalEnv map value will not be overwritten
+				e.globalEnv[k] = nil
+			} else if tracked && v != nil {
+				// only set values from file if not already present in the environment
+				e.mainDebug("key %q already exists in the environment, skipping", k)
+				continue
+			}
+			if err := os.Setenv(k, v); err != nil {
+				e.runnerLog("failed to set env key %q: %s", k, err.Error())
+			}
+			newEnv[k] = v
+		}
+	}
+
+	// unset any keys that were removed from .env file,
+	// but ignore those that were set before air was run
+	for k := range e.loadedEnv {
+		if _, exists := newEnv[k]; !exists {
+			if orig := e.globalEnv[k]; orig == nil {
+				if err := os.Unsetenv(k); err != nil {
+					e.runnerLog("failed to restore env key %q: %s", k, err.Error())
+				}
+			}
+		}
+	}
+
+	e.loadedEnv = newEnv
+}
+
 func (e *Engine) buildRun() {
 	// Create this build's unique stop channel
 	myStopCh := make(chan struct{})
@@ -445,6 +519,8 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
+
+	e.loadEnvFile()
 
 	var err error
 	if err = e.runPreCmd(); err != nil {

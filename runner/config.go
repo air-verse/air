@@ -31,6 +31,7 @@ type Config struct {
 	Root        string    `toml:"root" usage:"Working directory, . or absolute path, please note that the directories following must be under root"`
 	TmpDir      string    `toml:"tmp_dir" usage:"Temporary directory for air"`
 	TestDataDir string    `toml:"testdata_dir"`
+	EnvFiles    []string  `toml:"env_files" usage:"Paths to .env files to load before build/run"`
 	Build       cfgBuild  `toml:"build"`
 	Color       cfgColor  `toml:"color"`
 	Log         cfgLog    `toml:"log"`
@@ -323,6 +324,7 @@ func defaultConfig() Config {
 		Root:        ".",
 		TmpDir:      "tmp",
 		TestDataDir: "testdata",
+		EnvFiles:    []string{},
 		Build:       build,
 		Color:       color,
 		Log:         log,

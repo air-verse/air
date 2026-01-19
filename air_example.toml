@@ -7,6 +7,10 @@
 root = "."
 tmp_dir = "tmp"
 
+# Remove to not load any files whatsoever
+# Non-existing files are safely ignored
+env_files = [".env"]
+
 [build]
 # Array of commands to run before each build
 pre_cmd = ["echo 'hello air' > pre_cmd.txt"]
