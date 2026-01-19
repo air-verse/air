@@ -227,6 +227,38 @@ entrypoint = [
 ]
 ```
 
+### Platform-specific build overrides
+
+You can override build settings per OS with `[build.windows]`, `[build.darwin]`, and `[build.linux]`. These blocks override the base `[build]` values when running on the matching platform. Only the fields below are supported in platform blocks: `pre_cmd`, `cmd`, `post_cmd`, `bin`, `entrypoint`, `full_bin`, `args_bin`.
+
+```toml
+[build]
+cmd = "go build -o ./tmp/main ."
+bin = "./tmp/main"
+
+[build.windows]
+cmd = "go build -o ./tmp/main.exe ."
+bin = "tmp\\main.exe"
+entrypoint = ["tmp\\main.exe"]
+```
+
+Running `air init` adds a platform block for the current OS when its defaults differ from the base configuration.
+
+### .env File
+
+Air can automatically load environment variables from a `.env` file before both building and running.
+
+```toml
+# Load from .env file (default)
+env_file = ".env"
+
+# Load from a custom file
+env_file = ".env.development"
+
+# Disable env file loading
+env_file = ""
+```
+
 ### Docker Compose
 
 ```yaml
