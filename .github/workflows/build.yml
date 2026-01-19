@@ -21,6 +21,7 @@ jobs:
         with:
           go-version: ^1.25
       - name: golangci-lint
+        if: runner.os != 'Windows'
         uses: golangci/golangci-lint-action@v8
         with:
           # Build golangci-lint from source with the configured Go version
