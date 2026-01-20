@@ -51,12 +51,6 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 	// Use -NoProfile and -NonInteractive for better performance
 	c := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", cmd)
 
-	// Hide the PowerShell console window
-	c.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: windows.CREATE_NO_WINDOW,
-	}
-
 	stderr, err := c.StderrPipe()
 	if err != nil {
 		return nil, nil, nil, err
