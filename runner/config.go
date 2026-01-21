@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -284,8 +285,9 @@ func readConfByName(name string) (*Config, error) {
 }
 
 func defaultConfig() Config {
+	entrypoint := inferEntrypoint()
 	build := cfgBuild{
-		Cmd:          "go build -o ./tmp/main .",
+		Cmd:          "go build -o ./tmp/main " + entrypoint,
 		Bin:          "./tmp/main",
 		Entrypoint:   entrypoint{},
 		Log:          "build-errors.log",
@@ -304,7 +306,7 @@ func defaultConfig() Config {
 	}
 	if runtime.GOOS == PlatformWindows {
 		build.Bin = `tmp\main.exe`
-		build.Cmd = "go build -o ./tmp/main.exe ."
+		build.Cmd = "go build -o ./tmp/main.exe " + entrypoint
 	}
 	log := cfgLog{
 		AddTime:  false,
@@ -334,6 +336,26 @@ func defaultConfig() Config {
 			KeepScroll:     true,
 		},
 	}
+}
+
+func inferEntrypoint() string {
+	entrypoint := "."
+	if _, err := os.Stat("./main.go"); err == nil {
+		return entrypoint
+	}
+	filepath.Walk(".", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if name := info.Name(); name == "main.go" {
+			entrypoint = path
+			return fs.SkipAll
+		}
+		return nil
+	})
+
+	// default to . if no main.go is found anywhere in the tree
+	return entrypoint
 }
 
 func readConfig(path string) (*Config, error) {
