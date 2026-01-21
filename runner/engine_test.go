@@ -769,6 +769,10 @@ func silenceBuildCmd(cfg *Config) {
 }
 
 func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("dlv workflow is not supported on windows in CI")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -1014,6 +1018,10 @@ func TestCreateNewDir(t *testing.T) {
 }
 
 func TestShouldIncludeIncludedFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -1073,6 +1081,10 @@ include_file = ["main.sh"]
 }
 
 func TestShouldIncludeIncludedFileWithoutIncludedExt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
