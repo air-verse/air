@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     name: Build
     runs-on: ${{ matrix.os }}
     steps:
@@ -27,13 +27,20 @@ jobs:
           install-mode: goinstall
           version: latest
       - name: Install dependency
+        if: runner.os == 'macOS'
         run: if [ $(uname) == "Darwin" ]; then brew install gnu-sed ;fi
       - name: Build
+        if: runner.os != 'Windows'
         run: make build
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: go build ./...
       - name: Run unit tests
         env:
           CI: "true"
-        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -timeout=5m -covermode=count -coverprofile=coverage.txt
+        run: |
+          go install github.com/go-delve/delve/cmd/dlv@latest
+          go test ./... -v -timeout=5m -covermode=count -coverprofile=coverage.txt
       - name: Upload Coverage report to CodeCov
         uses: codecov/codecov-action@v4
         with:
