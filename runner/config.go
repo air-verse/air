@@ -141,9 +141,11 @@ func (c *cfgBuild) normalizeIncludeDirs(root string) {
 }
 
 type cfgLog struct {
-	AddTime  bool `toml:"time" usage:"Show log time"`
-	MainOnly bool `toml:"main_only" usage:"Only show main log (silences watcher, build, runner)"`
-	Silent   bool `toml:"silent" usage:"silence all logs produced by air"`
+	AddTime       bool `toml:"time" usage:"Show log time"`
+	MainOnly      bool `toml:"main_only" usage:"Only show main log (silences watcher, build, runner)"`
+	Silent        bool `toml:"silent" usage:"silence all logs produced by air"`
+	PreCmdSilent  bool `toml:"pre_cmd_silent" usage:"silence all pre_cmd logs produced by air"`
+	PostCmdSilent bool `toml:"post_cmd_silent" usage:"silence all post_cmd logs produced by air"`
 }
 
 type cfgColor struct {
