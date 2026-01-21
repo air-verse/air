@@ -134,7 +134,10 @@ func TestConfPreprocess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preprocess error %v", err)
 	}
-	suffix := "/_testdata/toml/tmp/main"
+	suffix := string(filepath.Separator) + filepath.Join("_testdata", "toml", "tmp", "main")
+	if runtime.GOOS == "windows" {
+		suffix += ".exe"
+	}
 	binPath := df.Build.Bin
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)

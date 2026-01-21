@@ -200,6 +200,10 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 }
 
 func Test_killCmd_SendInterrupt_false(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh/ps")
+	}
+
 	_, b, _, _ := runtime.Caller(0)
 
 	// Root folder of this project
