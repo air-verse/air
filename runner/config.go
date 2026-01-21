@@ -264,6 +264,7 @@ func defaultPathConfig() (*Config, error) {
 		return nil, fmt.Errorf("failed to parse %s: %w", dftTOML, err)
 	}
 
+	fmt.Println("local config file not found, using default config.")
 	dftCfg := defaultConfig()
 	return &dftCfg, nil
 }
