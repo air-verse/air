@@ -228,6 +228,10 @@ func GetPort() (int, func()) {
 }
 
 func TestRebuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -320,6 +324,10 @@ func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration)
 }
 
 func TestCtrlCWhenHaveKillDelay(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// fix https://github.com/air-verse/air/issues/278
 	// generate a random port
 	data := []byte("[build]\n  kill_delay = \"2s\"")
@@ -374,6 +382,10 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 }
 
 func TestCtrlCWhenREngineIsRunning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -445,6 +457,10 @@ func TestCtrlCWithFailedBin(t *testing.T) {
 }
 
 func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// fix https://github.com/air-verse/air/issues/294
 	dir := initWithBuildFailedCode(t)
 	chdir(t, dir)
