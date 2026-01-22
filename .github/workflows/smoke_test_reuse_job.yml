@@ -14,6 +14,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v5
+      - name: Normalize line endings (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git config core.autocrlf false
+          git config core.eol lf
+          git checkout-index -f -a
       - name: Setup Go
         id: go
         uses: actions/setup-go@v6
@@ -25,9 +31,14 @@ jobs:
           install-mode: goinstall
           version: latest
       - name: Install
+        if: runner.os != 'Windows'
         run: make install
+      - name: Install (Windows)
+        if: runner.os == 'Windows'
+        run: go install .
       - name: Check rebuild
-        id: check_rebuild
+        if: runner.os != 'Windows'
+        id: check_rebuild_unix
         working-directory: ./smoke_test/check_rebuild
         run: |
           nohup air > nohup.out 2> nohup.err < /dev/null &
@@ -35,8 +46,39 @@ jobs:
           echo "" >> main.go
           sleep 5
           cat nohup.out
-          grep "running" nohup.out | wc -l | if [ "$(cat -)" -eq "2" ]; then echo "::set-output name=value::PASS"; else echo "::set-output name=value::FAIL"; fi
+          count=$(grep "running" nohup.out | wc -l)
+          if [ "$count" -eq "2" ]; then
+            echo "value=PASS" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=FAIL" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Check rebuild (Windows)
+        if: runner.os == 'Windows'
+        id: check_rebuild_windows
+        working-directory: ./smoke_test/check_rebuild
+        shell: pwsh
+        run: |
+          $log = "nohup.out"
+          $err = "nohup.err"
+          $goPath = (go env GOPATH)
+          $airPath = Join-Path $goPath "bin\air.exe"
+          $process = Start-Process -FilePath $airPath -WorkingDirectory (Get-Location) -RedirectStandardOutput $log -RedirectStandardError $err -NoNewWindow -PassThru
+          Start-Sleep -Seconds 15
+          Add-Content -Path "main.go" -Value "`n"
+          Start-Sleep -Seconds 5
+          if (Test-Path $log) { Get-Content $log }
+          if (Test-Path $log) {
+            $count = (Select-String -Path $log -Pattern "running" | Measure-Object).Count
+          } else {
+            $count = 0
+          }
+          if ($count -eq 2) {
+            "value=PASS" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } else {
+            "value=FAIL" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          }
+          if ($process -and -not $process.HasExited) { $process.Kill() }
       - uses: nick-invision/assert-action@v2
         with:
           expected: "PASS"
-          actual: ${{ steps.check_rebuild.outputs.value }}
+          actual: ${{ steps.check_rebuild_unix.outputs.value || steps.check_rebuild_windows.outputs.value }}
