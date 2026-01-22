@@ -473,6 +473,7 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	silenceBuildCmd(engine.config)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigs)
 	go func() {
 		engine.Run()
 		t.Logf("engine stopped")
@@ -483,8 +484,16 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	// Wait for first build to fail - reduced from 3s to 500ms
-	time.Sleep(time.Millisecond * 500)
+	buildLogPath := engine.config.buildLogPath()
+	if err := waitForCondition(t, time.Second*5, func() bool {
+		info, err := os.Stat(buildLogPath)
+		if err != nil {
+			return false
+		}
+		return info.Size() > 0
+	}, "first build failure log"); err != nil {
+		t.Fatalf("build did not fail as expected: %s", err)
+	}
 	port, f := GetPort()
 	f()
 	// correct code
@@ -501,6 +510,9 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	sigs <- syscall.SIGINT
 	if err := waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if err := waitForEngineState(t, engine, false, time.Second*5); err != nil {
+		t.Fatalf("engine did not stop: %s", err)
 	}
 	assert.False(t, engine.running.Load())
 }
