@@ -134,7 +134,10 @@ func TestConfPreprocess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preprocess error %v", err)
 	}
-	suffix := "/_testdata/toml/tmp/main"
+	suffix := filepath.Join("_testdata", "toml", "tmp", "main")
+	if runtime.GOOS == "windows" {
+		suffix += ".exe"
+	}
 	binPath := df.Build.Bin
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
@@ -158,6 +161,9 @@ func TestEntrypointResolvesAbsolutePath(t *testing.T) {
 	}
 
 	want := filepath.Join(rootWithSpace, "tmp", "main")
+	if runtime.GOOS == "windows" {
+		want += ".exe"
+	}
 	if got := cfg.Build.Entrypoint.binary(); got != want {
 		t.Fatalf("entrypoint is %s, but want %s", got, want)
 	}
@@ -217,6 +223,9 @@ func TestEntrypointPreservesArgs(t *testing.T) {
 	}
 
 	wantBin := filepath.Join(root, "tmp", "main")
+	if runtime.GOOS == "windows" {
+		wantBin += ".exe"
+	}
 	if cfg.Build.Entrypoint.binary() != wantBin {
 		t.Fatalf("entrypoint binary is %s, want %s", cfg.Build.Entrypoint.binary(), wantBin)
 	}
@@ -349,6 +358,10 @@ cmd = "go build -o ./tmp/main ."
 }
 
 func TestWarnIgnoreDangerousRootDirProtection(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("root dir protection uses Unix root path")
+	}
+
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	t.Run("when ignore_dangerous_root_dir is true", func(t *testing.T) {

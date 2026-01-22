@@ -61,8 +61,8 @@ func TestWatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	path = strings.Replace(path, "_testdata/toml", "", 1)
-	err = engine.watching(path + "/_testdata/watching")
+	path = strings.Replace(path, filepath.Join("_testdata", "toml"), "", 1)
+	err = engine.watching(filepath.Join(path, "_testdata", "watching"))
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -120,6 +120,10 @@ func TestRegexes(t *testing.T) {
 }
 
 func TestRunCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -762,13 +766,17 @@ func silenceBuildCmd(cfg *Config) {
 		return
 	}
 	if runtime.GOOS == "windows" {
-		cfg.Build.Cmd = fmt.Sprintf("%s >NUL 2>&1", cfg.Build.Cmd)
+		cfg.Build.Cmd = fmt.Sprintf("%s > $null 2>&1", cfg.Build.Cmd)
 		return
 	}
 	cfg.Build.Cmd = fmt.Sprintf("%s >/dev/null 2>&1", cfg.Build.Cmd)
 }
 
 func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
+	if _, err := exec.LookPath("dlv"); err != nil {
+		t.Skip("dlv not available in PATH")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -904,6 +912,10 @@ include_file = ["test/not_a_test.go"]
 }
 
 func TestShouldIncludeGoTestFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sed")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -1014,6 +1026,10 @@ func TestCreateNewDir(t *testing.T) {
 }
 
 func TestShouldIncludeIncludedFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -1073,6 +1089,10 @@ include_file = ["main.sh"]
 }
 
 func TestShouldIncludeIncludedFileWithoutIncludedExt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)

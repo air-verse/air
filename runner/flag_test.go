@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -126,7 +127,11 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			name: "check full_bin",
 			args: []string{"--build.full_bin", "APP_ENV=dev APP_USER=air ./tmp/main"},
 			check: func(t *testing.T, conf *Config) {
-				assert.Equal(t, "APP_ENV=dev APP_USER=air ./tmp/main", conf.Build.Bin)
+				want := "APP_ENV=dev APP_USER=air ./tmp/main"
+				if runtime.GOOS == "windows" {
+					want += ".exe"
+				}
+				assert.Equal(t, want, conf.Build.Bin)
 			},
 		},
 
@@ -148,6 +153,9 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			args: []string{"--build.entrypoint", "./tmp/server"},
 			check: func(t *testing.T, conf *Config) {
 				want := filepath.Join("tmp", "server")
+				if runtime.GOOS == "windows" {
+					want += ".exe"
+				}
 				assert.True(t, strings.HasSuffix(conf.Build.Entrypoint.binary(), want), "entrypoint %s does not end with %s", conf.Build.Entrypoint.binary(), want)
 			},
 		},
