@@ -441,7 +441,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	}
 	// Fix windows CMD processor
 	// CMD will not recognize relative path like ./tmp/server
-	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
+	c.Build.Bin, err = resolveBinPath(c.Root, c.Build.Bin)
 
 	return err
 }
@@ -517,6 +517,34 @@ func resolveCommandPath(entry string) string {
 		return ""
 	}
 	return path
+}
+
+func resolveBinPath(root, bin string) (string, error) {
+	trimmed := strings.TrimSpace(bin)
+	if trimmed == "" {
+		return bin, nil
+	}
+	binPath := trimmed
+	args := ""
+	for i := 0; i < len(trimmed); i++ {
+		switch trimmed[i] {
+		case ' ', '\t', '\n', '\r':
+			binPath = trimmed[:i]
+			args = trimmed[i:]
+			i = len(trimmed)
+		}
+	}
+	if binPath == "" {
+		return bin, nil
+	}
+	if !filepath.IsAbs(binPath) {
+		binPath = joinPath(root, binPath)
+	}
+	resolved, err := filepath.Abs(binPath)
+	if err != nil {
+		return bin, err
+	}
+	return resolved + args, nil
 }
 
 // withArgs returns a new config with the given arguments added to the configuration.
