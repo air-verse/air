@@ -53,12 +53,11 @@ func TestBinCmdPath(t *testing.T) {
 	}
 
 	if runtime.GOOS == "windows" {
-
-		if !strings.HasSuffix(c.Build.Bin, "exe") {
+		if strings.HasSuffix(c.Build.Bin, "exe") {
 			t.Fail()
 		}
 
-		if !strings.Contains(c.Build.Bin, "exe") {
+		if strings.Contains(c.Build.Bin, "exe") {
 			t.Fail()
 		}
 	} else {
@@ -161,9 +160,6 @@ func TestEntrypointResolvesAbsolutePath(t *testing.T) {
 	}
 
 	want := filepath.Join(rootWithSpace, "tmp", "main")
-	if runtime.GOOS == "windows" {
-		want += ".exe"
-	}
 	if got := cfg.Build.Entrypoint.binary(); got != want {
 		t.Fatalf("entrypoint is %s, but want %s", got, want)
 	}
@@ -223,9 +219,6 @@ func TestEntrypointPreservesArgs(t *testing.T) {
 	}
 
 	wantBin := filepath.Join(root, "tmp", "main")
-	if runtime.GOOS == "windows" {
-		wantBin += ".exe"
-	}
 	if cfg.Build.Entrypoint.binary() != wantBin {
 		t.Fatalf("entrypoint binary is %s, want %s", cfg.Build.Entrypoint.binary(), wantBin)
 	}

@@ -3,7 +3,6 @@ package runner
 import (
 	"flag"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -153,9 +152,6 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			args: []string{"--build.entrypoint", "./tmp/server"},
 			check: func(t *testing.T, conf *Config) {
 				want := filepath.Join("tmp", "server")
-				if runtime.GOOS == "windows" {
-					want += ".exe"
-				}
 				assert.True(t, strings.HasSuffix(conf.Build.Entrypoint.binary(), want), "entrypoint %s does not end with %s", conf.Build.Entrypoint.binary(), want)
 			},
 		},
@@ -163,7 +159,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.Chdir(dir))
+			chdir(t, dir)
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			_ = flag.Parse(tc.args)

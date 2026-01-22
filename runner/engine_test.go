@@ -158,7 +158,11 @@ func TestRunPreCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	if runtime.GOOS == "windows" {
+		engine.config.Build.PreCmd = []string{`cmd.exe /c "echo hello air > pre_cmd.txt"`}
+	} else {
+		engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	}
 	err = engine.runPreCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -183,8 +187,11 @@ func TestRunPostCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-
-	engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	if runtime.GOOS == "windows" {
+		engine.config.Build.PostCmd = []string{`cmd.exe /c "echo hello air > post_cmd.txt"`}
+	} else {
+		engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	}
 	err = engine.runPostCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -621,6 +628,7 @@ func checkPortHaveBeenUsed(port int) bool {
 
 func initTestEnv(t *testing.T, port int) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, "")
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateGoCode(tempDir, port)
@@ -632,6 +640,7 @@ func initTestEnv(t *testing.T, port int) string {
 
 func initWithBuildFailedCode(t *testing.T) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, "")
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateBuildErrorGoCode(tempDir)
@@ -643,6 +652,7 @@ func initWithBuildFailedCode(t *testing.T) string {
 
 func initWithQuickExitGoCode(t *testing.T) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, "")
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateQuickExitGoCode(tempDir)

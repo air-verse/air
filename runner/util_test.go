@@ -755,49 +755,90 @@ func TestIsDangerousRoot(t *testing.T) {
 		path        string
 		isDangerous bool
 		description string
-	}{
-		{
-			name:        "root directory",
-			path:        "/",
-			isDangerous: true,
-			description: "root directory (/)",
-		},
-		{
-			name:        "root user home",
-			path:        "/root",
-			isDangerous: true,
-			description: "/root directory",
-		},
-		{
-			name:        "user home directory",
-			path:        homeDir,
-			isDangerous: true,
-			description: "home directory (~)",
-		},
-		{
-			name:        "normal project directory",
-			path:        "/home/user/myproject",
-			isDangerous: false,
-			description: "",
-		},
-		{
-			name:        "tmp directory",
-			path:        "/tmp/test-project",
-			isDangerous: false,
-			description: "",
-		},
-		{
-			name:        "current directory in project",
-			path:        ".",
-			isDangerous: false,
-			description: "",
-		},
-		{
-			name:        "subdirectory of home",
-			path:        filepath.Join(homeDir, "projects", "myapp"),
-			isDangerous: false,
-			description: "",
-		},
+	}{}
+
+	if runtime.GOOS == "windows" {
+		tests = []struct {
+			name        string
+			path        string
+			isDangerous bool
+			description string
+		}{
+			{
+				name:        "user home directory",
+				path:        homeDir,
+				isDangerous: true,
+				description: "home directory (~)",
+			},
+			{
+				name:        "normal project directory",
+				path:        filepath.Join(homeDir, "work", "myapp"),
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "current directory in project",
+				path:        ".",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "subdirectory of home",
+				path:        filepath.Join(homeDir, "projects", "myapp"),
+				isDangerous: false,
+				description: "",
+			},
+		}
+	} else {
+		tests = []struct {
+			name        string
+			path        string
+			isDangerous bool
+			description string
+		}{
+			{
+				name:        "root directory",
+				path:        "/",
+				isDangerous: true,
+				description: "root directory (/)",
+			},
+			{
+				name:        "root user home",
+				path:        "/root",
+				isDangerous: true,
+				description: "/root directory",
+			},
+			{
+				name:        "user home directory",
+				path:        homeDir,
+				isDangerous: true,
+				description: "home directory (~)",
+			},
+			{
+				name:        "normal project directory",
+				path:        "/home/user/myproject",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "tmp directory",
+				path:        "/tmp/test-project",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "current directory in project",
+				path:        ".",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "subdirectory of home",
+				path:        filepath.Join(homeDir, "projects", "myapp"),
+				isDangerous: false,
+				description: "",
+			},
+		}
 	}
 
 	for _, tt := range tests {
