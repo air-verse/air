@@ -15,6 +15,12 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+      - name: Normalize line endings (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git config core.autocrlf false
+          git config core.eol lf
+          git checkout-index -f -a
       - name: Setup Go
         id: go
         uses: actions/setup-go@v5
