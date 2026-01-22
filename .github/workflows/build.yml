@@ -41,6 +41,27 @@ jobs:
           file: ./coverage.txt
           verbose: true
 
+  unit_tests_windows:
+    name: Unit Tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Setup Go
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ^1.25
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          install-mode: goinstall
+          version: latest
+      - name: Run unit tests
+        env:
+          CI: "true"
+        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -timeout=5m -covermode=count -coverprofile=coverage.txt
+
   push_to_docker_latest:
     name: Push master code to docker latest image
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
