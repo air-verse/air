@@ -3,8 +3,8 @@ package runner
 import (
 	"flag"
 	"log"
-	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -126,7 +126,11 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			name: "check full_bin",
 			args: []string{"--build.full_bin", "APP_ENV=dev APP_USER=air ./tmp/main"},
 			check: func(t *testing.T, conf *Config) {
-				assert.Equal(t, "APP_ENV=dev APP_USER=air ./tmp/main", conf.Build.Bin)
+				expected := "APP_ENV=dev APP_USER=air ./tmp/main"
+				if runtime.GOOS == "windows" {
+					expected = "APP_ENV=dev APP_USER=air ./tmp/main.exe"
+				}
+				assert.Equal(t, expected, conf.Build.Bin)
 			},
 		},
 
@@ -155,7 +159,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.Chdir(dir))
+			chdir(t, dir)
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			_ = flag.Parse(tc.args)

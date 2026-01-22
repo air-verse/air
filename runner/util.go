@@ -305,12 +305,49 @@ func adaptToVariousPlatforms(c *Config) {
 	if runtime.GOOS == PlatformWindows {
 		extName := ".exe"
 		originBin := c.Build.Bin
+		isSpace := func(r byte) bool {
+			switch r {
+			case ' ', '\t', '\n', '\r':
+				return true
+			default:
+				return false
+			}
+		}
+		appendExe := func(command string, skip func(token string) bool) string {
+			if command == "" {
+				return command
+			}
+			start := 0
+			for start < len(command) {
+				for start < len(command) && isSpace(command[start]) {
+					start++
+				}
+				if start >= len(command) {
+					return command
+				}
+				end := start
+				for end < len(command) && !isSpace(command[end]) {
+					end++
+				}
+				token := command[start:end]
+				if skip != nil && skip(token) {
+					start = end
+					continue
+				}
+				if strings.HasSuffix(strings.ToLower(token), extName) {
+					return command
+				}
+				return command[:start] + token + extName + command[end:]
+			}
+			return command
+		}
+
+		c.Build.Bin = appendExe(c.Build.Bin, nil)
 
 		if 0 < len(c.Build.FullBin) {
-
-			if !strings.HasSuffix(c.Build.FullBin, extName) {
-				c.Build.FullBin += extName
-			}
+			c.Build.FullBin = appendExe(c.Build.FullBin, func(token string) bool {
+				return strings.Contains(token, "=")
+			})
 		}
 
 		// bin=/tmp/main  cmd=go build -o ./tmp/main.exe main.go
@@ -500,12 +537,30 @@ func formatPath(path string) string {
 // that could cause excessive file watching (home dir, root dir, etc.)
 // Returns true and a description if the path is dangerous.
 func isDangerousRoot(path string) (bool, string) {
+	cleaned := strings.TrimSpace(path)
+	if cleaned == "" {
+		return false, ""
+	}
+	linuxPath := filepath.ToSlash(cleaned)
+	if linuxPath == "/" {
+		return true, "root directory (/)"
+	}
+	if linuxPath == "/root" {
+		return true, "/root directory"
+	}
+
 	// Get absolute path
-	absPath, err := filepath.Abs(path)
+	absPath, err := filepath.Abs(cleaned)
 	if err != nil {
 		return false, ""
 	}
 	absPath = filepath.Clean(absPath)
+	if volume := filepath.VolumeName(absPath); volume != "" {
+		volumeRoot := volume + string(os.PathSeparator)
+		if strings.EqualFold(absPath, volumeRoot) {
+			return true, fmt.Sprintf("root directory (%s)", volumeRoot)
+		}
+	}
 
 	// Check root directory
 	if absPath == "/" {
@@ -516,7 +571,11 @@ func isDangerousRoot(path string) (bool, string) {
 	home, err := os.UserHomeDir()
 	if err == nil {
 		home = filepath.Clean(home)
-		if absPath == home {
+		if runtime.GOOS == PlatformWindows {
+			if strings.EqualFold(absPath, home) {
+				return true, "home directory (~)"
+			}
+		} else if absPath == home {
 			return true, "home directory (~)"
 		}
 	}

@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -57,12 +56,13 @@ func TestWatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	path, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatalf("failed to resolve test file path")
 	}
-	path = strings.Replace(path, "_testdata/toml", "", 1)
-	err = engine.watching(path + "/_testdata/watching")
+	baseDir := filepath.Dir(filename)
+	watchDir := filepath.Join(baseDir, "_testdata", "watching")
+	err = engine.watching(watchDir)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -131,7 +131,7 @@ func TestRunCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	err = engine.runCommand("touch test.txt")
+	err = engine.runCommand("echo test > test.txt")
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -154,7 +154,7 @@ func TestRunPreCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	engine.config.Build.PreCmd = []string{"echo hello air > pre_cmd.txt"}
 	err = engine.runPreCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -180,7 +180,7 @@ func TestRunPostCmd(t *testing.T) {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
-	engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	engine.config.Build.PostCmd = []string{"echo hello air > post_cmd.txt"}
 	err = engine.runPostCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -663,8 +663,11 @@ func main() {
 	if err != nil {
 		return err
 	}
-	_, err = file.WriteString(code)
-	if err != nil {
+	if _, err = file.WriteString(code); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -677,8 +680,11 @@ go 1.17
 	if err != nil {
 		return err
 	}
-	_, err = file.WriteString(mod)
-	if err != nil {
+	if _, err = file.WriteString(mod); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -698,8 +704,11 @@ func main() {
 	if err != nil {
 		return err
 	}
-	_, err = file.WriteString(code)
-	if err != nil {
+	if _, err = file.WriteString(code); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -712,8 +721,11 @@ go 1.17
 	if err != nil {
 		return err
 	}
-	_, err = file.WriteString(mod)
-	if err != nil {
+	if _, err = file.WriteString(mod); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -736,8 +748,11 @@ func main() {
 	if err != nil {
 		return err
 	}
-	_, err = file.WriteString(code)
-	if err != nil {
+	if _, err = file.WriteString(code); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -750,8 +765,11 @@ go 1.17
 	if err != nil {
 		return err
 	}
-	_, err = file.WriteString(mod)
-	if err != nil {
+	if _, err = file.WriteString(mod); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -762,7 +780,7 @@ func silenceBuildCmd(cfg *Config) {
 		return
 	}
 	if runtime.GOOS == "windows" {
-		cfg.Build.Cmd = fmt.Sprintf("%s >NUL 2>&1", cfg.Build.Cmd)
+		cfg.Build.Cmd = fmt.Sprintf("%s > $null 2>&1", cfg.Build.Cmd)
 		return
 	}
 	cfg.Build.Cmd = fmt.Sprintf("%s >/dev/null 2>&1", cfg.Build.Cmd)
@@ -936,24 +954,20 @@ func Test(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// run sed
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
 	// check the file exists
 	if _, err := os.Stat(dftTOML); err != nil {
 		t.Fatal(err)
 	}
-	// check is MacOS
-	var cmd *exec.Cmd
-	toolName := "sed"
-
-	if runtime.GOOS == "darwin" {
-		toolName = "gsed"
+	configContents, err := os.ReadFile(dftTOML)
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	cmd = exec.Command(toolName, "-i", "s/\"_test.*go\"//g", ".air.toml")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		t.Skipf("unable to run %s, make sure the tool is installed to run this test", toolName)
+	updatedContents := strings.ReplaceAll(string(configContents), "\"_test.go\"", "")
+	if err := os.WriteFile(dftTOML, []byte(updatedContents), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
 	time.Sleep(time.Second * 2)
@@ -981,6 +995,10 @@ func Test(t *testing.T) {
 	// should Have rebuild
 	if err = waitingPortReady(t, port, time.Second*10); err != nil {
 		t.Fatal(err)
+	}
+	engine.Stop()
+	if err := waitForEngineState(t, engine, false, time.Second*5); err != nil {
+		t.Logf("engine may not have stopped cleanly: %s", err)
 	}
 }
 
