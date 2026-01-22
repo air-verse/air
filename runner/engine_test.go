@@ -206,7 +206,7 @@ func TestRunBin(t *testing.T) {
 }
 
 func GetPort() (int, func()) {
-	l, err := net.Listen("tcp", ":0")
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	port := l.Addr().(*net.TCPAddr).Port
 	if err != nil {
 		panic(err)
@@ -729,7 +729,7 @@ import (
 )
 
 func main() {
-	log.Fatal(http.ListenAndServe(":%v", nil))
+	log.Fatal(http.ListenAndServe("127.0.0.1:%v", nil))
 }
 `, port)
 	file, err := os.Create(dir + "/main.go")
