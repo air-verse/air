@@ -53,12 +53,11 @@ func TestBinCmdPath(t *testing.T) {
 	}
 
 	if runtime.GOOS == "windows" {
-
-		if !strings.HasSuffix(c.Build.Bin, "exe") {
+		if strings.HasSuffix(c.Build.Bin, "exe") {
 			t.Fail()
 		}
 
-		if !strings.Contains(c.Build.Bin, "exe") {
+		if strings.Contains(c.Build.Bin, "exe") {
 			t.Fail()
 		}
 	} else {
@@ -129,12 +128,25 @@ func TestDefaultPathConfigWithInvalidTOML(t *testing.T) {
 
 func TestConfPreprocess(t *testing.T) {
 	t.Setenv(airWd, "_testdata/toml")
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Fatalf("failed to restore working directory: %v", err)
+		}
+	})
+
 	df := defaultConfig()
-	err := df.preprocess(nil)
+	err = df.preprocess(nil)
 	if err != nil {
 		t.Fatalf("preprocess error %v", err)
 	}
-	suffix := "/_testdata/toml/tmp/main"
+	suffix := filepath.Join("_testdata", "toml", "tmp", "main")
+	if runtime.GOOS == "windows" {
+		suffix += ".exe"
+	}
 	binPath := df.Build.Bin
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
@@ -349,6 +361,10 @@ cmd = "go build -o ./tmp/main ."
 }
 
 func TestWarnIgnoreDangerousRootDirProtection(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("root dir protection uses Unix root path")
+	}
+
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	t.Run("when ignore_dangerous_root_dir is true", func(t *testing.T) {

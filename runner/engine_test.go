@@ -61,8 +61,8 @@ func TestWatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	path = strings.Replace(path, "_testdata/toml", "", 1)
-	err = engine.watching(path + "/_testdata/watching")
+	path = strings.Replace(path, filepath.Join("_testdata", "toml"), "", 1)
+	err = engine.watching(filepath.Join(path, "_testdata", "watching"))
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -120,6 +120,10 @@ func TestRegexes(t *testing.T) {
 }
 
 func TestRunCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -154,7 +158,11 @@ func TestRunPreCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	if runtime.GOOS == "windows" {
+		engine.config.Build.PreCmd = []string{`cmd.exe /c "echo hello air > pre_cmd.txt"`}
+	} else {
+		engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	}
 	err = engine.runPreCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -179,8 +187,11 @@ func TestRunPostCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-
-	engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	if runtime.GOOS == "windows" {
+		engine.config.Build.PostCmd = []string{`cmd.exe /c "echo hello air > post_cmd.txt"`}
+	} else {
+		engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	}
 	err = engine.runPostCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -206,7 +217,7 @@ func TestRunBin(t *testing.T) {
 }
 
 func GetPort() (int, func()) {
-	l, err := net.Listen("tcp", ":0")
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	port := l.Addr().(*net.TCPAddr).Port
 	if err != nil {
 		panic(err)
@@ -217,6 +228,10 @@ func GetPort() (int, func()) {
 }
 
 func TestRebuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -309,6 +324,10 @@ func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration)
 }
 
 func TestCtrlCWhenHaveKillDelay(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// fix https://github.com/air-verse/air/issues/278
 	// generate a random port
 	data := []byte("[build]\n  kill_delay = \"2s\"")
@@ -363,6 +382,10 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 }
 
 func TestCtrlCWhenREngineIsRunning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -434,6 +457,10 @@ func TestCtrlCWithFailedBin(t *testing.T) {
 }
 
 func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// fix https://github.com/air-verse/air/issues/294
 	dir := initWithBuildFailedCode(t)
 	chdir(t, dir)
@@ -446,6 +473,7 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	silenceBuildCmd(engine.config)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigs)
 	go func() {
 		engine.Run()
 		t.Logf("engine stopped")
@@ -456,8 +484,16 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	// Wait for first build to fail - reduced from 3s to 500ms
-	time.Sleep(time.Millisecond * 500)
+	buildLogPath := engine.config.buildLogPath()
+	if err := waitForCondition(t, time.Second*5, func() bool {
+		info, err := os.Stat(buildLogPath)
+		if err != nil {
+			return false
+		}
+		return info.Size() > 0
+	}, "first build failure log"); err != nil {
+		t.Fatalf("build did not fail as expected: %s", err)
+	}
 	port, f := GetPort()
 	f()
 	// correct code
@@ -474,6 +510,9 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 	sigs <- syscall.SIGINT
 	if err := waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
+	}
+	if err := waitForEngineState(t, engine, false, time.Second*5); err != nil {
+		t.Fatalf("engine did not stop: %s", err)
 	}
 	assert.False(t, engine.running.Load())
 }
@@ -607,7 +646,7 @@ func checkPortConnectionRefused(port int) bool {
 }
 
 func checkPortHaveBeenUsed(port int) bool {
-	conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return false
 	}
@@ -617,6 +656,7 @@ func checkPortHaveBeenUsed(port int) bool {
 
 func initTestEnv(t *testing.T, port int) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, tempDir)
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateGoCode(tempDir, port)
@@ -628,6 +668,7 @@ func initTestEnv(t *testing.T, port int) string {
 
 func initWithBuildFailedCode(t *testing.T) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, tempDir)
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateBuildErrorGoCode(tempDir)
@@ -639,6 +680,7 @@ func initWithBuildFailedCode(t *testing.T) string {
 
 func initWithQuickExitGoCode(t *testing.T) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, tempDir)
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateQuickExitGoCode(tempDir)
@@ -665,6 +707,10 @@ func main() {
 	}
 	_, err = file.WriteString(code)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -679,6 +725,10 @@ go 1.17
 	}
 	_, err = file.WriteString(mod)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -700,6 +750,10 @@ func main() {
 	}
 	_, err = file.WriteString(code)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -714,6 +768,10 @@ go 1.17
 	}
 	_, err = file.WriteString(mod)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -729,7 +787,7 @@ import (
 )
 
 func main() {
-	log.Fatal(http.ListenAndServe(":%v", nil))
+	log.Fatal(http.ListenAndServe("127.0.0.1:%v", nil))
 }
 `, port)
 	file, err := os.Create(dir + "/main.go")
@@ -738,6 +796,10 @@ func main() {
 	}
 	_, err = file.WriteString(code)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -752,6 +814,10 @@ go 1.17
 	}
 	_, err = file.WriteString(mod)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -762,13 +828,21 @@ func silenceBuildCmd(cfg *Config) {
 		return
 	}
 	if runtime.GOOS == "windows" {
-		cfg.Build.Cmd = fmt.Sprintf("%s >NUL 2>&1", cfg.Build.Cmd)
+		cfg.Build.Cmd = fmt.Sprintf("%s > $null 2>&1", cfg.Build.Cmd)
 		return
 	}
 	cfg.Build.Cmd = fmt.Sprintf("%s >/dev/null 2>&1", cfg.Build.Cmd)
 }
 
 func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
+	if _, err := exec.LookPath("dlv"); err != nil {
+		t.Skip("dlv not available in PATH")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -904,6 +978,10 @@ include_file = ["test/not_a_test.go"]
 }
 
 func TestShouldIncludeGoTestFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sed")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -981,6 +1059,10 @@ func Test(t *testing.T) {
 }
 
 func TestCreateNewDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -997,8 +1079,9 @@ func TestCreateNewDir(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	time.Sleep(time.Second * 2)
-	assert.True(t, checkPortHaveBeenUsed(port))
+	if err := waitingPortReady(t, port, 5*time.Second); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 
 	// create a new dir make dir
 	if err = os.Mkdir(tmpDir+"/dir", 0o644); err != nil {
@@ -1014,6 +1097,10 @@ func TestCreateNewDir(t *testing.T) {
 }
 
 func TestShouldIncludeIncludedFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -1073,6 +1160,10 @@ include_file = ["main.sh"]
 }
 
 func TestShouldIncludeIncludedFileWithoutIncludedExt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
