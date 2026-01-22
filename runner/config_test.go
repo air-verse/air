@@ -128,8 +128,18 @@ func TestDefaultPathConfigWithInvalidTOML(t *testing.T) {
 
 func TestConfPreprocess(t *testing.T) {
 	t.Setenv(airWd, "_testdata/toml")
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Fatalf("failed to restore working directory: %v", err)
+		}
+	})
+
 	df := defaultConfig()
-	err := df.preprocess(nil)
+	err = df.preprocess(nil)
 	if err != nil {
 		t.Fatalf("preprocess error %v", err)
 	}

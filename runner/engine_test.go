@@ -1043,8 +1043,9 @@ func TestCreateNewDir(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	time.Sleep(time.Second * 2)
-	assert.True(t, checkPortHaveBeenUsed(port))
+	if err := waitingPortReady(t, port, 5*time.Second); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 
 	// create a new dir make dir
 	if err = os.Mkdir(tmpDir+"/dir", 0o644); err != nil {
