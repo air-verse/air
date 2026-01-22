@@ -835,6 +835,10 @@ func silenceBuildCmd(cfg *Config) {
 }
 
 func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
 	if _, err := exec.LookPath("dlv"); err != nil {
 		t.Skip("dlv not available in PATH")
 	}
@@ -1055,6 +1059,10 @@ func Test(t *testing.T) {
 }
 
 func TestCreateNewDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
