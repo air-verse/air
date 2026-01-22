@@ -750,12 +750,12 @@ func TestIsDangerousRoot(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
 	require.NoError(t, err, "failed to get user home directory")
 
-	tests := []struct {
+	var tests []struct {
 		name        string
 		path        string
 		isDangerous bool
 		description string
-	}{}
+	}
 
 	if runtime.GOOS == "windows" {
 		tests = []struct {
