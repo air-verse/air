@@ -52,6 +52,23 @@ func TestCheckRunEnv(t *testing.T) {
 	assert.DirExists(t, nestedTmpDir)
 }
 
+func TestCheckRunEnvNestedTmp(t *testing.T) {
+	_ = os.Unsetenv(airWd)
+	engine, err := NewEngine("_testdata/nested/.air.toml", true)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
+
+	err = engine.checkRunEnv()
+	if err != nil {
+		t.Fatal("Should not return an err")
+	}
+
+	if _, err := os.Stat("./tmp/nested"); os.IsNotExist(err) {
+		t.Fatal("Should create a nested tmp folder")
+	}
+}
+
 func TestWatching(t *testing.T) {
 	engine, err := NewEngine("", nil, true)
 	if err != nil {
