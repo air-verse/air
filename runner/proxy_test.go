@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -213,7 +214,7 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				ProxyPort: 1111,
 				AppPort:   2222,
 			})
-			got, _ := proxy.injectLiveReload(tt.given)
+			got, _, _ := proxy.injectLiveReload(tt.given)
 			if got != tt.expect {
 				// Use a more descriptive error message
 				if len(got) > 100 || len(tt.expect) > 100 {
@@ -293,6 +294,42 @@ func TestProxy_reloadHandler(t *testing.T) {
 			t.Errorf("expected header %s to be %q but got %q", key, value, got)
 		}
 	}
+}
+
+func TestProxy_proxyHandler_GzipHTML(t *testing.T) {
+	body := "<body><h1>gzip</h1></body>"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Encoding", "gzip")
+		gzipWriter := gzip.NewWriter(w)
+		_, err := io.WriteString(gzipWriter, body)
+		require.NoError(t, err)
+		require.NoError(t, gzipWriter.Close())
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", proxyPort), nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Empty(t, resp.Header.Get("Content-Encoding"))
+
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(responseBody), ProxyScript)
 }
 
 func TestProxy_proxyHandler_SSE(t *testing.T) {
