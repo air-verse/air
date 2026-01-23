@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	_ "embed"
 	"fmt"
@@ -69,21 +70,33 @@ func (p *Proxy) BuildFailed(msg BuildFailedMsg) {
 	p.stream.BuildFailed(msg)
 }
 
-func (p *Proxy) injectLiveReload(resp *http.Response) (string, error) {
+func (p *Proxy) injectLiveReload(resp *http.Response) (string, bool, error) {
+	reader := resp.Body
+	decodedGzip := false
+	if isGzipEncoded(resp.Header) {
+		gzipReader, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return "", false, fmt.Errorf("proxy inject: failed to init gzip reader: %w", err)
+		}
+		defer gzipReader.Close()
+		reader = gzipReader
+		decodedGzip = true
+	}
+
 	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(resp.Body); err != nil {
-		return "", fmt.Errorf("proxy inject: failed to read body from http response")
+	if _, err := buf.ReadFrom(reader); err != nil {
+		return "", decodedGzip, fmt.Errorf("proxy inject: failed to read body from http response: %w", err)
 	}
 	page := buf.String()
 
 	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped with no error.
 	body := strings.LastIndex(page, "</body>")
 	if body == -1 {
-		return page, nil
+		return page, decodedGzip, nil
 	}
 
 	script := "<script>" + ProxyScript + "</script>"
-	return page[:body] + script + page[body:], nil
+	return page[:body] + script + page[body:], decodedGzip, nil
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -194,10 +207,13 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// HTML: inject live reload script
-		page, err := p.injectLiveReload(resp)
+		page, decodedGzip, err := p.injectLiveReload(resp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if decodedGzip {
+			w.Header().Del("Content-Encoding")
 		}
 		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
 		w.WriteHeader(resp.StatusCode)
@@ -206,6 +222,27 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func isGzipEncoded(header http.Header) bool {
+	encoding := header.Get("Content-Encoding")
+	if encoding == "" {
+		return false
+	}
+
+	hasGzip := false
+	for _, value := range strings.Split(encoding, ",") {
+		trimmed := strings.TrimSpace(strings.ToLower(value))
+		if trimmed == "" {
+			continue
+		}
+		if trimmed != "gzip" && trimmed != "x-gzip" {
+			return false
+		}
+		hasGzip = true
+	}
+
+	return hasGzip
 }
 
 func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
