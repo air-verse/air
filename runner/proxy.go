@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/andybalholm/brotli"
 )
 
 var (
@@ -29,6 +31,15 @@ type Streamer interface {
 	BuildFailed(msg BuildFailedMsg)
 	Stop()
 }
+
+// contentEncoding represents the type of content encoding used in HTTP responses.
+type contentEncoding int
+
+const (
+	encodingNone contentEncoding = iota
+	encodingGzip
+	encodingBrotli
+)
 
 type Proxy struct {
 	server *http.Server
@@ -71,32 +82,37 @@ func (p *Proxy) BuildFailed(msg BuildFailedMsg) {
 }
 
 func (p *Proxy) injectLiveReload(resp *http.Response) (string, bool, error) {
-	reader := resp.Body
-	decodedGzip := false
-	if isGzipEncoded(resp.Header) {
+	var reader io.Reader = resp.Body
+	decoded := false
+
+	switch detectContentEncoding(resp.Header) {
+	case encodingGzip:
 		gzipReader, err := gzip.NewReader(resp.Body)
 		if err != nil {
 			return "", false, fmt.Errorf("proxy inject: failed to init gzip reader: %w", err)
 		}
 		defer gzipReader.Close()
 		reader = gzipReader
-		decodedGzip = true
+		decoded = true
+	case encodingBrotli:
+		reader = brotli.NewReader(resp.Body)
+		decoded = true
 	}
 
 	buf := new(bytes.Buffer)
 	if _, err := buf.ReadFrom(reader); err != nil {
-		return "", decodedGzip, fmt.Errorf("proxy inject: failed to read body from http response: %w", err)
+		return "", decoded, fmt.Errorf("proxy inject: failed to read body from http response: %w", err)
 	}
 	page := buf.String()
 
 	// the script will be injected before the end of the body tag. In case the tag is missing, the injection will be skipped with no error.
 	body := strings.LastIndex(page, "</body>")
 	if body == -1 {
-		return page, decodedGzip, nil
+		return page, decoded, nil
 	}
 
 	script := "<script>" + ProxyScript + "</script>"
-	return page[:body] + script + page[body:], decodedGzip, nil
+	return page[:body] + script + page[body:], decoded, nil
 }
 
 func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -207,12 +223,12 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// HTML: inject live reload script
-		page, decodedGzip, err := p.injectLiveReload(resp)
+		page, decoded, err := p.injectLiveReload(resp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if decodedGzip {
+		if decoded {
 			w.Header().Del("Content-Encoding")
 		}
 		w.Header().Set("Content-Length", strconv.Itoa((len([]byte(page)))))
@@ -224,25 +240,25 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func isGzipEncoded(header http.Header) bool {
+// detectContentEncoding determines the content encoding type from HTTP headers.
+// Returns encodingNone for unsupported or multiple encodings (e.g., "gzip, br").
+func detectContentEncoding(header http.Header) contentEncoding {
 	encoding := header.Get("Content-Encoding")
 	if encoding == "" {
-		return false
+		return encodingNone
 	}
 
-	hasGzip := false
-	for _, value := range strings.Split(encoding, ",") {
-		trimmed := strings.TrimSpace(strings.ToLower(value))
-		if trimmed == "" {
-			continue
-		}
-		if trimmed != "gzip" && trimmed != "x-gzip" {
-			return false
-		}
-		hasGzip = true
+	// Only support single encoding; multiple encodings (e.g., "gzip, br") are rare
+	// and complex to handle, so we skip injection in those cases.
+	trimmed := strings.TrimSpace(strings.ToLower(encoding))
+	switch trimmed {
+	case "gzip", "x-gzip":
+		return encodingGzip
+	case "br":
+		return encodingBrotli
+	default:
+		return encodingNone
 	}
-
-	return hasGzip
 }
 
 func (p *Proxy) reloadHandler(w http.ResponseWriter, r *http.Request) {
