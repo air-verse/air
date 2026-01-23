@@ -303,9 +303,12 @@ func TestProxy_proxyHandler_GzipHTML(t *testing.T) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Content-Encoding", "gzip")
 		gzipWriter := gzip.NewWriter(w)
-		_, err := io.WriteString(gzipWriter, body)
-		require.NoError(t, err)
-		require.NoError(t, gzipWriter.Close())
+		if _, err := io.WriteString(gzipWriter, body); err != nil {
+			t.Errorf("write gzip body: %v", err)
+		}
+		if err := gzipWriter.Close(); err != nil {
+			t.Errorf("close gzip writer: %v", err)
+		}
 	}))
 	defer srv.Close()
 
