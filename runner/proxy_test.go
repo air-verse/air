@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -333,6 +334,74 @@ func TestProxy_proxyHandler_GzipHTML(t *testing.T) {
 	responseBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	assert.Contains(t, string(responseBody), ProxyScript)
+}
+
+func TestProxy_proxyHandler_BrotliHTML(t *testing.T) {
+	body := "<body><h1>brotli</h1></body>"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Encoding", "br")
+		brotliWriter := brotli.NewWriter(w)
+		if _, err := io.WriteString(brotliWriter, body); err != nil {
+			t.Errorf("write brotli body: %v", err)
+		}
+		if err := brotliWriter.Close(); err != nil {
+			t.Errorf("close brotli writer: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", proxyPort), nil)
+	req.Header.Set("Accept-Encoding", "br")
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Empty(t, resp.Header.Get("Content-Encoding"))
+
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(responseBody), ProxyScript)
+}
+
+func TestDetectContentEncoding(t *testing.T) {
+	tests := []struct {
+		name     string
+		encoding string
+		expected contentEncoding
+	}{
+		{name: "empty", encoding: "", expected: encodingNone},
+		{name: "gzip", encoding: "gzip", expected: encodingGzip},
+		{name: "x-gzip", encoding: "x-gzip", expected: encodingGzip},
+		{name: "gzip_uppercase", encoding: "GZIP", expected: encodingGzip},
+		{name: "brotli", encoding: "br", expected: encodingBrotli},
+		{name: "brotli_uppercase", encoding: "BR", expected: encodingBrotli},
+		{name: "deflate_unsupported", encoding: "deflate", expected: encodingNone},
+		{name: "multiple_encodings", encoding: "gzip, br", expected: encodingNone},
+		{name: "unknown", encoding: "unknown", expected: encodingNone},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			header := http.Header{}
+			if tt.encoding != "" {
+				header.Set("Content-Encoding", tt.encoding)
+			}
+			result := detectContentEncoding(header)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
 func TestProxy_proxyHandler_SSE(t *testing.T) {
