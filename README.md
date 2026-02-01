@@ -96,6 +96,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 ```
 
+### Via [Homebrew](https://github.com/Homebrew/brew)
+
+```shell
+brew install go-air
+```
+
 ### Using software package manager [mise](https://github.com/jdx/mise)
 
 ```shell
