@@ -58,7 +58,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" 
 
 ### `go install` を使う場合（推奨）
 
-go 1.25以上を使う場合:
+go 1.26以上を使う場合:
 
 ```shell
 go install github.com/air-verse/air@latest
@@ -238,7 +238,7 @@ services:
 
 ```Dockerfile
 # 1.16以上の利用したいバージョンを選択してください
-FROM golang:1.25-alpine
+FROM golang:1.26-alpine
 
 WORKDIR /app
 

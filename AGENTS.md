@@ -13,7 +13,7 @@ Guidelines for contributors and AI coding agents working in this repository.
 
 ## Project Snapshot
 
-- Language: Go (modules enabled; `go 1.25` in `go.mod`).
+- Language: Go (modules enabled; `go 1.26` in `go.mod`).
 - Module path: `github.com/air-verse/air`.
 - Entry: `main.go`.
 - Core package: `runner/` (watcher, engine, flags, config, proxy).

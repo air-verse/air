@@ -44,7 +44,7 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" 
 
 ### 使用 `go install` （推薦）
 
-需要使用 go 1.25 或更高版本：
+需要使用 go 1.26 或更高版本：
 
 ```shell
 go install github.com/air-verse/air@latest
@@ -91,7 +91,7 @@ mise use -g air
 
 ### 透過 `go install`
 
-使用 go 1.25 或更高版本:
+使用 go 1.26 或更高版本:
 
 ```bash
 go install github.com/air-verse/air@latest
@@ -231,7 +231,7 @@ services:
 
 ```Dockerfile
 # Choose whatever you want, version >= 1.16
-FROM golang:1.25-alpine
+FROM golang:1.26-alpine
 
 WORKDIR /app
 
