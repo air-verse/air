@@ -286,8 +286,7 @@ func readConfByName(name string) (*Config, error) {
 func defaultConfig() Config {
 	build := cfgBuild{
 		Cmd:          "go build -o ./tmp/main .",
-		Bin:          "./tmp/main",
-		Entrypoint:   entrypoint{},
+		Entrypoint:   entrypoint{"./tmp/main"},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
@@ -303,7 +302,7 @@ func defaultConfig() Config {
 		RerunDelay:   500,
 	}
 	if runtime.GOOS == PlatformWindows {
-		build.Bin = `tmp\main.exe`
+		build.Entrypoint = entrypoint{`tmp\main.exe`}
 		build.Cmd = "go build -o ./tmp/main.exe ."
 	}
 	log := cfgLog{

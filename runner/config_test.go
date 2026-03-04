@@ -147,7 +147,7 @@ func TestConfPreprocess(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		suffix += ".exe"
 	}
-	binPath := df.Build.Bin
+	binPath := df.Build.Entrypoint.binary()
 	if !strings.HasSuffix(binPath, suffix) {
 		t.Fatalf("bin path is %s, but not have suffix  %s.", binPath, suffix)
 	}
