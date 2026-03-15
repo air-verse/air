@@ -40,6 +40,8 @@ air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" 
 
 舊的 `build.bin` 欄位已被棄用，未來版本會移除，請改用 `build.entrypoint`。
 
+`build.entrypoint` 可以寫成單一字串（只指定執行檔），也可以寫成字串陣列（執行檔加上預設參數）。
+
 ## 安裝
 
 ### 使用 `go install` （推薦）
@@ -52,7 +54,7 @@ go install github.com/air-verse/air@latest
 
 ### 使用 `go get -tool`
 
-需要使用 go 1.24 或更高版本：
+需要使用 go 1.25 或更高版本：
 
 ```shell
 go get -tool github.com/air-verse/air@latest
@@ -163,7 +165,13 @@ cd /path/to/your_project
 最簡單的使用方式是運行
 
 ```shell
-# firstly find `.air.toml` in current directory, if not found, use defaults
+# 先嘗試讀取目前目錄中的 `.air.toml`；如果不存在，則使用預設配置
+air
+```
+
+如果要明確指定配置檔，可以使用：
+
+```shell
 air -c .air.toml
 ```
 
@@ -230,7 +238,7 @@ services:
 `Dockerfile`
 
 ```Dockerfile
-# Choose whatever you want, version >= 1.16
+# Choose whatever you want, version >= 1.25
 FROM golang:1.25-alpine
 
 WORKDIR /app
@@ -276,7 +284,7 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 
 ## 開發
 
-請注意，由於我使用 `go mod` 來管理依賴，所以需要 Go 1.16+。
+請注意：目前需要 Go 1.25+（請參考 `go.mod`）。
 
 ```shell
 # Fork this project
