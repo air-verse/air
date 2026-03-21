@@ -45,8 +45,8 @@ jobs:
           sleep 15
           echo "" >> main.go
           sleep 5
-          cat nohup.out
-          count=$(grep "running" nohup.out | wc -l)
+          cat nohup.err
+          count=$(grep "running" nohup.err | wc -l)
           if [ "$count" -eq "2" ]; then
             echo "value=PASS" >> "$GITHUB_OUTPUT"
           else
@@ -66,9 +66,9 @@ jobs:
           Start-Sleep -Seconds 15
           Add-Content -Path "main.go" -Value "`n"
           Start-Sleep -Seconds 5
-          if (Test-Path $log) { Get-Content $log }
-          if (Test-Path $log) {
-            $count = (Select-String -Path $log -Pattern "running" | Measure-Object).Count
+          if (Test-Path $err) { Get-Content $err }
+          if (Test-Path $err) {
+            $count = (Select-String -Path $err -Pattern "running" | Measure-Object).Count
           } else {
             $count = 0
           }
