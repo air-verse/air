@@ -360,6 +360,87 @@ cmd = "go build -o ./tmp/main ."
 	}
 }
 
+func TestTmpDirAdjustsDefaults(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `tmp_dir = ".tmp"
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := InitConfig(cfgPath, nil)
+	if err != nil {
+		t.Fatalf("InitConfig error: %v", err)
+	}
+
+	if !strings.Contains(cfg.Build.Cmd, ".tmp") {
+		t.Fatalf("expected Build.Cmd to reference .tmp, got %s", cfg.Build.Cmd)
+	}
+	if strings.Contains(cfg.Build.Cmd, "./tmp/") {
+		t.Fatalf("expected Build.Cmd to not reference ./tmp/, got %s", cfg.Build.Cmd)
+	}
+
+	binBase := filepath.Base(cfg.Build.Bin)
+	if runtime.GOOS == "windows" {
+		if binBase != "main.exe" {
+			t.Fatalf("unexpected bin base: %s", binBase)
+		}
+	} else {
+		if binBase != "main" {
+			t.Fatalf("unexpected bin base: %s", binBase)
+		}
+	}
+	if !strings.Contains(cfg.Build.Bin, ".tmp") {
+		t.Fatalf("expected Build.Bin to reference .tmp, got %s", cfg.Build.Bin)
+	}
+
+	foundTmpInExclude := false
+	foundDotTmpInExclude := false
+	for _, dir := range cfg.Build.ExcludeDir {
+		if dir == "tmp" {
+			foundTmpInExclude = true
+		}
+		if dir == ".tmp" {
+			foundDotTmpInExclude = true
+		}
+	}
+	if foundTmpInExclude {
+		t.Fatal("expected ExcludeDir to not contain 'tmp'")
+	}
+	if !foundDotTmpInExclude {
+		t.Fatal("expected ExcludeDir to contain '.tmp'")
+	}
+}
+
+func TestTmpDirDoesNotOverrideExplicitCmd(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `tmp_dir = ".tmp"
+
+[build]
+cmd = "make build"
+bin = "./bin/myapp"
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := InitConfig(cfgPath, nil)
+	if err != nil {
+		t.Fatalf("InitConfig error: %v", err)
+	}
+
+	if cfg.Build.Cmd != "make build" {
+		t.Fatalf("expected Build.Cmd to remain 'make build', got %s", cfg.Build.Cmd)
+	}
+	if !strings.Contains(cfg.Build.Bin, "myapp") {
+		t.Fatalf("expected Build.Bin to contain 'myapp', got %s", cfg.Build.Bin)
+	}
+}
+
 func TestWarnIgnoreDangerousRootDirProtection(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("root dir protection uses Unix root path")

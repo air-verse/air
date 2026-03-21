@@ -392,6 +392,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	if c.TestDataDir == "" {
 		c.TestDataDir = "testdata"
 	}
+	c.adjustDefaultsForTmpDir()
 	ed := c.Build.ExcludeDir
 	for i := range ed {
 		ed[i] = cleanPath(ed[i])
@@ -444,6 +445,38 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	return err
+}
+
+// adjustDefaultsForTmpDir updates Build.Cmd, Build.Bin, and Build.ExcludeDir
+// when they still hold their default values but TmpDir has been changed.
+func (c *Config) adjustDefaultsForTmpDir() {
+	const defaultTmpDir = "tmp"
+	if c.TmpDir == defaultTmpDir {
+		return
+	}
+
+	defaultCmd := "go build -o ./tmp/main ."
+	defaultBin := "./tmp/main"
+	newCmd := "go build -o ./" + c.TmpDir + "/main ."
+	newBin := "./" + c.TmpDir + "/main"
+	if runtime.GOOS == PlatformWindows {
+		defaultCmd = "go build -o ./tmp/main.exe ."
+		defaultBin = `tmp\main.exe`
+		newCmd = "go build -o ./" + c.TmpDir + "/main.exe ."
+		newBin = c.TmpDir + `\main.exe`
+	}
+
+	if c.Build.Cmd == defaultCmd {
+		c.Build.Cmd = newCmd
+	}
+	if c.Build.Bin == defaultBin {
+		c.Build.Bin = newBin
+	}
+	for i, dir := range c.Build.ExcludeDir {
+		if dir == defaultTmpDir {
+			c.Build.ExcludeDir[i] = c.TmpDir
+		}
+	}
 }
 
 func (c *Config) colorInfo() map[string]string {
