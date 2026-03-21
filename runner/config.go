@@ -383,7 +383,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		if !c.Build.IgnoreDangerousRootDir {
 			return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
 		}
-		fmt.Fprintln(os.Stdout, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
+		fmt.Fprintln(os.Stderr, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
 	}
 
 	if c.TmpDir == "" {
@@ -539,5 +539,5 @@ func warnDeprecatedBin(cfg *Config) {
 	if cfg.Build.Bin == "" || len(cfg.Build.Entrypoint) > 0 {
 		return
 	}
-	fmt.Fprintln(os.Stdout, "[warning] build.bin is deprecated; set build.entrypoint instead")
+	fmt.Fprintln(os.Stderr, "[warning] build.bin is deprecated; set build.entrypoint instead")
 }

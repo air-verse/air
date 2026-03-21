@@ -336,19 +336,19 @@ cmd = "go build -o ./tmp/main ."
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	oldStdout := os.Stdout
+	oldStderr := os.Stderr
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("failed to create pipe: %v", err)
 	}
-	os.Stdout = w
+	os.Stderr = w
 
 	_, _ = InitConfig(cfgPath, nil)
 
 	if err := w.Close(); err != nil {
 		t.Fatalf("failed to close writer: %v", err)
 	}
-	os.Stdout = oldStdout
+	os.Stderr = oldStderr
 
 	out, err := io.ReadAll(r)
 	if err != nil {
@@ -381,19 +381,19 @@ ignore_dangerous_root_dir = true
 			t.Fatalf("failed to write config: %v", err)
 		}
 
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, err := os.Pipe()
 		if err != nil {
 			t.Fatalf("failed to create pipe: %v", err)
 		}
-		os.Stdout = w
+		os.Stderr = w
 
 		_, _ = InitConfig(cfgPath, nil)
 
 		if err := w.Close(); err != nil {
 			t.Fatalf("failed to close writer: %v", err)
 		}
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		out, err := io.ReadAll(r)
 		if err != nil {
@@ -418,19 +418,19 @@ ignore_dangerous_root_dir = false
 			t.Fatalf("failed to write config: %v", err)
 		}
 
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, err := os.Pipe()
 		if err != nil {
 			t.Fatalf("failed to create pipe: %v", err)
 		}
-		os.Stdout = w
+		os.Stderr = w
 
 		_, _ = InitConfig(cfgPath, nil)
 
 		if err := w.Close(); err != nil {
 			t.Fatalf("failed to close writer: %v", err)
 		}
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		out, err := io.ReadAll(r)
 		if err != nil {
@@ -455,19 +455,19 @@ cmd = "go build -o ./tmp/main ."
 			t.Fatalf("failed to write config: %v", err)
 		}
 
-		oldStdout := os.Stdout
+		oldStderr := os.Stderr
 		r, w, err := os.Pipe()
 		if err != nil {
 			t.Fatalf("failed to create pipe: %v", err)
 		}
-		os.Stdout = w
+		os.Stderr = w
 
 		_, _ = InitConfig(cfgPath, nil)
 
 		if err := w.Close(); err != nil {
 			t.Fatalf("failed to close writer: %v", err)
 		}
-		os.Stdout = oldStdout
+		os.Stderr = oldStderr
 
 		out, err := io.ReadAll(r)
 		if err != nil {
