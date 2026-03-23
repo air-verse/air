@@ -450,6 +450,10 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 // adjustDefaultsForTmpDir updates Build.Cmd, Build.Bin, and Build.ExcludeDir
 // when they still hold their default values but TmpDir has been changed.
 func (c *Config) adjustDefaultsForTmpDir() {
+	c.adjustDefaultsForTmpDirWithOS(runtime.GOOS)
+}
+
+func (c *Config) adjustDefaultsForTmpDirWithOS(goos string) {
 	const defaultTmpDir = "tmp"
 	if c.TmpDir == defaultTmpDir {
 		return
@@ -459,7 +463,7 @@ func (c *Config) adjustDefaultsForTmpDir() {
 	defaultBin := "./tmp/main"
 	newCmd := "go build -o ./" + c.TmpDir + "/main ."
 	newBin := "./" + c.TmpDir + "/main"
-	if runtime.GOOS == PlatformWindows {
+	if goos == PlatformWindows {
 		defaultCmd = "go build -o ./tmp/main.exe ."
 		defaultBin = `tmp\main.exe`
 		newCmd = "go build -o ./" + c.TmpDir + "/main.exe ."

@@ -414,6 +414,41 @@ func TestTmpDirAdjustsDefaults(t *testing.T) {
 	}
 }
 
+func TestTmpDirAdjustsDefaultsWindows(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{
+		TmpDir: ".tmp",
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main.exe .",
+			Bin:        `tmp\main.exe`,
+			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("windows")
+
+	expectedCmd := "go build -o ./.tmp/main.exe ."
+	if cfg.Build.Cmd != expectedCmd {
+		t.Fatalf("expected Build.Cmd %q, got %q", expectedCmd, cfg.Build.Cmd)
+	}
+	expectedBin := `.tmp\main.exe`
+	if cfg.Build.Bin != expectedBin {
+		t.Fatalf("expected Build.Bin %q, got %q", expectedBin, cfg.Build.Bin)
+	}
+	foundDotTmp := false
+	for _, dir := range cfg.Build.ExcludeDir {
+		if dir == "tmp" {
+			t.Fatal("expected ExcludeDir to not contain 'tmp'")
+		}
+		if dir == ".tmp" {
+			foundDotTmp = true
+		}
+	}
+	if !foundDotTmp {
+		t.Fatal("expected ExcludeDir to contain '.tmp'")
+	}
+}
+
 func TestTmpDirDoesNotOverrideExplicitCmd(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
