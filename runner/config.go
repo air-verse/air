@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	pathpkg "path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -392,6 +393,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	if c.TestDataDir == "" {
 		c.TestDataDir = "testdata"
 	}
+	c.adjustDefaultsForTmpDir()
 	ed := c.Build.ExcludeDir
 	for i := range ed {
 		ed[i] = cleanPath(ed[i])
@@ -444,6 +446,92 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	return err
+}
+
+// adjustDefaultsForTmpDir updates Build.Cmd, Build.Bin, and Build.ExcludeDir
+// when they still hold their default values but TmpDir has been changed.
+func (c *Config) adjustDefaultsForTmpDir() {
+	c.adjustDefaultsForTmpDirWithOS(runtime.GOOS)
+}
+
+func (c *Config) adjustDefaultsForTmpDirWithOS(goos string) {
+	const defaultTmpDir = "tmp"
+	if c.TmpDir == defaultTmpDir {
+		return
+	}
+
+	defaultCmd := "go build -o ./tmp/main ."
+	defaultBin := "./tmp/main"
+	mainBinary := "main"
+	if goos == PlatformWindows {
+		defaultCmd = "go build -o ./tmp/main.exe ."
+		defaultBin = `tmp\main.exe`
+		mainBinary = "main.exe"
+	}
+
+	newBinPath := filepath.Join(c.TmpDir, mainBinary)
+	normalizedBinPath := strings.ReplaceAll(newBinPath, `\`, "/")
+	newBin := "./" + normalizedBinPath
+	cmdOut := newBin
+	if isAbsPathForOS(goos, c.TmpDir) {
+		newBin = newBinPath
+		cmdOut = normalizedBinPath
+	}
+	if goos == PlatformWindows {
+		if isAbsPathForOS(goos, c.TmpDir) {
+			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
+			cmdOut = normalizedBinPath
+		} else {
+			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
+			cmdOut = "./" + normalizedBinPath
+		}
+	}
+	newCmd := "go build -o " + cmdOut + " ."
+
+	if c.Build.Cmd == defaultCmd {
+		c.Build.Cmd = newCmd
+	}
+	if c.Build.Bin == defaultBin {
+		c.Build.Bin = newBin
+	}
+	if isDefaultExcludeDir(c.Build.ExcludeDir) {
+		for i, dir := range c.Build.ExcludeDir {
+			if dir == defaultTmpDir {
+				c.Build.ExcludeDir[i] = c.TmpDir
+			}
+		}
+	}
+}
+
+func isDefaultExcludeDir(dirs []string) bool {
+	defaultDirs := []string{"assets", "tmp", "vendor", "testdata"}
+	if len(dirs) != len(defaultDirs) {
+		return false
+	}
+	for i := range dirs {
+		if dirs[i] != defaultDirs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func isAbsPathForOS(goos, path string) bool {
+	if goos != PlatformWindows {
+		return pathpkg.IsAbs(path)
+	}
+
+	if strings.HasPrefix(path, `\\`) {
+		return true
+	}
+	if len(path) < 3 {
+		return false
+	}
+	drive := path[0]
+	if ((drive >= 'a' && drive <= 'z') || (drive >= 'A' && drive <= 'Z')) && path[1] == ':' {
+		return path[2] == '\\' || path[2] == '/'
+	}
+	return false
 }
 
 func (c *Config) colorInfo() map[string]string {

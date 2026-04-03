@@ -360,6 +360,201 @@ cmd = "go build -o ./tmp/main ."
 	}
 }
 
+func TestTmpDirAdjustsDefaults(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `tmp_dir = ".tmp"
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := InitConfig(cfgPath, nil)
+	if err != nil {
+		t.Fatalf("InitConfig error: %v", err)
+	}
+
+	if !strings.Contains(cfg.Build.Cmd, ".tmp") {
+		t.Fatalf("expected Build.Cmd to reference .tmp, got %s", cfg.Build.Cmd)
+	}
+	if strings.Contains(cfg.Build.Cmd, "./tmp/") {
+		t.Fatalf("expected Build.Cmd to not reference ./tmp/, got %s", cfg.Build.Cmd)
+	}
+
+	binBase := filepath.Base(cfg.Build.Bin)
+	if runtime.GOOS == "windows" {
+		if binBase != "main.exe" {
+			t.Fatalf("unexpected bin base: %s", binBase)
+		}
+	} else {
+		if binBase != "main" {
+			t.Fatalf("unexpected bin base: %s", binBase)
+		}
+	}
+	if !strings.Contains(cfg.Build.Bin, ".tmp") {
+		t.Fatalf("expected Build.Bin to reference .tmp, got %s", cfg.Build.Bin)
+	}
+
+	foundTmpInExclude := false
+	foundDotTmpInExclude := false
+	for _, dir := range cfg.Build.ExcludeDir {
+		if dir == "tmp" {
+			foundTmpInExclude = true
+		}
+		if dir == ".tmp" {
+			foundDotTmpInExclude = true
+		}
+	}
+	if foundTmpInExclude {
+		t.Fatal("expected ExcludeDir to not contain 'tmp'")
+	}
+	if !foundDotTmpInExclude {
+		t.Fatal("expected ExcludeDir to contain '.tmp'")
+	}
+}
+
+func TestTmpDirAdjustsDefaultsWindows(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{
+		TmpDir: ".tmp",
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main.exe .",
+			Bin:        `tmp\main.exe`,
+			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("windows")
+
+	expectedCmd := "go build -o ./.tmp/main.exe ."
+	if cfg.Build.Cmd != expectedCmd {
+		t.Fatalf("expected Build.Cmd %q, got %q", expectedCmd, cfg.Build.Cmd)
+	}
+	expectedBin := `.tmp\main.exe`
+	if cfg.Build.Bin != expectedBin {
+		t.Fatalf("expected Build.Bin %q, got %q", expectedBin, cfg.Build.Bin)
+	}
+	foundDotTmp := false
+	for _, dir := range cfg.Build.ExcludeDir {
+		if dir == "tmp" {
+			t.Fatal("expected ExcludeDir to not contain 'tmp'")
+		}
+		if dir == ".tmp" {
+			foundDotTmp = true
+		}
+	}
+	if !foundDotTmp {
+		t.Fatal("expected ExcludeDir to contain '.tmp'")
+	}
+}
+
+func TestTmpDirDoesNotOverrideExplicitCmd(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `tmp_dir = ".tmp"
+
+[build]
+cmd = "make build"
+bin = "./bin/myapp"
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := InitConfig(cfgPath, nil)
+	if err != nil {
+		t.Fatalf("InitConfig error: %v", err)
+	}
+
+	if cfg.Build.Cmd != "make build" {
+		t.Fatalf("expected Build.Cmd to remain 'make build', got %s", cfg.Build.Cmd)
+	}
+	if !strings.Contains(cfg.Build.Bin, "myapp") {
+		t.Fatalf("expected Build.Bin to contain 'myapp', got %s", cfg.Build.Bin)
+	}
+}
+
+func TestTmpDirAdjustsDefaultsWithAbsolutePath(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == PlatformWindows {
+		t.Skip("POSIX absolute path test only runs on linux/macos")
+	}
+
+	cfg := &Config{
+		TmpDir: "/tmp/air-build",
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main .",
+			Bin:        "./tmp/main",
+			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("linux")
+
+	expectedCmd := "go build -o /tmp/air-build/main ."
+	if cfg.Build.Cmd != expectedCmd {
+		t.Fatalf("expected Build.Cmd %q, got %q", expectedCmd, cfg.Build.Cmd)
+	}
+	expectedBin := "/tmp/air-build/main"
+	if cfg.Build.Bin != expectedBin {
+		t.Fatalf("expected Build.Bin %q, got %q", expectedBin, cfg.Build.Bin)
+	}
+}
+
+func TestTmpDirAdjustsDefaultsWithWindowsAbsolutePath(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS != PlatformWindows {
+		t.Skip("Windows absolute path test only runs on windows")
+	}
+
+	cfg := &Config{
+		TmpDir: `C:\tmp\air-build`,
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main.exe .",
+			Bin:        `tmp\main.exe`,
+			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("windows")
+
+	expectedCmd := "go build -o C:/tmp/air-build/main.exe ."
+	if cfg.Build.Cmd != expectedCmd {
+		t.Fatalf("expected Build.Cmd %q, got %q", expectedCmd, cfg.Build.Cmd)
+	}
+	expectedBin := `C:\tmp\air-build\main.exe`
+	if cfg.Build.Bin != expectedBin {
+		t.Fatalf("expected Build.Bin %q, got %q", expectedBin, cfg.Build.Bin)
+	}
+}
+
+func TestTmpDirDoesNotOverrideExplicitExcludeDir(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == PlatformWindows {
+		t.Skip("POSIX absolute path test only runs on linux/macos")
+	}
+
+	cfg := &Config{
+		TmpDir: ".tmp",
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main .",
+			Bin:        "./tmp/main",
+			ExcludeDir: []string{"tmp", "node_modules"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("linux")
+
+	if cfg.Build.ExcludeDir[0] != "tmp" {
+		t.Fatalf("expected first exclude_dir value to stay 'tmp', got %q", cfg.Build.ExcludeDir[0])
+	}
+	if cfg.Build.ExcludeDir[1] != "node_modules" {
+		t.Fatalf("expected second exclude_dir value to stay 'node_modules', got %q", cfg.Build.ExcludeDir[1])
+	}
+}
+
 func TestWarnIgnoreDangerousRootDirProtection(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("root dir protection uses Unix root path")
