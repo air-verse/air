@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	pathpkg "path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -469,19 +470,20 @@ func (c *Config) adjustDefaultsForTmpDirWithOS(goos string) {
 	}
 
 	newBinPath := filepath.Join(c.TmpDir, mainBinary)
-	newBin := "./" + filepath.ToSlash(newBinPath)
+	normalizedBinPath := strings.ReplaceAll(newBinPath, `\`, "/")
+	newBin := "./" + normalizedBinPath
 	cmdOut := newBin
 	if isAbsPathForOS(goos, c.TmpDir) {
 		newBin = newBinPath
-		cmdOut = filepath.ToSlash(newBinPath)
+		cmdOut = normalizedBinPath
 	}
 	if goos == PlatformWindows {
 		if isAbsPathForOS(goos, c.TmpDir) {
 			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
-			cmdOut = filepath.ToSlash(newBinPath)
+			cmdOut = normalizedBinPath
 		} else {
 			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
-			cmdOut = "./" + filepath.ToSlash(newBinPath)
+			cmdOut = "./" + normalizedBinPath
 		}
 	}
 	newCmd := "go build -o " + cmdOut + " ."
@@ -516,7 +518,7 @@ func isDefaultExcludeDir(dirs []string) bool {
 
 func isAbsPathForOS(goos, path string) bool {
 	if goos != PlatformWindows {
-		return filepath.IsAbs(path)
+		return pathpkg.IsAbs(path)
 	}
 
 	if strings.HasPrefix(path, `\\`) {

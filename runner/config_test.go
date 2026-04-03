@@ -478,6 +478,10 @@ bin = "./bin/myapp"
 
 func TestTmpDirAdjustsDefaultsWithAbsolutePath(t *testing.T) {
 	t.Parallel()
+	if runtime.GOOS == PlatformWindows {
+		t.Skip("POSIX absolute path test only runs on linux/macos")
+	}
+
 	cfg := &Config{
 		TmpDir: "/tmp/air-build",
 		Build: cfgBuild{
@@ -499,8 +503,39 @@ func TestTmpDirAdjustsDefaultsWithAbsolutePath(t *testing.T) {
 	}
 }
 
+func TestTmpDirAdjustsDefaultsWithWindowsAbsolutePath(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS != PlatformWindows {
+		t.Skip("Windows absolute path test only runs on windows")
+	}
+
+	cfg := &Config{
+		TmpDir: `C:\tmp\air-build`,
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main.exe .",
+			Bin:        `tmp\main.exe`,
+			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("windows")
+
+	expectedCmd := "go build -o C:/tmp/air-build/main.exe ."
+	if cfg.Build.Cmd != expectedCmd {
+		t.Fatalf("expected Build.Cmd %q, got %q", expectedCmd, cfg.Build.Cmd)
+	}
+	expectedBin := `C:\tmp\air-build\main.exe`
+	if cfg.Build.Bin != expectedBin {
+		t.Fatalf("expected Build.Bin %q, got %q", expectedBin, cfg.Build.Bin)
+	}
+}
+
 func TestTmpDirDoesNotOverrideExplicitExcludeDir(t *testing.T) {
 	t.Parallel()
+	if runtime.GOOS == PlatformWindows {
+		t.Skip("POSIX absolute path test only runs on linux/macos")
+	}
+
 	cfg := &Config{
 		TmpDir: ".tmp",
 		Build: cfgBuild{
