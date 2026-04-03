@@ -476,6 +476,50 @@ bin = "./bin/myapp"
 	}
 }
 
+func TestTmpDirAdjustsDefaultsWithAbsolutePath(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{
+		TmpDir: "/tmp/air-build",
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main .",
+			Bin:        "./tmp/main",
+			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("linux")
+
+	expectedCmd := "go build -o /tmp/air-build/main ."
+	if cfg.Build.Cmd != expectedCmd {
+		t.Fatalf("expected Build.Cmd %q, got %q", expectedCmd, cfg.Build.Cmd)
+	}
+	expectedBin := "/tmp/air-build/main"
+	if cfg.Build.Bin != expectedBin {
+		t.Fatalf("expected Build.Bin %q, got %q", expectedBin, cfg.Build.Bin)
+	}
+}
+
+func TestTmpDirDoesNotOverrideExplicitExcludeDir(t *testing.T) {
+	t.Parallel()
+	cfg := &Config{
+		TmpDir: ".tmp",
+		Build: cfgBuild{
+			Cmd:        "go build -o ./tmp/main .",
+			Bin:        "./tmp/main",
+			ExcludeDir: []string{"tmp", "node_modules"},
+		},
+	}
+
+	cfg.adjustDefaultsForTmpDirWithOS("linux")
+
+	if cfg.Build.ExcludeDir[0] != "tmp" {
+		t.Fatalf("expected first exclude_dir value to stay 'tmp', got %q", cfg.Build.ExcludeDir[0])
+	}
+	if cfg.Build.ExcludeDir[1] != "node_modules" {
+		t.Fatalf("expected second exclude_dir value to stay 'node_modules', got %q", cfg.Build.ExcludeDir[1])
+	}
+}
+
 func TestWarnIgnoreDangerousRootDirProtection(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("root dir protection uses Unix root path")

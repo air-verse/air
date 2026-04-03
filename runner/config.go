@@ -461,14 +461,30 @@ func (c *Config) adjustDefaultsForTmpDirWithOS(goos string) {
 
 	defaultCmd := "go build -o ./tmp/main ."
 	defaultBin := "./tmp/main"
-	newCmd := "go build -o ./" + c.TmpDir + "/main ."
-	newBin := "./" + c.TmpDir + "/main"
+	mainBinary := "main"
 	if goos == PlatformWindows {
 		defaultCmd = "go build -o ./tmp/main.exe ."
 		defaultBin = `tmp\main.exe`
-		newCmd = "go build -o ./" + c.TmpDir + "/main.exe ."
-		newBin = c.TmpDir + `\main.exe`
+		mainBinary = "main.exe"
 	}
+
+	newBinPath := filepath.Join(c.TmpDir, mainBinary)
+	newBin := "./" + filepath.ToSlash(newBinPath)
+	cmdOut := newBin
+	if isAbsPathForOS(goos, c.TmpDir) {
+		newBin = newBinPath
+		cmdOut = filepath.ToSlash(newBinPath)
+	}
+	if goos == PlatformWindows {
+		if isAbsPathForOS(goos, c.TmpDir) {
+			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
+			cmdOut = filepath.ToSlash(newBinPath)
+		} else {
+			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
+			cmdOut = "./" + filepath.ToSlash(newBinPath)
+		}
+	}
+	newCmd := "go build -o " + cmdOut + " ."
 
 	if c.Build.Cmd == defaultCmd {
 		c.Build.Cmd = newCmd
@@ -476,11 +492,44 @@ func (c *Config) adjustDefaultsForTmpDirWithOS(goos string) {
 	if c.Build.Bin == defaultBin {
 		c.Build.Bin = newBin
 	}
-	for i, dir := range c.Build.ExcludeDir {
-		if dir == defaultTmpDir {
-			c.Build.ExcludeDir[i] = c.TmpDir
+	if isDefaultExcludeDir(c.Build.ExcludeDir) {
+		for i, dir := range c.Build.ExcludeDir {
+			if dir == defaultTmpDir {
+				c.Build.ExcludeDir[i] = c.TmpDir
+			}
 		}
 	}
+}
+
+func isDefaultExcludeDir(dirs []string) bool {
+	defaultDirs := []string{"assets", "tmp", "vendor", "testdata"}
+	if len(dirs) != len(defaultDirs) {
+		return false
+	}
+	for i := range dirs {
+		if dirs[i] != defaultDirs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func isAbsPathForOS(goos, path string) bool {
+	if goos != PlatformWindows {
+		return filepath.IsAbs(path)
+	}
+
+	if strings.HasPrefix(path, `\\`) {
+		return true
+	}
+	if len(path) < 3 {
+		return false
+	}
+	drive := path[0]
+	if ((drive >= 'a' && drive <= 'z') || (drive >= 'A' && drive <= 'Z')) && path[1] == ':' {
+		return path[2] == '\\' || path[2] == '/'
+	}
+	return false
 }
 
 func (c *Config) colorInfo() map[string]string {
