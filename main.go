@@ -75,7 +75,7 @@ func GetVersionInfo() versionInfo { //revive:disable:unexported-return
 
 func printSplash() {
 	versionInfo := GetVersionInfo()
-	fmt.Printf(`
+	fmt.Fprintf(os.Stderr, `
   __    _   ___  
  / /\  | | | |_) 
 /_/--\ |_| |_| \_ %s, built with Go %s
