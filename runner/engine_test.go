@@ -931,10 +931,9 @@ func TestWriteDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expect := defaultConfig()
-	if len(expect.Build.Entrypoint) == 0 && expect.Build.Bin != "" {
-		expect.Build.Entrypoint = entrypoint{expect.Build.Bin}
-	}
+	expect := defaultConfigBase()
+	setEntrypointFromBin(&expect)
+	addPlatformOverridesForInit(&expect, runtime.GOOS)
 
 	assert.Equal(t, expect, *actual)
 }
