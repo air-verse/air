@@ -403,6 +403,55 @@ cmd = "go build -o ./tmp/main ."
 	}
 }
 
+func TestInitConfigAppliesWindowsBuildOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `
+[build]
+cmd = "base-cmd"
+entrypoint = ["./tmp/base"]
+args_bin = ["base-arg"]
+
+[build.windows]
+cmd = "windows-cmd"
+entrypoint = ["tmp\\main.exe"]
+args_bin = ["win-arg"]
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := InitConfig(cfgPath, nil)
+	if err != nil {
+		t.Fatalf("InitConfig error: %v", err)
+	}
+
+	if runtime.GOOS == PlatformWindows {
+		if cfg.Build.Cmd != "windows-cmd" {
+			t.Fatalf("expected windows cmd, got %q", cfg.Build.Cmd)
+		}
+		if !reflect.DeepEqual(cfg.Build.ArgsBin, []string{"win-arg"}) {
+			t.Fatalf("expected windows args_bin, got %v", cfg.Build.ArgsBin)
+		}
+		if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "main.exe")) {
+			t.Fatalf("expected windows entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
+		}
+		return
+	}
+
+	if cfg.Build.Cmd != "base-cmd" {
+		t.Fatalf("expected base cmd on non-windows, got %q", cfg.Build.Cmd)
+	}
+	if !reflect.DeepEqual(cfg.Build.ArgsBin, []string{"base-arg"}) {
+		t.Fatalf("expected base args_bin on non-windows, got %v", cfg.Build.ArgsBin)
+	}
+	if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "base")) {
+		t.Fatalf("expected base entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
+	}
+}
+
 func TestTmpDirAdjustsDefaults(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
