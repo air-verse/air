@@ -483,6 +483,49 @@ func contains(sl []string, target string) bool {
 	return false
 }
 
+func TestInitConfigWithoutConfigDoesNotWarnDeprecatedBin(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv(airWd, tmpDir)
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		if chdirErr := os.Chdir(originalDir); chdirErr != nil {
+			t.Fatalf("failed to restore working directory: %v", chdirErr)
+		}
+	})
+
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stderr = w
+	t.Cleanup(func() {
+		os.Stderr = oldStderr
+	})
+
+	if _, err := InitConfig("", nil); err != nil {
+		t.Fatalf("InitConfig returned error: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close writer: %v", err)
+	}
+
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("failed to read output: %v", err)
+	}
+
+	output := string(out)
+	if strings.Contains(output, "build.bin is deprecated") {
+		t.Fatalf("unexpected bin deprecation warning in output: %q", output)
+	}
+}
+
 func TestWarnDeprecatedBin(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
