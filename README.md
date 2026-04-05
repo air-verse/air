@@ -249,6 +249,7 @@ Air can automatically load environment variables from `.env` files before both b
 # Values in the lattermost file overwrite any preceding ones.
 # Does not overwrite variables that were present before running air.
 env_files = [".env.development", ".env"]
+```
 
 
 ### Platform-specific build overrides
@@ -267,8 +268,6 @@ entrypoint = ["tmp\\main.exe"]
 ```
 
 Running `air init` adds a platform block for the current OS when its defaults differ from the base configuration.
-
-```
 
 ### Docker Compose
 
