@@ -113,7 +113,7 @@ func TestProxyStreamRemoveUnknownSubscriber(t *testing.T) {
 	assert.NotPanics(t, func() {
 		stream.RemoveSubscriber(999)
 	})
-	assert.Equal(t, before, len(stream.subscribers))
+	assert.Len(t, stream.subscribers, before)
 }
 
 func TestProxyStreamReloadAndBuildFailedNoSubscribers(t *testing.T) {
