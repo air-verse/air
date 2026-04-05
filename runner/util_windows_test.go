@@ -34,7 +34,9 @@ func TestAdaptToVariousPlatformsFullBinWindows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config := &Config{
 				Build: cfgBuild{
-					FullBin: tt.fullBin,
+					CfgBuildCommon: CfgBuildCommon{
+						FullBin: tt.fullBin,
+					},
 				},
 			}
 			adaptToVariousPlatforms(config)

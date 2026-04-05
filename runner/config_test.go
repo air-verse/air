@@ -19,9 +19,11 @@ const (
 
 func getWindowsConfig() Config {
 	build := cfgBuild{
-		PreCmd:       []string{"echo Hello Air"},
-		Cmd:          "go build -o ./tmp/main .",
-		Bin:          "./tmp/main",
+		CfgBuildCommon: CfgBuildCommon{
+			PreCmd: []string{"echo Hello Air"},
+			Cmd:    "go build -o ./tmp/main .",
+			Bin:    "./tmp/main",
+		},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
@@ -317,9 +319,11 @@ func TestKillDelay(t *testing.T) {
 func TestApplyBuildOverrides(t *testing.T) {
 	base := defaultConfigBase()
 	override := &cfgBuildOverrides{
-		PreCmd:  []string{"echo override"},
-		Cmd:     "go build -o ./tmp/custom .",
-		ArgsBin: []string{"custom"},
+		CfgBuildCommon: CfgBuildCommon{
+			PreCmd:  []string{"echo override"},
+			Cmd:     "go build -o ./tmp/custom .",
+			ArgsBin: []string{"custom"},
+		},
 	}
 
 	applyBuildOverrides(&base.Build, override)
@@ -380,9 +384,9 @@ func TestDefaultConfigForOS(t *testing.T) {
 func TestPlatformBuildOverridesSelection(t *testing.T) {
 	t.Parallel()
 
-	win := &cfgBuildOverrides{Cmd: "win"}
-	darwin := &cfgBuildOverrides{Cmd: "darwin"}
-	linux := &cfgBuildOverrides{Cmd: "linux"}
+	win := &cfgBuildOverrides{CfgBuildCommon: CfgBuildCommon{Cmd: "win"}}
+	darwin := &cfgBuildOverrides{CfgBuildCommon: CfgBuildCommon{Cmd: "darwin"}}
+	linux := &cfgBuildOverrides{CfgBuildCommon: CfgBuildCommon{Cmd: "linux"}}
 	build := &cfgBuild{Windows: win, Darwin: darwin, Linux: linux}
 
 	if got := platformBuildOverrides(build, PlatformWindows); got != win {
@@ -693,8 +697,10 @@ func TestTmpDirAdjustsDefaultsWindows(t *testing.T) {
 	cfg := &Config{
 		TmpDir: ".tmp",
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main.exe .",
-			Bin:        `tmp\main.exe`,
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main.exe .",
+				Bin: `tmp\main.exe`,
+			},
 			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
 		},
 	}
@@ -759,8 +765,10 @@ func TestTmpDirAdjustsDefaultsWithAbsolutePath(t *testing.T) {
 	cfg := &Config{
 		TmpDir: "/tmp/air-build",
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main .",
-			Bin:        "./tmp/main",
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main .",
+				Bin: "./tmp/main",
+			},
 			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
 		},
 	}
@@ -786,8 +794,10 @@ func TestTmpDirAdjustsDefaultsWithWindowsAbsolutePath(t *testing.T) {
 	cfg := &Config{
 		TmpDir: `C:\tmp\air-build`,
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main.exe .",
-			Bin:        `tmp\main.exe`,
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main.exe .",
+				Bin: `tmp\main.exe`,
+			},
 			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
 		},
 	}
@@ -813,8 +823,10 @@ func TestTmpDirDoesNotOverrideExplicitExcludeDir(t *testing.T) {
 	cfg := &Config{
 		TmpDir: ".tmp",
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main .",
-			Bin:        "./tmp/main",
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main .",
+				Bin: "./tmp/main",
+			},
 			ExcludeDir: []string{"tmp", "node_modules"},
 		},
 	}

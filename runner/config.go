@@ -82,23 +82,21 @@ func (e entrypoint) args() []string {
 }
 
 type cfgBuildOverrides struct {
-	PreCmd     []string   `toml:"pre_cmd,omitempty" usage:"Array of commands to run before each build"`
-	Cmd        string     `toml:"cmd,omitempty" usage:"Just plain old shell command. You could use 'make' as well"`
-	PostCmd    []string   `toml:"post_cmd,omitempty" usage:"Array of commands to run after ^C"`
-	Bin        string     `toml:"bin,omitempty" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
-	Entrypoint entrypoint `toml:"entrypoint,omitempty" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
-	FullBin    string     `toml:"full_bin,omitempty" usage:"Customize binary, can setup environment variables when run your app"`
-	ArgsBin    []string   `toml:"args_bin,omitempty" usage:"Add additional arguments when running binary (bin/full_bin)."`
+	CfgBuildCommon `toml:",inline"`
+}
+
+type CfgBuildCommon struct {
+	PreCmd     []string   `toml:"pre_cmd" usage:"Array of commands to run before each build"`
+	Cmd        string     `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
+	PostCmd    []string   `toml:"post_cmd" usage:"Array of commands to run after ^C"`
+	Bin        string     `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
+	Entrypoint entrypoint `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
+	FullBin    string     `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
+	ArgsBin    []string   `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
 }
 
 type cfgBuild struct {
-	PreCmd                 []string           `toml:"pre_cmd" usage:"Array of commands to run before each build"`
-	Cmd                    string             `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
-	PostCmd                []string           `toml:"post_cmd" usage:"Array of commands to run after ^C"`
-	Bin                    string             `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
-	Entrypoint             entrypoint         `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
-	FullBin                string             `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
-	ArgsBin                []string           `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
+	CfgBuildCommon         `toml:",inline"`
 	Log                    string             `toml:"log" usage:"This log file is placed in your tmp_dir"`
 	IncludeExt             []string           `toml:"include_ext" usage:"Watch these filename extensions"`
 	ExcludeDir             []string           `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
@@ -303,18 +301,20 @@ func readConfByName(name string) (*Config, error) {
 
 func defaultConfigBase() Config {
 	build := cfgBuild{
-		Cmd:          "go build -o ./tmp/main .",
-		Bin:          "./tmp/main",
-		Entrypoint:   entrypoint{},
+		CfgBuildCommon: CfgBuildCommon{
+			Cmd:        "go build -o ./tmp/main .",
+			Bin:        "./tmp/main",
+			Entrypoint: entrypoint{},
+			PreCmd:     []string{},
+			PostCmd:    []string{},
+			ArgsBin:    []string{},
+		},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
-		PreCmd:       []string{},
-		PostCmd:      []string{},
 		ExcludeFile:  []string{},
 		IncludeFile:  []string{},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
-		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        1000,
 		Rerun:        false,

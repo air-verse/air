@@ -453,6 +453,10 @@ func setTage2Map(root string, t reflect.Type, v reflect.Value, m map[string]Toml
 		tomlVal := field.Tag.Get("toml")
 
 		if field.Type.Kind() == reflect.Struct {
+			if field.Anonymous {
+				setTage2Map(root, field.Type, fieldValue, m, fieldPath)
+				continue
+			}
 			path := fieldPath + field.Name + "."
 			setTage2Map(root+tomlVal+".", field.Type, fieldValue, m, path)
 			continue
