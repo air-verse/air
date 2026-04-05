@@ -190,7 +190,9 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 	t.Parallel()
 	config := &Config{
 		Build: cfgBuild{
-			Bin: "tmp\\main.exe  -dev",
+			CfgBuildCommon: CfgBuildCommon{
+				Bin: "tmp\\main.exe  -dev",
+			},
 		},
 	}
 	adaptToVariousPlatforms(config)
@@ -412,8 +414,10 @@ func TestIsIncludeExtWildcard(t *testing.T) {
 		config: &Config{
 			Root: tmpDir,
 			Build: cfgBuild{
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{binPath},
+				},
 				IncludeExt: []string{"*"},
-				Entrypoint: entrypoint{binPath},
 			},
 		},
 	}
@@ -432,8 +436,10 @@ func TestIsIncludeExtWildcardWithSpaces(t *testing.T) {
 	e := Engine{
 		config: &Config{
 			Build: cfgBuild{
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{"/tmp/main"},
+				},
 				IncludeExt: []string{" * "},
-				Entrypoint: entrypoint{"/tmp/main"},
 			},
 		},
 	}
@@ -450,7 +456,9 @@ func TestIsBinPath(t *testing.T) {
 		config: &Config{
 			Root: tmpDir,
 			Build: cfgBuild{
-				Entrypoint: entrypoint{binPath},
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{binPath},
+				},
 			},
 		},
 	}
@@ -467,7 +475,9 @@ func TestIsBinPathEmptyBinPath(t *testing.T) {
 	e := Engine{
 		config: &Config{
 			Build: cfgBuild{
-				Entrypoint: entrypoint{}, // empty entrypoint
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{}, // empty entrypoint
+				},
 			},
 		},
 	}

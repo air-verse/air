@@ -931,9 +931,19 @@ func TestWriteDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expect := defaultConfig()
-	if len(expect.Build.Entrypoint) == 0 && expect.Build.Bin != "" {
-		expect.Build.Entrypoint = entrypoint{expect.Build.Bin}
+	expect := defaultConfigBase()
+	setEntrypointFromBin(&expect)
+	addPlatformOverridesForInit(&expect, runtime.GOOS)
+	if expect.Build.Windows != nil {
+		if expect.Build.Windows.PreCmd == nil {
+			expect.Build.Windows.PreCmd = []string{}
+		}
+		if expect.Build.Windows.PostCmd == nil {
+			expect.Build.Windows.PostCmd = []string{}
+		}
+		if expect.Build.Windows.ArgsBin == nil {
+			expect.Build.Windows.ArgsBin = []string{}
+		}
 	}
 
 	assert.Equal(t, expect, *actual)

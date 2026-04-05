@@ -19,9 +19,11 @@ const (
 
 func getWindowsConfig() Config {
 	build := cfgBuild{
-		PreCmd:       []string{"echo Hello Air"},
-		Cmd:          "go build -o ./tmp/main .",
-		Bin:          "./tmp/main",
+		CfgBuildCommon: CfgBuildCommon{
+			PreCmd: []string{"echo Hello Air"},
+			Cmd:    "go build -o ./tmp/main .",
+			Bin:    "./tmp/main",
+		},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
@@ -314,6 +316,164 @@ func TestKillDelay(t *testing.T) {
 	}
 }
 
+func TestApplyBuildOverrides(t *testing.T) {
+	base := defaultConfigBase()
+	override := &cfgBuildOverrides{
+		CfgBuildCommon: CfgBuildCommon{
+			PreCmd:  []string{"echo override"},
+			Cmd:     "go build -o ./tmp/custom .",
+			ArgsBin: []string{"custom"},
+		},
+	}
+
+	applyBuildOverrides(&base.Build, override)
+
+	if base.Build.Cmd != override.Cmd {
+		t.Fatalf("cmd mismatch: got %s want %s", base.Build.Cmd, override.Cmd)
+	}
+	if !reflect.DeepEqual(base.Build.PreCmd, override.PreCmd) {
+		t.Fatalf("pre_cmd mismatch: got %v want %v", base.Build.PreCmd, override.PreCmd)
+	}
+	if !reflect.DeepEqual(base.Build.ArgsBin, override.ArgsBin) {
+		t.Fatalf("args_bin mismatch: got %v want %v", base.Build.ArgsBin, override.ArgsBin)
+	}
+	if base.Build.Bin != "./tmp/main" {
+		t.Fatalf("bin should remain default, got %s", base.Build.Bin)
+	}
+}
+
+func TestAddPlatformOverridesForInit(t *testing.T) {
+	cfg := defaultConfigBase()
+	setEntrypointFromBin(&cfg)
+	addPlatformOverridesForInit(&cfg, PlatformWindows)
+
+	if cfg.Build.Windows == nil {
+		t.Fatal("expected windows overrides to be set")
+	}
+	if cfg.Build.Windows.Cmd != "go build -o ./tmp/main.exe ." {
+		t.Fatalf("windows cmd mismatch: got %s", cfg.Build.Windows.Cmd)
+	}
+	if cfg.Build.Windows.Bin != `tmp\main.exe` {
+		t.Fatalf("windows bin mismatch: got %s", cfg.Build.Windows.Bin)
+	}
+	if !reflect.DeepEqual(cfg.Build.Windows.Entrypoint, entrypoint{`tmp\main.exe`}) {
+		t.Fatalf("windows entrypoint mismatch: got %v", cfg.Build.Windows.Entrypoint)
+	}
+}
+
+func TestDefaultConfigForOS(t *testing.T) {
+	t.Parallel()
+
+	winCfg := defaultConfigForOS(PlatformWindows)
+	if winCfg.Build.Cmd != "go build -o ./tmp/main.exe ." {
+		t.Fatalf("windows cmd mismatch: got %q", winCfg.Build.Cmd)
+	}
+	if winCfg.Build.Bin != `tmp\main.exe` {
+		t.Fatalf("windows bin mismatch: got %q", winCfg.Build.Bin)
+	}
+
+	linuxCfg := defaultConfigForOS("linux")
+	if linuxCfg.Build.Cmd != "go build -o ./tmp/main ." {
+		t.Fatalf("linux cmd mismatch: got %q", linuxCfg.Build.Cmd)
+	}
+	if linuxCfg.Build.Bin != "./tmp/main" {
+		t.Fatalf("linux bin mismatch: got %q", linuxCfg.Build.Bin)
+	}
+}
+
+func TestPlatformBuildOverridesSelection(t *testing.T) {
+	t.Parallel()
+
+	win := &cfgBuildOverrides{CfgBuildCommon: CfgBuildCommon{Cmd: "win"}}
+	darwin := &cfgBuildOverrides{CfgBuildCommon: CfgBuildCommon{Cmd: "darwin"}}
+	linux := &cfgBuildOverrides{CfgBuildCommon: CfgBuildCommon{Cmd: "linux"}}
+	build := &cfgBuild{Windows: win, Darwin: darwin, Linux: linux}
+
+	if got := platformBuildOverrides(build, PlatformWindows); got != win {
+		t.Fatalf("windows override mismatch: got %v", got)
+	}
+	if got := platformBuildOverrides(build, "darwin"); got != darwin {
+		t.Fatalf("darwin override mismatch: got %v", got)
+	}
+	if got := platformBuildOverrides(build, "linux"); got != linux {
+		t.Fatalf("linux override mismatch: got %v", got)
+	}
+	if got := platformBuildOverrides(build, "freebsd"); got != nil {
+		t.Fatalf("unknown platform should return nil, got %v", got)
+	}
+	if got := platformBuildOverrides(nil, PlatformWindows); got != nil {
+		t.Fatalf("nil build should return nil, got %v", got)
+	}
+}
+
+func TestBuildOverridesFromDiff(t *testing.T) {
+	t.Parallel()
+
+	base := defaultConfigBase().Build
+	if got := buildOverridesFromDiff(base, base); got != nil {
+		t.Fatalf("expected nil override for identical configs, got %v", got)
+	}
+
+	target := base
+	target.PreCmd = []string{"echo pre"}
+	target.Cmd = "go build -o ./tmp/custom ."
+	target.PostCmd = []string{"echo post"}
+	target.Bin = "./tmp/custom"
+	target.Entrypoint = entrypoint{"./tmp/custom", "serve"}
+	target.FullBin = "APP_ENV=dev ./tmp/custom"
+	target.ArgsBin = []string{"--port", "8080"}
+
+	got := buildOverridesFromDiff(base, target)
+	if got == nil {
+		t.Fatal("expected non-nil override for changed configs")
+	}
+	if !reflect.DeepEqual(got.PreCmd, target.PreCmd) {
+		t.Fatalf("pre_cmd mismatch: got %v want %v", got.PreCmd, target.PreCmd)
+	}
+	if got.Cmd != target.Cmd {
+		t.Fatalf("cmd mismatch: got %q want %q", got.Cmd, target.Cmd)
+	}
+	if !reflect.DeepEqual(got.PostCmd, target.PostCmd) {
+		t.Fatalf("post_cmd mismatch: got %v want %v", got.PostCmd, target.PostCmd)
+	}
+	if got.Bin != target.Bin {
+		t.Fatalf("bin mismatch: got %q want %q", got.Bin, target.Bin)
+	}
+	if !reflect.DeepEqual(got.Entrypoint, target.Entrypoint) {
+		t.Fatalf("entrypoint mismatch: got %v want %v", got.Entrypoint, target.Entrypoint)
+	}
+	if got.FullBin != target.FullBin {
+		t.Fatalf("full_bin mismatch: got %q want %q", got.FullBin, target.FullBin)
+	}
+	if !reflect.DeepEqual(got.ArgsBin, target.ArgsBin) {
+		t.Fatalf("args_bin mismatch: got %v want %v", got.ArgsBin, target.ArgsBin)
+	}
+}
+
+func TestSetEntrypointFromBin(t *testing.T) {
+	t.Parallel()
+
+	cfg := defaultConfigBase()
+	setEntrypointFromBin(&cfg)
+	if !reflect.DeepEqual(cfg.Build.Entrypoint, entrypoint{"./tmp/main"}) {
+		t.Fatalf("entrypoint mismatch: got %v", cfg.Build.Entrypoint)
+	}
+
+	cfgWithEntry := defaultConfigBase()
+	cfgWithEntry.Build.Entrypoint = entrypoint{"./tmp/custom"}
+	setEntrypointFromBin(&cfgWithEntry)
+	if !reflect.DeepEqual(cfgWithEntry.Build.Entrypoint, entrypoint{"./tmp/custom"}) {
+		t.Fatalf("existing entrypoint should not be overwritten, got %v", cfgWithEntry.Build.Entrypoint)
+	}
+
+	cfgEmptyBin := defaultConfigBase()
+	cfgEmptyBin.Build.Bin = ""
+	setEntrypointFromBin(&cfgEmptyBin)
+	if len(cfgEmptyBin.Build.Entrypoint) != 0 {
+		t.Fatalf("entrypoint should remain empty when bin is empty, got %v", cfgEmptyBin.Build.Entrypoint)
+	}
+}
+
 func contains(sl []string, target string) bool {
 	for _, c := range sl {
 		if c == target {
@@ -357,6 +517,124 @@ cmd = "go build -o ./tmp/main ."
 	output := string(out)
 	if !strings.Contains(output, "build.bin is deprecated") {
 		t.Fatalf("missing bin deprecation warning in output: %q", output)
+	}
+}
+
+func TestInitConfigAppliesWindowsBuildOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `
+[build]
+cmd = "base-cmd"
+entrypoint = ["./tmp/base"]
+args_bin = ["base-arg"]
+
+[build.windows]
+cmd = "windows-cmd"
+entrypoint = ["tmp\\main.exe"]
+args_bin = ["win-arg"]
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := InitConfig(cfgPath, nil)
+	if err != nil {
+		t.Fatalf("InitConfig error: %v", err)
+	}
+
+	if runtime.GOOS == PlatformWindows {
+		if cfg.Build.Cmd != "windows-cmd" {
+			t.Fatalf("expected windows cmd, got %q", cfg.Build.Cmd)
+		}
+		if !contains(cfg.Build.ArgsBin, "win-arg") {
+			t.Fatalf("expected windows args_bin to contain %q, got %v", "win-arg", cfg.Build.ArgsBin)
+		}
+		if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "main.exe")) {
+			t.Fatalf("expected windows entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
+		}
+		return
+	}
+
+	if cfg.Build.Cmd != "base-cmd" {
+		t.Fatalf("expected base cmd on non-windows, got %q", cfg.Build.Cmd)
+	}
+	if !contains(cfg.Build.ArgsBin, "base-arg") {
+		t.Fatalf("expected base args_bin to contain %q on non-windows, got %v", "base-arg", cfg.Build.ArgsBin)
+	}
+	if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "base")) {
+		t.Fatalf("expected base entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
+	}
+}
+
+func TestInitConfigAppliesCurrentPlatformBuildOverride(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	cfgPath := filepath.Join(tmpDir, ".air.toml")
+	cfgContent := `
+[build]
+cmd = "base-cmd"
+entrypoint = ["./tmp/base"]
+args_bin = ["base-arg"]
+
+[build.windows]
+cmd = "windows-cmd"
+entrypoint = ["tmp\\main.exe"]
+args_bin = ["win-arg"]
+
+[build.darwin]
+cmd = "darwin-cmd"
+entrypoint = ["./tmp/darwin"]
+args_bin = ["darwin-arg"]
+
+[build.linux]
+cmd = "linux-cmd"
+entrypoint = ["./tmp/linux"]
+args_bin = ["linux-arg"]
+`
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := InitConfig(cfgPath, nil)
+	if err != nil {
+		t.Fatalf("InitConfig error: %v", err)
+	}
+
+	switch runtime.GOOS {
+	case PlatformWindows:
+		if cfg.Build.Cmd != "windows-cmd" {
+			t.Fatalf("expected windows cmd, got %q", cfg.Build.Cmd)
+		}
+		if !contains(cfg.Build.ArgsBin, "win-arg") {
+			t.Fatalf("expected windows args_bin to contain %q, got %v", "win-arg", cfg.Build.ArgsBin)
+		}
+		if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "main.exe")) {
+			t.Fatalf("expected windows entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
+		}
+	case "darwin":
+		if cfg.Build.Cmd != "darwin-cmd" {
+			t.Fatalf("expected darwin cmd, got %q", cfg.Build.Cmd)
+		}
+		if !contains(cfg.Build.ArgsBin, "darwin-arg") {
+			t.Fatalf("expected darwin args_bin to contain %q, got %v", "darwin-arg", cfg.Build.ArgsBin)
+		}
+		if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "darwin")) {
+			t.Fatalf("expected darwin entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
+		}
+	default:
+		if cfg.Build.Cmd != "linux-cmd" {
+			t.Fatalf("expected linux cmd, got %q", cfg.Build.Cmd)
+		}
+		if !contains(cfg.Build.ArgsBin, "linux-arg") {
+			t.Fatalf("expected linux args_bin to contain %q, got %v", "linux-arg", cfg.Build.ArgsBin)
+		}
+		if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "linux")) {
+			t.Fatalf("expected linux entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
+		}
 	}
 }
 
@@ -419,8 +697,10 @@ func TestTmpDirAdjustsDefaultsWindows(t *testing.T) {
 	cfg := &Config{
 		TmpDir: ".tmp",
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main.exe .",
-			Bin:        `tmp\main.exe`,
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main.exe .",
+				Bin: `tmp\main.exe`,
+			},
 			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
 		},
 	}
@@ -485,8 +765,10 @@ func TestTmpDirAdjustsDefaultsWithAbsolutePath(t *testing.T) {
 	cfg := &Config{
 		TmpDir: "/tmp/air-build",
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main .",
-			Bin:        "./tmp/main",
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main .",
+				Bin: "./tmp/main",
+			},
 			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
 		},
 	}
@@ -512,8 +794,10 @@ func TestTmpDirAdjustsDefaultsWithWindowsAbsolutePath(t *testing.T) {
 	cfg := &Config{
 		TmpDir: `C:\tmp\air-build`,
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main.exe .",
-			Bin:        `tmp\main.exe`,
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main.exe .",
+				Bin: `tmp\main.exe`,
+			},
 			ExcludeDir: []string{"assets", "tmp", "vendor", "testdata"},
 		},
 	}
@@ -539,8 +823,10 @@ func TestTmpDirDoesNotOverrideExplicitExcludeDir(t *testing.T) {
 	cfg := &Config{
 		TmpDir: ".tmp",
 		Build: cfgBuild{
-			Cmd:        "go build -o ./tmp/main .",
-			Bin:        "./tmp/main",
+			CfgBuildCommon: CfgBuildCommon{
+				Cmd: "go build -o ./tmp/main .",
+				Bin: "./tmp/main",
+			},
 			ExcludeDir: []string{"tmp", "node_modules"},
 		},
 	}
