@@ -410,7 +410,12 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 			b, _ := strconv.ParseBool(value)
 			field.SetBool(b)
 		case reflect.Ptr:
-			field.SetString(value)
+			if field.Type().Elem().Kind() != reflect.String {
+				log.Fatalf("unsupported pointer type %s", field.Type().Elem().Kind())
+			}
+			v := reflect.New(field.Type().Elem())
+			v.Elem().SetString(value)
+			field.Set(v)
 		default:
 			log.Fatalf("unsupported type %s", v.FieldByName(fields[0]).Kind())
 		}
