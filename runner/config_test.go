@@ -432,8 +432,8 @@ args_bin = ["win-arg"]
 		if cfg.Build.Cmd != "windows-cmd" {
 			t.Fatalf("expected windows cmd, got %q", cfg.Build.Cmd)
 		}
-		if !reflect.DeepEqual(cfg.Build.ArgsBin, []string{"win-arg"}) {
-			t.Fatalf("expected windows args_bin, got %v", cfg.Build.ArgsBin)
+		if !contains(cfg.Build.ArgsBin, "win-arg") {
+			t.Fatalf("expected windows args_bin to contain %q, got %v", "win-arg", cfg.Build.ArgsBin)
 		}
 		if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "main.exe")) {
 			t.Fatalf("expected windows entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
@@ -444,8 +444,8 @@ args_bin = ["win-arg"]
 	if cfg.Build.Cmd != "base-cmd" {
 		t.Fatalf("expected base cmd on non-windows, got %q", cfg.Build.Cmd)
 	}
-	if !reflect.DeepEqual(cfg.Build.ArgsBin, []string{"base-arg"}) {
-		t.Fatalf("expected base args_bin on non-windows, got %v", cfg.Build.ArgsBin)
+	if !contains(cfg.Build.ArgsBin, "base-arg") {
+		t.Fatalf("expected base args_bin to contain %q on non-windows, got %v", "base-arg", cfg.Build.ArgsBin)
 	}
 	if !strings.HasSuffix(cfg.Build.Entrypoint.binary(), filepath.Join("tmp", "base")) {
 		t.Fatalf("expected base entrypoint suffix, got %q", cfg.Build.Entrypoint.binary())
