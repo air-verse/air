@@ -284,6 +284,7 @@ func defaultPathConfig() (*Config, error) {
 	}
 
 	dftCfg := defaultConfig()
+	setEntrypointFromBin(&dftCfg)
 	return &dftCfg, nil
 }
 
