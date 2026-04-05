@@ -785,5 +785,10 @@ func warnDeprecatedBin(cfg *Config) {
 	if cfg.Build.Bin == "" || len(cfg.Build.Entrypoint) > 0 {
 		return
 	}
+
+	if cfg.Build.Bin != "" && len(cfg.Build.Entrypoint) > 0 {
+		return
+	}
+
 	fmt.Fprintln(os.Stderr, "[warning] build.bin is deprecated; set build.entrypoint instead")
 }
