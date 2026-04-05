@@ -934,6 +934,17 @@ func TestWriteDefaultConfig(t *testing.T) {
 	expect := defaultConfigBase()
 	setEntrypointFromBin(&expect)
 	addPlatformOverridesForInit(&expect, runtime.GOOS)
+	if expect.Build.Windows != nil {
+		if expect.Build.Windows.PreCmd == nil {
+			expect.Build.Windows.PreCmd = []string{}
+		}
+		if expect.Build.Windows.PostCmd == nil {
+			expect.Build.Windows.PostCmd = []string{}
+		}
+		if expect.Build.Windows.ArgsBin == nil {
+			expect.Build.Windows.ArgsBin = []string{}
+		}
+	}
 
 	assert.Equal(t, expect, *actual)
 }
