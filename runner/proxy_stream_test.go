@@ -88,3 +88,44 @@ func TestBuildFailureMessage(t *testing.T) {
 	assert.Equal(t, StreamMessageBuildFailed, received.Type)
 	assert.Equal(t, msg, received.Data)
 }
+
+func TestStreamMessageAsSSE(t *testing.T) {
+	t.Parallel()
+
+	msg := StreamMessage{Type: StreamMessageReload, Data: nil}
+	assert.Equal(t, "event: reload\ndata: null\n\n", msg.AsSSE())
+}
+
+func TestStringifyMarshalError(t *testing.T) {
+	t.Parallel()
+
+	result := stringify(make(chan int))
+	assert.Contains(t, result, "Failed to marshal message")
+}
+
+func TestProxyStreamRemoveUnknownSubscriber(t *testing.T) {
+	t.Parallel()
+
+	stream := NewProxyStream()
+	_ = stream.AddSubscriber()
+	before := len(stream.subscribers)
+
+	assert.NotPanics(t, func() {
+		stream.RemoveSubscriber(999)
+	})
+	assert.Equal(t, before, len(stream.subscribers))
+}
+
+func TestProxyStreamReloadAndBuildFailedNoSubscribers(t *testing.T) {
+	t.Parallel()
+
+	stream := NewProxyStream()
+
+	assert.NotPanics(t, func() {
+		stream.Reload()
+	})
+
+	assert.NotPanics(t, func() {
+		stream.BuildFailed(BuildFailedMsg{Error: "err", Command: "go build", Output: "out"})
+	})
+}

@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -53,6 +55,115 @@ func TestExpandPathWithHomePath(t *testing.T) {
 	if result != want {
 		t.Errorf("expected '%s' but got '%s'", want, result)
 	}
+}
+
+func TestIsHiddenDirectory(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "hidden dir", path: "/tmp/.git", want: true},
+		{name: "not hidden", path: "/tmp/project", want: false},
+		{name: "parent dir", path: "..", want: false},
+		{name: "single dot", path: ".", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isHiddenDirectory(tt.path))
+		})
+	}
+}
+
+func TestCleanPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "trim space", path: "  foo/bar  ", want: "foo/bar"},
+		{name: "trim trailing slash", path: "foo/bar/", want: "foo/bar"},
+		{name: "trim both", path: "  foo/bar/ ", want: "foo/bar"},
+		{name: "empty", path: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, cleanPath(tt.path))
+		})
+	}
+}
+
+func TestIsSubPath(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	inside := filepath.Join(base, "a", "b")
+	outside := filepath.Join(filepath.Dir(base), "outside")
+
+	assert.True(t, isSubPath(base, base))
+	assert.True(t, isSubPath(base, inside))
+	assert.False(t, isSubPath(base, outside))
+	assert.False(t, isSubPath("", inside))
+	assert.False(t, isSubPath(base, ""))
+}
+
+func TestValidAndRemoveEvent(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Create}))
+	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Write}))
+	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Remove}))
+	assert.False(t, validEvent(fsnotify.Event{Op: fsnotify.Rename}))
+
+	assert.True(t, removeEvent(fsnotify.Event{Op: fsnotify.Remove}))
+	assert.False(t, removeEvent(fsnotify.Event{Op: fsnotify.Write}))
+}
+
+func TestCmdPath(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "go", cmdPath("go test ./..."))
+	assert.Equal(t, "air", cmdPath("air"))
+}
+
+func TestCopyOutput(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	copyOutput(&out, strings.NewReader("line1\nline2"))
+	assert.Equal(t, "line1\nline2\n", out.String())
+}
+
+func TestWriteBuildErrorLogAppends(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	tmpDir := "tmp"
+	logName := "build-errors.log"
+	require.NoError(t, os.MkdirAll(filepath.Join(root, tmpDir), 0o755))
+
+	e := &Engine{
+		config: &Config{
+			Root:   root,
+			TmpDir: tmpDir,
+			Build: cfgBuild{
+				Log: logName,
+			},
+		},
+	}
+
+	require.NoError(t, e.writeBuildErrorLog("first\n"))
+	require.NoError(t, e.writeBuildErrorLog("second\n"))
+
+	content, err := os.ReadFile(filepath.Join(root, tmpDir, logName))
+	require.NoError(t, err)
+	assert.Equal(t, "first\nsecond\n", string(content))
 }
 
 func TestNormalizeIncludeDirOutsideRoot(t *testing.T) {
