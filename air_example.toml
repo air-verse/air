@@ -87,6 +87,8 @@ runner = "green"
 [misc]
 # Delete tmp directory on exit
 clean_on_exit = true
+# Startup banner text. Set to "" to hide the banner.
+# startup_banner = ""
 
 [screen]
 clear_on_rebuild = true

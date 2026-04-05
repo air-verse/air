@@ -379,6 +379,115 @@ func TestDefaultConfigForOS(t *testing.T) {
 	if linuxCfg.Build.Bin != "./tmp/main" {
 		t.Fatalf("linux bin mismatch: got %q", linuxCfg.Build.Bin)
 	}
+	if linuxCfg.Misc.StartupBanner != nil {
+		t.Fatalf("startup_banner should default to nil, got %v", *linuxCfg.Misc.StartupBanner)
+	}
+}
+
+func TestWithArgsSetsStartupBanner(t *testing.T) {
+	t.Parallel()
+
+	t.Run("custom text", func(t *testing.T) {
+		cfg := defaultConfig()
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		args := ParseConfigFlag(fs)
+		value := "Watcher A"
+		info, ok := args["misc.startup_banner"]
+		if !ok {
+			t.Fatal("misc.startup_banner flag mapping missing")
+		}
+		*info.Value = value
+
+		cfg.withArgs(args)
+
+		if cfg.Misc.StartupBanner == nil {
+			t.Fatal("startup_banner should be set")
+		}
+		if got := *cfg.Misc.StartupBanner; got != value {
+			t.Fatalf("startup_banner mismatch: got %q want %q", got, value)
+		}
+	})
+
+	t.Run("empty string", func(t *testing.T) {
+		cfg := defaultConfig()
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		args := ParseConfigFlag(fs)
+		info, ok := args["misc.startup_banner"]
+		if !ok {
+			t.Fatal("misc.startup_banner flag mapping missing")
+		}
+		*info.Value = ""
+
+		cfg.withArgs(args)
+
+		if cfg.Misc.StartupBanner == nil {
+			t.Fatal("startup_banner should be set")
+		}
+		if got := *cfg.Misc.StartupBanner; got != "" {
+			t.Fatalf("startup_banner mismatch: got %q want empty", got)
+		}
+	})
+}
+
+func TestInitConfigForDisplayStartupBanner(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reads empty string from config", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cfgPath := filepath.Join(tmpDir, ".air.toml")
+		cfgContent := `
+[misc]
+startup_banner = ""
+`
+		if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+			t.Fatalf("failed to write config: %v", err)
+		}
+
+		cfg, err := InitConfigForDisplay(cfgPath, nil)
+		if err != nil {
+			t.Fatalf("InitConfigForDisplay returned error: %v", err)
+		}
+
+		if cfg.Misc.StartupBanner == nil {
+			t.Fatal("startup_banner should be set")
+		}
+		if got := *cfg.Misc.StartupBanner; got != "" {
+			t.Fatalf("startup_banner mismatch: got %q want empty", got)
+		}
+	})
+
+	t.Run("applies command arg override", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cfgPath := filepath.Join(tmpDir, ".air.toml")
+		cfgContent := `
+[misc]
+startup_banner = "FromConfig"
+`
+		if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+			t.Fatalf("failed to write config: %v", err)
+		}
+
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		args := ParseConfigFlag(fs)
+		value := "FromFlag"
+		info, ok := args["misc.startup_banner"]
+		if !ok {
+			t.Fatal("misc.startup_banner flag mapping missing")
+		}
+		*info.Value = value
+
+		cfg, err := InitConfigForDisplay(cfgPath, args)
+		if err != nil {
+			t.Fatalf("InitConfigForDisplay returned error: %v", err)
+		}
+
+		if cfg.Misc.StartupBanner == nil {
+			t.Fatal("startup_banner should be set")
+		}
+		if got := *cfg.Misc.StartupBanner; got != value {
+			t.Fatalf("startup_banner mismatch: got %q want %q", got, value)
+		}
+	})
 }
 
 func TestPlatformBuildOverridesSelection(t *testing.T) {

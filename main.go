@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"syscall"
 
 	"github.com/air-verse/air/runner"
@@ -73,14 +74,57 @@ func GetVersionInfo() versionInfo { //revive:disable:unexported-return
 	}
 }
 
-func printSplash() {
+func defaultSplashText() string {
 	versionInfo := GetVersionInfo()
-	fmt.Fprintf(os.Stderr, `
+	return fmt.Sprintf(`
   __    _   ___  
  / /\  | | | |_) 
 /_/--\ |_| |_| \_ %s, built with Go %s
 
 `, versionInfo.airVersion, versionInfo.goVersion)
+}
+
+func versionLineText() string {
+	versionInfo := GetVersionInfo()
+	return fmt.Sprintf("air %s, built with Go %s\n", versionInfo.airVersion, versionInfo.goVersion)
+}
+
+func startupBannerText(cfg *runner.Config) string {
+	if cfg == nil || cfg.Misc.StartupBanner == nil {
+		return defaultSplashText()
+	}
+	return *cfg.Misc.StartupBanner
+}
+
+func printStartupBanner(cfg *runner.Config, respectSilent bool) {
+	if cfg != nil && respectSilent && cfg.Log.Silent {
+		return
+	}
+	banner := startupBannerText(cfg)
+	if banner == "" {
+		return
+	}
+	fmt.Fprint(os.Stderr, banner)
+	if !strings.HasSuffix(banner, "\n") {
+		fmt.Fprintln(os.Stderr)
+	}
+}
+
+func printVersionOutput(cfg *runner.Config) {
+	if cfg == nil || cfg.Misc.StartupBanner == nil {
+		fmt.Fprint(os.Stderr, defaultSplashText())
+		return
+	}
+
+	banner := *cfg.Misc.StartupBanner
+	if banner != "" {
+		fmt.Fprint(os.Stderr, banner)
+		if !strings.HasSuffix(banner, "\n") {
+			fmt.Fprintln(os.Stderr)
+		}
+	}
+
+	fmt.Fprint(os.Stderr, versionLineText())
 }
 
 func main() {
@@ -94,22 +138,25 @@ func main() {
 	default:
 		log.Fatal("unsupported color mode: use always, never, auto")
 	}
+
 	if showVersion {
-		printSplash()
+		cfg, err := runner.InitConfigForDisplay(cfgPath, cmdArgs)
+		if err == nil {
+			printVersionOutput(cfg)
+			return
+		}
+		fmt.Fprint(os.Stderr, defaultSplashText())
 		return
 	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 
-	var err error
 	cfg, err := runner.InitConfig(cfgPath, cmdArgs)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
-	if !cfg.Log.Silent {
-		printSplash()
-	}
+	printStartupBanner(cfg, true)
 	if debugMode && !cfg.Log.Silent {
 		fmt.Println("[debug] mode")
 	}
