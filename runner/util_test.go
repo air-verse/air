@@ -889,7 +889,8 @@ func TestStartCmdPreservesColorOutput(t *testing.T) {
 		captureErrW.Close()
 	})
 
-	e := Engine{config: &Config{Build: cfgBuild{}}}
+	cfg := &Config{Build: cfgBuild{}}
+	e := Engine{config: cfg, logger: newLogger(cfg)}
 
 	var colorCmd string
 	if runtime.GOOS == "windows" {
