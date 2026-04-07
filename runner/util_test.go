@@ -865,6 +865,28 @@ func Test_killCmd_SendInterrupt_SlowGracefulExit(t *testing.T) {
 		elapsed, 1.0-elapsed.Seconds())
 }
 
+// Regression test for https://github.com/air-verse/air/issues/894
+// Child process must inherit stdout/stderr for TTY detection (isatty).
+func TestStartCmdInheritsStdoutStderr(t *testing.T) {
+	t.Parallel()
+	chdir(t, "_testdata")
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{},
+		},
+	}
+
+	cmd, _, _, err := e.startCmd("echo ok")
+	require.NoError(t, err)
+	_ = cmd.Wait()
+
+	assert.Equal(t, os.Stdout, cmd.Stdout,
+		"child process Stdout should be os.Stdout to preserve TTY detection")
+	assert.Equal(t, os.Stderr, cmd.Stderr,
+		"child process Stderr should be os.Stderr to preserve TTY detection")
+}
+
 func TestIsDangerousRoot(t *testing.T) {
 	t.Parallel()
 
