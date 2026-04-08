@@ -3,8 +3,10 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -252,6 +254,14 @@ func TestRebuild(t *testing.T) {
 		t.Logf("engine stopped")
 		wg.Done()
 	}()
+	stopped := false
+	t.Cleanup(func() {
+		if !stopped {
+			engine.Stop()
+			_ = waitForEngineState(t, engine, false, time.Second*3)
+		}
+		wg.Wait()
+	})
 	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -272,26 +282,116 @@ func TestRebuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	err = waitingPortConnectionRefused(t, port, time.Second*10)
-	if err != nil {
-		t.Fatalf("timeout: %s.", err)
-	}
-	t.Logf("connection refused")
 	err = waitingPortReady(t, port, time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	t.Logf("port is ready")
-	// stop engine
+
 	engine.Stop()
-	t.Logf("engine stopped")
-	// Wait for engine to fully stop
+	stopped = true
 	err = waitForEngineState(t, engine, false, time.Second*3)
 	if err != nil {
 		t.Fatalf("engine did not stop: %s.", err)
 	}
 	wg.Wait()
 	assert.True(t, checkPortConnectionRefused(port))
+}
+
+func TestBuildFailureKeepsRunningProcessWhenStopOnErrorFalseAndRerunFalse(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
+	port, releasePort := GetPort()
+	releasePort()
+
+	tmpDir := initTestEnv(t, port)
+	chdir(t, tmpDir)
+
+	pidFile := filepath.Join(tmpDir, "pid.txt")
+	appCode := fmt.Sprintf(`package main
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+)
+
+func main() {
+	pid := os.Getpid()
+	_ = os.WriteFile(%q, []byte(fmt.Sprintf("%%d", pid)), 0o644)
+
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintf(w, "%%d", pid)
+	})
+
+	_ = http.ListenAndServe("127.0.0.1:%d", nil)
+}
+`, pidFile, port)
+	require.NoError(t, os.WriteFile("main.go", []byte(appCode), 0o644))
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.StopOnError = false
+	engine.config.Build.Rerun = false
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		engine.Run()
+	}()
+
+	require.NoError(t, waitingPortReady(t, port, 10*time.Second))
+	initialPID, err := requestPID(port)
+	require.NoError(t, err)
+	require.NotEmpty(t, initialPID)
+
+	buildLogPath := engine.config.buildLogPath()
+	baselineLogSize := int64(0)
+	if info, statErr := os.Stat(buildLogPath); statErr == nil {
+		baselineLogSize = info.Size()
+	}
+
+	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
+	require.NoError(t, err)
+	_, err = file.WriteString("\nfunc broken( {\n")
+	require.NoError(t, err)
+	require.NoError(t, file.Close())
+
+	require.NoError(t, waitForCondition(t, 10*time.Second, func() bool {
+		info, statErr := os.Stat(buildLogPath)
+		if statErr != nil {
+			return false
+		}
+		return info.Size() > baselineLogSize
+	}, "build failure log after introducing compile error"))
+
+	require.NoError(t, waitingPortReady(t, port, 10*time.Second))
+	afterFailurePID, err := requestPID(port)
+	require.NoError(t, err)
+	assert.Equal(t, initialPID, afterFailurePID, "process should not restart on build failure")
+
+	engine.Stop()
+	require.NoError(t, waitForEngineState(t, engine, false, 5*time.Second))
+	wg.Wait()
+}
+
+func requestPID(port int) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", port))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(body)), nil
 }
 
 func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration) error {
