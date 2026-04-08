@@ -3,6 +3,7 @@ package runner
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -863,6 +864,54 @@ func Test_killCmd_SendInterrupt_SlowGracefulExit(t *testing.T) {
 
 	t.Logf("✅ PASS: Process exited gracefully in %v after cleanup (kill_delay was 1s, saved ~%.1fs)",
 		elapsed, 1.0-elapsed.Seconds())
+}
+
+// Regression test for https://github.com/air-verse/air/issues/894
+// Child process must inherit stdout/stderr so ANSI color codes pass through
+// and TTY detection (isatty) works correctly.
+func TestStartCmdPreservesColorOutput(t *testing.T) {
+	chdir(t, "_testdata")
+
+	origStdout := os.Stdout
+	origStderr := os.Stderr
+	captureOutR, captureOutW, err := os.Pipe()
+	require.NoError(t, err)
+	captureErrR, captureErrW, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdout = captureOutW
+	os.Stderr = captureErrW
+	t.Cleanup(func() {
+		os.Stdout = origStdout
+		os.Stderr = origStderr
+		captureOutR.Close()
+		captureOutW.Close()
+		captureErrR.Close()
+		captureErrW.Close()
+	})
+
+	cfg := &Config{Build: cfgBuild{}}
+	e := Engine{config: cfg, logger: newLogger(cfg)}
+
+	var colorCmd string
+	if runtime.GOOS == "windows" {
+		colorCmd = `$e=[char]0x1b; [Console]::Out.Write("${e}[31mhello${e}[0m"); [Console]::Error.Write("${e}[32mworld${e}[0m")`
+	} else {
+		colorCmd = `printf '\033[31mhello\033[0m'; printf '\033[32mworld\033[0m' >&2`
+	}
+
+	cmd, _, _, err := e.startCmd(colorCmd)
+	require.NoError(t, err)
+	_ = cmd.Wait()
+
+	captureOutW.Close()
+	captureErrW.Close()
+	stdoutData, _ := io.ReadAll(captureOutR)
+	stderrData, _ := io.ReadAll(captureErrR)
+
+	assert.Contains(t, string(stdoutData), "\033[31m",
+		"child process stdout should preserve ANSI escape codes for color output")
+	assert.Contains(t, string(stderrData), "\033[32m",
+		"child process stderr should preserve ANSI escape codes for color output")
 }
 
 func TestIsDangerousRoot(t *testing.T) {
