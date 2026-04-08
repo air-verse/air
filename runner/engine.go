@@ -427,9 +427,6 @@ func (e *Engine) start() {
 			// No build is currently running
 		}
 
-		// if current app is running, stop it
-		e.stopBin()
-
 		go e.buildRun()
 	}
 }
@@ -533,6 +530,7 @@ func (e *Engine) buildRun() {
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
+			e.stopBin()
 			// It only makes sense to run it if we stop on error. Otherwise when
 			// running the binary again the error modal will be overwritten by
 			// the reload.
@@ -543,8 +541,8 @@ func (e *Engine) buildRun() {
 					Output:  output,
 				})
 			}
-			return
 		}
+		return
 	}
 
 	// Check again before running the binary
@@ -556,6 +554,8 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
+
+	e.stopBin()
 
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
