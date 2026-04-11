@@ -591,6 +591,19 @@ func (e *Engine) runCommand(command string) error {
 	return cmd.Wait()
 }
 
+func (e *Engine) runCommandWithoutLog(command string) error {
+	cmd, _, _, err := e.startCmd(command)
+	if err != nil {
+		return err
+	}
+	// wait for command to finish
+	err = cmd.Wait()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (e *Engine) runCommandCopyOutput(command string) (string, error) {
 	// both stdout and stderr are piped to the same buffer, so ignore the second
 	// one
@@ -627,9 +640,16 @@ func (e *Engine) building() (string, error) {
 func (e *Engine) runPreCmd() error {
 	for _, command := range e.config.Build.PreCmd {
 		e.runnerLog("> %s", command)
-		err := e.runCommand(command)
-		if err != nil {
-			return err
+		if e.config.Log.PreCmdSilent {
+			err := e.runCommandWithoutLog(command)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := e.runCommand(command)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -639,9 +659,16 @@ func (e *Engine) runPreCmd() error {
 func (e *Engine) runPostCmd() error {
 	for _, command := range e.config.Build.PostCmd {
 		e.runnerLog("> %s", command)
-		err := e.runCommand(command)
-		if err != nil {
-			return err
+		if e.config.Log.PostCmdSilent {
+			err := e.runCommandWithoutLog(command)
+			if err != nil {
+				return err
+			}
+		} else {
+			err := e.runCommand(command)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
