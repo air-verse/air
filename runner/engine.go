@@ -427,9 +427,6 @@ func (e *Engine) start() {
 			// No build is currently running
 		}
 
-		// if current app is running, stop it
-		e.stopBin()
-
 		go e.buildRun()
 	}
 }
@@ -526,6 +523,7 @@ func (e *Engine) buildRun() {
 	if err = e.runPreCmd(); err != nil {
 		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
 		if e.config.Build.StopOnError {
+			e.stopBin()
 			return
 		}
 	}
@@ -536,6 +534,7 @@ func (e *Engine) buildRun() {
 			// It only makes sense to run it if we stop on error. Otherwise when
 			// running the binary again the error modal will be overwritten by
 			// the reload.
+			e.stopBin()
 			if e.config.Proxy.Enabled {
 				e.proxy.BuildFailed(BuildFailedMsg{
 					Error:   err.Error(),
@@ -556,6 +555,8 @@ func (e *Engine) buildRun() {
 		return
 	default:
 	}
+
+	e.stopBin()
 
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
@@ -746,7 +747,6 @@ func (e *Engine) runBin() error {
 					e.proxy.Reload()
 				}
 
-				e.stopBin()
 				e.withLock(func() {
 					e.binStopCh = killFunc(cmd, stdout, stderr, killCh, processExit)
 				})
