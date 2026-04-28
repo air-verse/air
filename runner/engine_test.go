@@ -216,6 +216,116 @@ func TestRunBin(t *testing.T) {
 	}
 }
 
+func TestRunBinDoesNotStopExistingBin(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX sleep command")
+	}
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Entrypoint = entrypoint{}
+	engine.config.Build.Bin = "sleep 1"
+
+	oldStopped := make(chan struct{})
+	shutdown := make(chan chan int)
+	engine.binStopCh = shutdown
+	go func() {
+		closer, ok := <-shutdown
+		if !ok {
+			return
+		}
+		close(closer)
+		close(oldStopped)
+	}()
+
+	err = engine.runBin()
+	require.NoError(t, err)
+	defer func() {
+		engine.stopBin()
+		close(shutdown)
+	}()
+
+	select {
+	case <-oldStopped:
+		t.Fatal("runBin should not stop the previous binary; buildRun stops it after a successful build")
+	default:
+	}
+
+	err = waitForCondition(t, time.Second, func() bool {
+		stillOld := false
+		engine.withLock(func() {
+			stillOld = engine.binStopCh == shutdown
+		})
+		return !stillOld
+	}, "runBin to register the new binary stop channel")
+	require.NoError(t, err)
+
+	select {
+	case <-oldStopped:
+		t.Fatal("runBin should not stop the previous binary; buildRun stops it after a successful build")
+	default:
+	}
+}
+
+func TestBuildRunStopsExistingBinAfterSuccessfulBuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell commands")
+	}
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "true"
+	engine.config.Build.Entrypoint = entrypoint{}
+	engine.config.Build.Bin = "sleep 1"
+
+	stopped := make(chan struct{})
+	shutdown := make(chan chan int)
+	engine.binStopCh = shutdown
+	go func() {
+		closer := <-shutdown
+		close(closer)
+		close(stopped)
+	}()
+	defer engine.stopBin()
+
+	engine.buildRun()
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("expected successful build to stop the existing binary before running the new one")
+	}
+}
+
+func TestBuildRunStopsExistingBinWhenBuildFailsWithStopOnError(t *testing.T) {
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "exit 1"
+	engine.config.Build.StopOnError = true
+
+	stopped := make(chan struct{})
+	shutdown := make(chan chan int, 1)
+	engine.binStopCh = shutdown
+	go func() {
+		closer := <-shutdown
+		close(closer)
+		close(stopped)
+	}()
+
+	engine.buildRun()
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("expected failed build with stop_on_error to stop the existing binary")
+	}
+}
+
 func GetPort() (int, func()) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	port := l.Addr().(*net.TCPAddr).Port
