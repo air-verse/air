@@ -3,8 +3,10 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -328,10 +330,10 @@ func TestBuildRunStopsExistingBinWhenBuildFailsWithStopOnError(t *testing.T) {
 
 func GetPort() (int, func()) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
-	port := l.Addr().(*net.TCPAddr).Port
 	if err != nil {
 		panic(err)
 	}
+	port := l.Addr().(*net.TCPAddr).Port
 	return port, func() {
 		_ = l.Close()
 	}
@@ -352,6 +354,7 @@ func TestRebuild(t *testing.T) {
 	chdir(t, tmpDir)
 	engine, err := NewEngine("", nil, true)
 	engine.config.Build.ExcludeUnchanged = true
+	engine.config.Build.PreCmd = []string{"sleep 1"}
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -372,22 +375,22 @@ func TestRebuild(t *testing.T) {
 
 	t.Logf("start change main.go")
 	// change file of main.go
-	// just append a new empty line to main.go
-	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
+	err = writeGoCode(tmpDir, port, `http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("rebuilt"))
+	})`)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	defer file.Close()
-	_, err = file.WriteString("\n")
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if !checkPortHaveBeenUsed(port) {
+			t.Fatal("previous binary should keep serving while rebuild is in progress")
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	err = waitingPortConnectionRefused(t, port, time.Second*10)
-	if err != nil {
-		t.Fatalf("timeout: %s.", err)
-	}
-	t.Logf("connection refused")
-	err = waitingPortReady(t, port, time.Second*10)
+
+	err = waitingHTTPBody(t, port, "rebuilt", time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -402,6 +405,32 @@ func TestRebuild(t *testing.T) {
 	}
 	wg.Wait()
 	assert.True(t, checkPortConnectionRefused(port))
+}
+
+func waitingHTTPBody(t *testing.T, port int, want string, timeout time.Duration) error {
+	t.Helper()
+	t.Logf("waiting port %d HTTP body %q", port, want)
+
+	client := http.Client{Timeout: 200 * time.Millisecond}
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/", port))
+		if err == nil {
+			body, readErr := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if readErr == nil && string(body) == want {
+				return nil
+			}
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d HTTP body %q", port, want)
+		}
+		<-ticker.C
+	}
 }
 
 func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration) error {
@@ -887,8 +916,7 @@ go 1.17
 	return nil
 }
 
-// generateGoCode generates golang code to tempdir
-func generateGoCode(dir string, port int) error {
+func writeGoCode(dir string, port int, setup string) error {
 	code := fmt.Sprintf(`package main
 
 import (
@@ -897,9 +925,10 @@ import (
 )
 
 func main() {
+	%s
 	log.Fatal(http.ListenAndServe("127.0.0.1:%v", nil))
 }
-`, port)
+`, setup, port)
 	file, err := os.Create(dir + "/main.go")
 	if err != nil {
 		return err
@@ -912,13 +941,21 @@ func main() {
 	if err := file.Close(); err != nil {
 		return err
 	}
+	return nil
+}
+
+// generateGoCode generates golang code to tempdir
+func generateGoCode(dir string, port int) error {
+	if err := writeGoCode(dir, port, ""); err != nil {
+		return err
+	}
 
 	// generate go mod file
 	mod := `module air.sample.com
 
 go 1.17
 `
-	file, err = os.Create(dir + "/go.mod")
+	file, err := os.Create(dir + "/go.mod")
 	if err != nil {
 		return err
 	}
