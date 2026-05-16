@@ -154,7 +154,11 @@ AIR_PORT=8080 air -c "config.toml"
 
 ## 使用方式
 
-為了減少輸入，你可以將 `alias air='~/.air'` 加到你的 `.bashrc` 或者 `.zshrc`。
+如果你使用 `go install` 安裝 Air，請確認你的 Go bin 目錄已加入 `PATH`：
+
+```shell
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
 
 首先，進入你的專案目錄
 
