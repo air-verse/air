@@ -164,7 +164,11 @@ this will replace `$PWD` with the current directory, `$AIR_PORT` is the port whe
 
 ## Usage
 
-For less typing, you could add `alias air='~/.air'` to your `.bashrc` or `.zshrc`.
+If you installed Air with `go install`, make sure your Go bin directory is in your `PATH`:
+
+```shell
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
 
 First enter into your project
 
