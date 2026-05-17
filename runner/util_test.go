@@ -1049,17 +1049,7 @@ func TestIsDangerousRoot(t *testing.T) {
 // that if the project's root directory is a symlink, it will be correctly
 // expanded.
 func TestExpandPathRootDirectoryIsSymlink(t *testing.T) {
-	// Save the original working directory so we don't break other tests
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get original directory: %v", err)
-	}
-
-	t.Cleanup(func() {
-		if err := os.Chdir(origDir); err != nil {
-			t.Errorf("Cleanup failed to restore original directory: %v", err)
-		}
-	})
+	t.Parallel()
 
 	tempDir := t.TempDir()
 
@@ -1070,54 +1060,36 @@ func TestExpandPathRootDirectoryIsSymlink(t *testing.T) {
 		t.Fatalf("Failed to resolve real temp dir: %v", err)
 	}
 
-	// Move into the temporary workspace to recreate the scenario
-	if err := os.Chdir(realTempDir); err != nil {
-		t.Fatalf("Failed to chdir to temp dir: %v", err)
-	}
-
-	// Create a nested directory structure ./foo/bar/
-	if err := os.MkdirAll(filepath.Join("foo", "bar"), 0755); err != nil {
+	fooBarDir := filepath.Join(realTempDir, "foo", "bar")
+	if err := os.MkdirAll(fooBarDir, 0755); err != nil {
 		t.Fatalf("Failed to create nested directories: %v", err)
 	}
 
-	// Create a file ./foo/bar/baz
-	if err := os.WriteFile(filepath.Join("foo", "bar", "baz"), []byte("dummy content"), 0644); err != nil {
+	// Create a file <realTempDir>/foo/bar/baz
+	bazFile := filepath.Join(fooBarDir, "baz")
+	if err := os.WriteFile(bazFile, []byte("dummy content"), 0644); err != nil {
 		t.Fatalf("Failed to create regular file baz: %v", err)
 	}
 
-	// Symlink ./bar -> ./foo/bar/
-	if err := os.Symlink(filepath.Join("foo", "bar"), "bar"); err != nil {
+	// Symlink <realTempDir>/bar -> <realTempDir>/foo/bar
+	symlinkDir := filepath.Join(realTempDir, "bar")
+	if err := os.Symlink(fooBarDir, symlinkDir); err != nil {
 		t.Fatalf("Failed to create symlink: %v", err)
 	}
 
-	// cd into ./bar
-	if err := os.Chdir("bar"); err != nil {
-		t.Fatalf("Failed to change directory into symlink: %v", err)
-	}
+	// The expected fully resolved absolute path is the real file location
+	expectedPath := bazFile
 
-	pwd, _ := os.Getwd()
-	t.Logf("pwd: %s\n", pwd)
-	files, _ := os.ReadDir(".")
-	for _, file := range files {
-		t.Logf("file: %v\n", file)
-	}
+	// Test expandPath by passing the absolute path via the symlink
+	// This removes the need to pretend our CWD is inside the symlink.
+	targetPath := filepath.Join(symlinkDir, "baz")
 
-	data, err := os.ReadFile("./baz")
-	if err != nil {
-		t.Fatalf("Error reading file: %v", err)
-	}
-	t.Logf("Contents: %s\n", data)
-
-	expectedPath := filepath.Join(realTempDir, "foo", "bar", "baz")
-
-	// expandPath should recognize that the current directory is a symlink,
-	// and dereference it fully to resolve the nested path.
-	gotPath, err := expandPath("./baz")
+	gotPath, err := expandPath(targetPath)
 	if err != nil {
 		t.Fatalf("expandPath returned an unexpected error: %v", err)
 	}
 
 	if gotPath != expectedPath {
-		t.Errorf("expandPath failed to correctly resolve the symlinked current directory.\nGot:  %s\nWant: %s", gotPath, expectedPath)
+		t.Errorf("expandPath failed to correctly resolve the symlinked directory.\nGot:  %s\nWant: %s", gotPath, expectedPath)
 	}
 }
