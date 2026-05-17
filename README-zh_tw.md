@@ -91,6 +91,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 mise use -g air
 ```
 
+### 透過 [Scoop](https://scoop.sh)
+
+```shell
+scoop install air
+```
+
 ### 透過 `go install`
 
 使用 go 1.25 或更高版本:
