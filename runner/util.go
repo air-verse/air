@@ -276,20 +276,17 @@ func expandPath(path string) (string, error) {
 
 	expanded, err := filepath.Abs(expanded)
 	if err != nil {
-		return "", fmt.Errorf("Error getting absolute path to %v: %v", expanded, err)
+		return "", fmt.Errorf("error getting absolute path to %v: %w", expanded, err)
 	}
 
 	// filepath.EvalSymlinks only works on real files
 	dereferenced, err := filepath.EvalSymlinks(expanded)
-	if err != nil {
-		// The error is something more serious than the path not existing, fail.
-		if !errors.Is(err, fs.ErrNotExist) {
-			return "", fmt.Errorf("Unexpected error while dereferencing %v: %v", expanded, err)
-		}
-	} else {
-		// The error is simply that the path is not a real file.
-		// Continue without dereferencing.
-		expanded = dereferenced
+	if err == nil {
+		return dereferenced, nil
+	}
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("unexpected error while dereferencing %v: %w", expanded, err)
 	}
 
 	return expanded, nil
