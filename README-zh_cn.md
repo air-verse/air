@@ -91,6 +91,12 @@ curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
 mise use -g air
 ```
 
+### 使用 [Scoop](https://scoop.sh)
+
+```shell
+scoop install air
+```
+
 ### Docker/Podman
 
 请拉取这个 Docker 镜像 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).

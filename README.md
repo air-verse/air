@@ -102,6 +102,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 brew install go-air
 ```
 
+### Via [Scoop](https://scoop.sh)
+
+```shell
+scoop install air
+```
+
 ### Using software package manager [mise](https://github.com/jdx/mise)
 
 ```shell
