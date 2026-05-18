@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -258,23 +259,37 @@ func copyOutput(dst io.Writer, src io.Reader) {
 	}
 }
 
+// Expands a path, resolving any tilde prefixes, dereferencing symbolic links,
+// and converting relative paths to absolute. The result will always be an
+// absolute path.
+// For paths that do not exist on the filesystem, the dereferencing step will
+// be skipped.
+// An error will be thrown if dereferencing fails due to something other than
+// the path not existing on the filesystem.
 func expandPath(path string) (string, error) {
+	expanded := path
+
 	if strings.HasPrefix(path, "~/") {
 		home := os.Getenv("HOME")
-		return home + path[1:], nil
+		expanded = filepath.Join(home, path[1:])
 	}
-	var err error
-	wd, err := os.Getwd()
+
+	expanded, err := filepath.Abs(expanded)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error getting absolute path to %v: %w", expanded, err)
 	}
-	if path == "." {
-		return wd, nil
+
+	// filepath.EvalSymlinks only works on real files
+	dereferenced, err := filepath.EvalSymlinks(expanded)
+	if err == nil {
+		return dereferenced, nil
 	}
-	if strings.HasPrefix(path, "./") {
-		return wd + path[1:], nil
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("unexpected error while dereferencing %v: %w", expanded, err)
 	}
-	return path, nil
+
+	return expanded, nil
 }
 
 func isDir(path string) bool {
