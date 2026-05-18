@@ -105,6 +105,12 @@ curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
 mise use -g air
 ```
 
+### [Scoop](https://scoop.sh) を使う場合
+
+```shell
+scoop install air
+```
+
 ### Docker/Podman
 
 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air) という Docker イメージをプルしてください。

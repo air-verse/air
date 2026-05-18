@@ -40,6 +40,29 @@ func TestIsDirFileNot(t *testing.T) {
 	}
 }
 
+func TestExpandPathWithRelPath(t *testing.T) {
+	tmp := filepath.Join("_testdata", "tmp")
+	_, err := os.Create(tmp)
+	defer os.Remove(tmp)
+	if err != nil {
+		t.Fatalf("Error creating temp directory for testing: %v", err)
+	}
+
+	expandedPath, _ := expandPath("_testdata/tmp")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Error getting cwd: %v", err)
+	}
+	expected := filepath.Join(wd, tmp)
+	// expandPath resolves symlinks, so resolve expected too
+	if resolved, err := filepath.EvalSymlinks(expected); err == nil {
+		expected = resolved
+	}
+	if expandedPath != expected {
+		t.Errorf("expected %s got %s", expected, expandedPath)
+	}
+}
+
 func TestExpandPathWithDot(t *testing.T) {
 	path, _ := expandPath(".")
 	wd, _ := os.Getwd()
@@ -49,12 +72,38 @@ func TestExpandPathWithDot(t *testing.T) {
 }
 
 func TestExpandPathWithHomePath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("HOME-based tilde expansion is not reliable on Windows")
+	}
 	path := "~/.conf"
-	result, _ := expandPath(path)
+	result, err := expandPath(path)
+	if err != nil {
+		t.Errorf("expandPath returned an error: %v", err)
+	}
 	home := os.Getenv("HOME")
-	want := home + path[1:]
+	want := filepath.Join(home, path[1:])
 	if result != want {
 		t.Errorf("expected '%s' but got '%s'", want, result)
+	}
+}
+
+func TestExpandPathSymlinkError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ENOTDIR behavior differs on Windows")
+	}
+	// Create a regular file, then try to expand a path *inside* it.
+	// filepath.EvalSymlinks will return ENOTDIR (not ErrNotExist), triggering
+	// the "unexpected error" branch in expandPath.
+	f, err := os.CreateTemp("", "expandpath-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	f.Close()
+	defer os.Remove(f.Name())
+
+	_, err = expandPath(filepath.Join(f.Name(), "subpath"))
+	if err == nil {
+		t.Fatal("expected an error but got nil")
 	}
 }
 
@@ -1019,5 +1068,54 @@ func TestIsDangerousRoot(t *testing.T) {
 				assert.Equal(t, tt.description, desc, "description mismatch for path %s", tt.path)
 			}
 		})
+	}
+}
+
+// Regression test for https://github.com/air-verse/air/issues/531. Makes sure
+// that if the project's root directory is a symlink, it will be correctly
+// expanded.
+func TestExpandPathRootDirectoryIsSymlink(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+
+	// Temp directories on some OSs (like macOS) are themselves symlinks.
+	// We need the fully resolved base directory to correctly construct our expected path.
+	realTempDir, err := filepath.EvalSymlinks(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to resolve real temp dir: %v", err)
+	}
+
+	fooBarDir := filepath.Join(realTempDir, "foo", "bar")
+	if err := os.MkdirAll(fooBarDir, 0755); err != nil {
+		t.Fatalf("Failed to create nested directories: %v", err)
+	}
+
+	// Create a file <realTempDir>/foo/bar/baz
+	bazFile := filepath.Join(fooBarDir, "baz")
+	if err := os.WriteFile(bazFile, []byte("dummy content"), 0644); err != nil {
+		t.Fatalf("Failed to create regular file baz: %v", err)
+	}
+
+	// Symlink <realTempDir>/bar -> <realTempDir>/foo/bar
+	symlinkDir := filepath.Join(realTempDir, "bar")
+	if err := os.Symlink(fooBarDir, symlinkDir); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
+	// The expected fully resolved absolute path is the real file location
+	expectedPath := bazFile
+
+	// Test expandPath by passing the absolute path via the symlink
+	// This removes the need to pretend our CWD is inside the symlink.
+	targetPath := filepath.Join(symlinkDir, "baz")
+
+	gotPath, err := expandPath(targetPath)
+	if err != nil {
+		t.Fatalf("expandPath returned an unexpected error: %v", err)
+	}
+
+	if gotPath != expectedPath {
+		t.Errorf("expandPath failed to correctly resolve the symlinked directory.\nGot:  %s\nWant: %s", gotPath, expectedPath)
 	}
 }

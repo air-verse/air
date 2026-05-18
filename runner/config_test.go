@@ -172,6 +172,10 @@ func TestEntrypointResolvesAbsolutePath(t *testing.T) {
 	}
 
 	want := filepath.Join(rootWithSpace, "tmp", "main")
+	// expandPath resolves symlinks; t.TempDir() may return a symlinked path on some OSs
+	if resolved, err := filepath.EvalSymlinks(filepath.Dir(want)); err == nil {
+		want = filepath.Join(resolved, filepath.Base(want))
+	}
 	if got := cfg.Build.Entrypoint.binary(); got != want {
 		t.Fatalf("entrypoint is %s, but want %s", got, want)
 	}
@@ -231,6 +235,10 @@ func TestEntrypointPreservesArgs(t *testing.T) {
 	}
 
 	wantBin := filepath.Join(root, "tmp", "main")
+	// expandPath resolves symlinks; t.TempDir() may return a symlinked path on some OSs
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		wantBin = filepath.Join(resolved, "tmp", "main")
+	}
 	if cfg.Build.Entrypoint.binary() != wantBin {
 		t.Fatalf("entrypoint binary is %s, want %s", cfg.Build.Entrypoint.binary(), wantBin)
 	}
@@ -535,9 +543,7 @@ func TestBuildOverridesFromDiff(t *testing.T) {
 	got := buildOverridesFromDiff(base, target)
 	if got == nil {
 		t.Fatal("expected non-nil override for changed configs")
-		return
-	}
-	if !reflect.DeepEqual(got.PreCmd, target.PreCmd) {
+	} else if !reflect.DeepEqual(got.PreCmd, target.PreCmd) {
 		t.Fatalf("pre_cmd mismatch: got %v want %v", got.PreCmd, target.PreCmd)
 	}
 	if got.Cmd != target.Cmd {
