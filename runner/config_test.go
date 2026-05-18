@@ -535,6 +535,7 @@ func TestBuildOverridesFromDiff(t *testing.T) {
 	got := buildOverridesFromDiff(base, target)
 	if got == nil {
 		t.Fatal("expected non-nil override for changed configs")
+		return
 	}
 	if !reflect.DeepEqual(got.PreCmd, target.PreCmd) {
 		t.Fatalf("pre_cmd mismatch: got %v want %v", got.PreCmd, target.PreCmd)
