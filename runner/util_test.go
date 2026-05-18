@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -42,7 +41,7 @@ func TestIsDirFileNot(t *testing.T) {
 }
 
 func TestExpandPathWithRelPath(t *testing.T) {
-	tmp := path.Join("_testdata", "tmp")
+	tmp := filepath.Join("_testdata", "tmp")
 	_, err := os.Create(tmp)
 	defer os.Remove(tmp)
 	if err != nil {
@@ -54,7 +53,11 @@ func TestExpandPathWithRelPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error getting cwd: %v", err)
 	}
-	expected := path.Join(wd, tmp)
+	expected := filepath.Join(wd, tmp)
+	// expandPath resolves symlinks, so resolve expected too
+	if resolved, err := filepath.EvalSymlinks(expected); err == nil {
+		expected = resolved
+	}
 	if expandedPath != expected {
 		t.Errorf("expected %s got %s", expected, expandedPath)
 	}
@@ -69,15 +72,38 @@ func TestExpandPathWithDot(t *testing.T) {
 }
 
 func TestExpandPathWithHomePath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("HOME-based tilde expansion is not reliable on Windows")
+	}
 	path := "~/.conf"
 	result, err := expandPath(path)
 	if err != nil {
 		t.Errorf("expandPath returned an error: %v", err)
 	}
 	home := os.Getenv("HOME")
-	want := home + path[1:]
+	want := filepath.Join(home, path[1:])
 	if result != want {
 		t.Errorf("expected '%s' but got '%s'", want, result)
+	}
+}
+
+func TestExpandPathSymlinkError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ENOTDIR behavior differs on Windows")
+	}
+	// Create a regular file, then try to expand a path *inside* it.
+	// filepath.EvalSymlinks will return ENOTDIR (not ErrNotExist), triggering
+	// the "unexpected error" branch in expandPath.
+	f, err := os.CreateTemp("", "expandpath-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	f.Close()
+	defer os.Remove(f.Name())
+
+	_, err = expandPath(filepath.Join(f.Name(), "subpath"))
+	if err == nil {
+		t.Fatal("expected an error but got nil")
 	}
 }
 
