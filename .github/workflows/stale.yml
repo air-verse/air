@@ -18,3 +18,4 @@ jobs:
           stale-pr-message: "This PR is stale because it has had no activity for 180 days..."
           days-before-stale: 180
           days-before-close: 5
+          operations-per-run: 100
