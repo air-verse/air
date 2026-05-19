@@ -148,6 +148,16 @@ Guidelines for contributors and AI coding agents working in this repository.
 
 - Follow the README "Release" section for tagging; CI performs builds.
 
+## Review guidelines
+
+- Review all code changes in this pull request against the style guide. Also check for possible bugs. Diffs are important, but read the full file for proper context. Make it clear that all suggestions are optional and the final decision belongs to the human reviewer.
+
+- Only report real style guide violations. Do not complain about `else` statements when early returns are already used correctly. However, you may point out excessive nesting.
+
+- Use simple and concise English. Keep sentences short and easy to understand.
+
+- Only create comments for actual issues. If the code follows the guidelines and no issues are found, comment only: `lgtm`
+
 ---
 
 Questions or uncertain scope? Open an issue or ask for clarification before implementing.
