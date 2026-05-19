@@ -136,7 +136,7 @@ func main() {
 	case "auto", "":
 		// do nothing
 	default:
-		log.Fatal("unsupported color mode: use always, never, auto")
+		log.Fatalf("unsupported color mode: %s. Expected always, auto, or never", colorMode)
 	}
 
 	if showVersion {
