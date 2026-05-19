@@ -627,13 +627,6 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	}
 
 	c.Build.ExcludeDir = ed
-	if len(c.Build.FullBin) > 0 {
-		c.Build.Bin = c.Build.FullBin
-		return err
-	}
-	// Fix windows CMD processor
-	// CMD will not recognize relative path like ./tmp/server
-	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	// Set colorful output, see https://github.com/fatih/color#disableenable-color
 	switch c.Color.Mode {
@@ -646,6 +639,14 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	default:
 		return fmt.Errorf("unsupported value for color mode: %s. Expected always, auto, or never", c.Color.Mode)
 	}
+
+	if len(c.Build.FullBin) > 0 {
+		c.Build.Bin = c.Build.FullBin
+		return err
+	}
+	// Fix windows CMD processor
+	// CMD will not recognize relative path like ./tmp/server
+	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	return err
 }
