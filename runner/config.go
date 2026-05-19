@@ -637,7 +637,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 	case "auto", "":
 		break
 	default:
-		return fmt.Errorf("unsupported value for color mode: %s. Expected always, auto, or never", c.Color.Mode)
+		return fmt.Errorf("unsupported color mode: %s. Expected always, auto, or never", c.Color.Mode)
 	}
 
 	if len(c.Build.FullBin) > 0 {
