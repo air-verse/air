@@ -169,10 +169,14 @@ func TestValidAndRemoveEvent(t *testing.T) {
 	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Create}))
 	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Write}))
 	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Remove}))
-	assert.False(t, validEvent(fsnotify.Event{Op: fsnotify.Rename}))
+	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Rename}))
 
 	assert.True(t, removeEvent(fsnotify.Event{Op: fsnotify.Remove}))
 	assert.False(t, removeEvent(fsnotify.Event{Op: fsnotify.Write}))
+
+	assert.True(t, renameOrRemoveEvent(fsnotify.Event{Op: fsnotify.Remove}))
+	assert.True(t, renameOrRemoveEvent(fsnotify.Event{Op: fsnotify.Rename}))
+	assert.False(t, renameOrRemoveEvent(fsnotify.Event{Op: fsnotify.Write}))
 }
 
 func TestCmdPath(t *testing.T) {

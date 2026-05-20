@@ -320,6 +320,14 @@ func (e *Engine) watchPath(path string) error {
 				if !e.isIncludeExt(ev.Name) && !e.checkIncludeFile(ev.Name) {
 					break
 				}
+				// Rewatch the file if the editor is using atomic saving.
+				if renameOrRemoveEvent(ev) {
+					if e.checkIncludeFile(ev.Name) {
+						if err := e.watcher.Add(ev.Name); err != nil {
+							e.watcherLog("error rewatching file: %v", err)
+						}
+					}
+				}
 				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
 				e.eventCh <- ev.Name
 			case err := <-e.watcher.Errors():
