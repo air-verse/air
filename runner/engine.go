@@ -13,30 +13,47 @@ import (
 	"time"
 
 	"github.com/gohugoio/hugo/watcher/filenotify"
+	"github.com/joho/godotenv"
 )
 
 // Engine ...
 type Engine struct {
-	config    *Config
+	config *Config
+
+	exiter    exiter
+	proxy     *Proxy
 	logger    *logger
 	watcher   filenotify.FileWatcher
 	debugMode bool
 	runArgs   []string
-	running   bool
+	running   atomic.Bool
 
-	eventCh        chan string
-	watcherStopCh  chan bool
-	buildRunCh     chan bool
-	buildRunStopCh chan bool
-	binStopCh      chan bool
-	exitCh         chan bool
+	eventCh       chan string
+	watcherStopCh chan bool
+	// buildRunCh serves dual purpose:
+	// 1. As a semaphore ensuring only one build runs at a time (buffer size 1)
+	// 2. Carries each build's unique stop channel for cancellation
+	// When a new build starts, it retrieves the previous build's stop channel,
+	// closes it to signal cancellation, then inserts its own fresh channel.
+	// This prevents the race condition where a new build could consume a stop
+	// signal meant for a previous build (issue #784).
+	buildRunCh chan chan struct{}
+	// binStopCh is a channel for process termination control
+	// Type chan<- chan int indicates it's a send-only channel that transmits another channel(chan int)
+	binStopCh chan<- chan int
+	exitCh    chan bool
 
 	mu            sync.RWMutex
 	watchers      uint
-	round         uint64
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
+
+	// globalEnv stores the original env values before air modified them
+	// key:original value (empty string means it was unset)
+	globalEnv map[string]*string
+	// loadedEnv tracks env values that were set by the last env file load
+	loadedEnv map[string]string
 }
 
 // NewEngineWithConfig ...
@@ -46,29 +63,39 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+	var entryArgs []string
+	if len(cfg.Build.FullBin) == 0 {
+		entryArgs = cfg.Build.Entrypoint.args()
+	}
+	runArgs := make([]string, 0, len(entryArgs)+len(cfg.Build.ArgsBin))
+	if len(entryArgs) > 0 {
+		runArgs = append(runArgs, entryArgs...)
+	}
+	runArgs = append(runArgs, cfg.Build.ArgsBin...)
 	e := Engine{
-		config:         cfg,
-		logger:         logger,
-		watcher:        watcher,
-		debugMode:      debugMode,
-		runArgs:        cfg.Build.ArgsBin,
-		eventCh:        make(chan string, 1000),
-		watcherStopCh:  make(chan bool, 10),
-		buildRunCh:     make(chan bool, 1),
-		buildRunStopCh: make(chan bool, 1),
-		binStopCh:      make(chan bool),
-		exitCh:         make(chan bool),
-		fileChecksums:  &checksumMap{m: make(map[string]string)},
-		watchers:       0,
+		config:        cfg,
+		exiter:        defaultExiter{},
+		proxy:         NewProxy(&cfg.Proxy),
+		logger:        logger,
+		watcher:       watcher,
+		debugMode:     debugMode,
+		runArgs:       runArgs,
+		eventCh:       make(chan string, 1000),
+		watcherStopCh: make(chan bool, 10),
+		buildRunCh:    make(chan chan struct{}, 1),
+		exitCh:        make(chan bool),
+		fileChecksums: &checksumMap{m: make(map[string]string)},
+		watchers:      0,
+		globalEnv:     map[string]*string{},
 	}
 
 	return &e, nil
 }
 
 // NewEngine ...
-func NewEngine(cfgPath string, debugMode bool) (*Engine, error) {
+func NewEngine(cfgPath string, args map[string]TomlInfo, debugMode bool) (*Engine, error) {
 	var err error
-	cfg, err := InitConfig(cfgPath)
+	cfg, err := InitConfig(cfgPath, args)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +119,7 @@ func (e *Engine) Run() {
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
-	if err = e.watching(e.config.Root); err != nil {
+	if err = e.watchConfiguredDirs(); err != nil {
 		os.Exit(1)
 	}
 
@@ -112,8 +139,42 @@ func (e *Engine) checkRunEnv() error {
 	return nil
 }
 
+func (e *Engine) watchConfiguredDirs() error {
+	type watchTarget struct {
+		path     string
+		optional bool
+	}
+	targets := []watchTarget{{path: e.config.Root, optional: false}}
+	for _, dir := range e.config.Build.extraIncludeDirs {
+		targets = append(targets, watchTarget{path: dir, optional: true})
+	}
+
+	seen := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		if target.path == "" {
+			continue
+		}
+		cleaned := filepath.Clean(target.path)
+		if _, ok := seen[cleaned]; ok {
+			continue
+		}
+		if _, err := os.Stat(cleaned); err != nil {
+			if os.IsNotExist(err) && target.optional {
+				e.watcherLog("include_dir %s does not exist, skipping", e.config.rel(cleaned))
+				continue
+			}
+			return err
+		}
+		if err := e.watching(cleaned); err != nil {
+			return err
+		}
+		seen[cleaned] = struct{}{}
+	}
+	return nil
+}
+
 func (e *Engine) watching(root string) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, _ error) error {
 		// NOTE: path is absolute
 		if info != nil && !info.IsDir() {
 			if e.checkIncludeFile(path) {
@@ -191,7 +252,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 			}
 		}
 
-		if e.isExcludeFile(path) || !e.isIncludeExt(path) {
+		if e.isExcludeFile(path) || !e.isIncludeExt(path) && !e.checkIncludeFile(path) {
 			e.watcherDebug("!exclude checksum %s", e.config.rel(path))
 			return nil
 		}
@@ -256,7 +317,7 @@ func (e *Engine) watchPath(path string) error {
 				if excludeRegex {
 					break
 				}
-				if !e.isIncludeExt(ev.Name) {
+				if !e.isIncludeExt(ev.Name) && !e.checkIncludeFile(ev.Name) {
 					break
 				}
 				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
@@ -310,7 +371,12 @@ func (e *Engine) isModified(filename string) bool {
 
 // Endless loop and never return
 func (e *Engine) start() {
-	e.running = true
+	if e.config.Proxy.Enabled {
+		go e.proxy.Run()
+		e.mainLog("Proxy server listening on http://localhost%s", e.proxy.server.Addr)
+	}
+
+	e.running.Store(true)
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
 
@@ -322,7 +388,7 @@ func (e *Engine) start() {
 			e.mainDebug("exit in start")
 			return
 		case filename = <-e.eventCh:
-			if !e.isIncludeExt(filename) {
+			if !e.isIncludeExt(filename) && !e.checkIncludeFile(filename) {
 				continue
 			}
 			if e.config.Build.ExcludeUnchanged {
@@ -332,8 +398,8 @@ func (e *Engine) start() {
 				}
 			}
 
-			// cannot set buldDelay to 0, because when the write mutiple events received in short time
-			// it will start Multiple buildRuns: https://github.com/cosmtrek/air/issues/473
+			// cannot set buildDelay to 0, because when the write multiple events received in short time
+			// it will start Multiple buildRuns: https://github.com/air-verse/air/issues/473
 			time.Sleep(e.config.buildDelay())
 			e.flushEvents()
 
@@ -352,56 +418,146 @@ func (e *Engine) start() {
 			// go down
 		}
 
-		// already build and run now
+		// Stop any currently running build by closing its stop channel
 		select {
-		case <-e.buildRunCh:
-			e.buildRunStopCh <- true
+		case oldStopCh := <-e.buildRunCh:
+			// Close the old build's stop channel to signal it to stop
+			close(oldStopCh)
 		default:
+			// No build is currently running
 		}
 
-		// if current app is running, stop it
-		e.withLock(func() {
-			close(e.binStopCh)
-			e.binStopCh = make(chan bool)
-		})
 		go e.buildRun()
 	}
 }
 
+func (e *Engine) loadEnvFile() {
+	if len(e.config.EnvFiles) == 0 {
+		return
+	}
+
+	// assume refreshed env is as big as the loaded env
+	newEnv := make(map[string]string, len(e.loadedEnv))
+
+	for _, envPath := range e.config.EnvFiles {
+		if !filepath.IsAbs(envPath) {
+			envPath = filepath.Join(e.config.Root, envPath)
+		}
+		file, err := os.Open(envPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				e.mainDebug("env file %q does not exist, skipping", envPath)
+			} else {
+				e.runnerLog("failed to open env file %q: %s", envPath, err.Error())
+			}
+			continue
+		}
+		defer file.Close()
+		fileEnv, err := godotenv.Parse(file)
+		if err != nil {
+			e.runnerLog("failed to parse env file %q: %s", envPath, err.Error())
+			return
+		}
+
+		for k, v := range fileEnv {
+			if v, tracked := e.globalEnv[k]; !tracked {
+				origVal, exists := os.LookupEnv(k)
+				if exists {
+					// not used yet, but might be useful for a future "override" feature
+					e.globalEnv[k] = &origVal
+					continue // untracked env values are likely global - don't override them
+				}
+				// on first encounter of a key, if no global value exists, mark as nil so
+				// that on next load of .env file, globalEnv map value will not be overwritten
+				e.globalEnv[k] = nil
+			} else if tracked && v != nil {
+				// only set values from file if not already present in the environment
+				e.mainDebug("key %q already exists in the environment, skipping", k)
+				continue
+			}
+			if err := os.Setenv(k, v); err != nil {
+				e.runnerLog("failed to set env key %q: %s", k, err.Error())
+			}
+			newEnv[k] = v
+		}
+	}
+
+	// unset any keys that were removed from .env file,
+	// but ignore those that were set before air was run
+	for k := range e.loadedEnv {
+		if _, exists := newEnv[k]; !exists {
+			if orig := e.globalEnv[k]; orig == nil {
+				if err := os.Unsetenv(k); err != nil {
+					e.runnerLog("failed to restore env key %q: %s", k, err.Error())
+				}
+			}
+		}
+	}
+
+	e.loadedEnv = newEnv
+}
+
 func (e *Engine) buildRun() {
-	e.buildRunCh <- true
+	// Create this build's unique stop channel
+	myStopCh := make(chan struct{})
+
+	// Put our stop channel in buildRunCh (acts as semaphore + carries our stop token)
+	e.buildRunCh <- myStopCh
 	defer func() {
 		<-e.buildRunCh
 	}()
 
+	// Check if we were already signaled to stop before we even started
 	select {
-	case <-e.buildRunStopCh:
+	case <-myStopCh:
+		return
+	case <-e.exitCh:
+		e.mainDebug("exit in buildRun before pre_cmd")
 		return
 	default:
 	}
+
+	e.loadEnvFile()
+
 	var err error
 	if err = e.runPreCmd(); err != nil {
 		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
 		if e.config.Build.StopOnError {
+			e.stopBin()
 			return
 		}
 	}
-	if err = e.building(); err != nil {
+	if output, err := e.building(); err != nil {
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
+			// It only makes sense to run it if we stop on error. Otherwise when
+			// running the binary again the error modal will be overwritten by
+			// the reload.
+			e.stopBin()
+			if e.config.Proxy.Enabled {
+				e.proxy.BuildFailed(BuildFailedMsg{
+					Error:   err.Error(),
+					Command: e.config.Build.Cmd,
+					Output:  output,
+				})
+			}
 			return
 		}
 	}
 
+	// Check again before running the binary
 	select {
-	case <-e.buildRunStopCh:
+	case <-myStopCh:
 		return
 	case <-e.exitCh:
-		e.mainDebug("exit in buildRun")
+		e.mainDebug("exit in buildRun after build")
 		return
 	default:
 	}
+
+	e.stopBin()
+
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
 	}
@@ -428,24 +584,44 @@ func (e *Engine) runCommand(command string) error {
 		stdout.Close()
 		stderr.Close()
 	}()
-	_, _ = io.Copy(os.Stdout, stdout)
-	_, _ = io.Copy(os.Stderr, stderr)
+
+	copyOutput(os.Stdout, stdout)
+	copyOutput(os.Stderr, stderr)
+
+	// wait for command to finish
+	return cmd.Wait()
+}
+
+func (e *Engine) runCommandCopyOutput(command string) (string, error) {
+	// both stdout and stderr are piped to the same buffer, so ignore the second
+	// one
+	cmd, stdout, _, err := e.startCmd(command)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		stdout.Close()
+	}()
+
+	stdoutBytes, _ := io.ReadAll(stdout)
+	_, _ = io.Copy(os.Stdout, strings.NewReader(string(stdoutBytes)))
+
 	// wait for command to finish
 	err = cmd.Wait()
 	if err != nil {
-		return err
+		return string(stdoutBytes), err
 	}
-	return nil
+	return string(stdoutBytes), nil
 }
 
 // run cmd option in .air.toml
-func (e *Engine) building() error {
+func (e *Engine) building() (string, error) {
 	e.buildLog("building...")
-	err := e.runCommand(e.config.Build.Cmd)
+	output, err := e.runCommandCopyOutput(e.config.Build.Cmd)
 	if err != nil {
-		return err
+		return output, err
 	}
-	return nil
+	return output, nil
 }
 
 // run pre_cmd option in .air.toml
@@ -473,53 +649,77 @@ func (e *Engine) runPostCmd() error {
 }
 
 func (e *Engine) runBin() error {
-	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan struct{}, processExit chan struct{}, wg *sync.WaitGroup) {
-		defer wg.Done()
-		select {
-		// listen to binStopCh
-		// cleanup() will close binStopCh when engine stop
-		// start() will close binStopCh when file changed
-		case <-e.binStopCh:
-			close(killCh)
-			break
+	// killFunc returns a chan of chan of int that should be used to shutdown the bin currently being run
+	// The chan int that is passed in will be used to signal completion of the shutdown
+	killFunc := func(cmd *exec.Cmd, stdout io.ReadCloser, stderr io.ReadCloser, killCh chan<- struct{}, processExit <-chan struct{}) chan<- chan int {
+		shutdown := make(chan chan int)
+		var closer chan int
 
-		// the process is exited, return
-		case <-processExit:
-			return
-		}
+		go func() {
+			defer func() {
+				stdout.Close()
+				stderr.Close()
+			}()
 
-		e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
-		defer func() {
-			stdout.Close()
-			stderr.Close()
-		}()
-		pid, err := e.killCmd(cmd)
-		if err != nil {
-			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
-			if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
-				os.Exit(1)
+			select {
+			case closer = <-shutdown:
+				// stopBin has been called from start or cleanup
+				// defer the signalling of shutdown completion before attempting to kill further down
+				defer close(closer)
+				defer close(killCh)
+			case <-processExit:
+				// the process is exited, return
+				e.withLock(func() {
+					// Avoid deadlocking any racing shutdown request
+					select {
+					case c := <-shutdown:
+						close(c)
+					default:
+					}
+					e.binStopCh = nil
+				})
+				return
 			}
-		} else {
-			e.mainDebug("cmd killed, pid: %d", pid)
-		}
-		cmdBinPath := cmdPath(e.config.rel(e.config.binPath()))
-		if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-			return
-		}
-		if err = os.Remove(cmdBinPath); err != nil {
-			e.mainLog("failed to remove %s, error: %s", e.config.rel(e.config.binPath()), err)
-		}
+
+			e.mainDebug("trying to kill pid %d, cmd %+v", cmd.Process.Pid, cmd.Args)
+
+			pid, err := e.killCmd(cmd)
+			if err != nil {
+				e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
+				if cmd.ProcessState != nil && !cmd.ProcessState.Exited() {
+					// Pass a non zero exit code to the closer to delegate the
+					// decision wether to os.Exit or not
+					closer <- 1
+				}
+			} else {
+				e.mainDebug("cmd killed, pid: %d", pid)
+			}
+
+			if e.config.Build.StopOnError {
+				relBinPath := e.config.rel(e.config.binPath())
+				if relBinPath == "" || strings.HasPrefix(relBinPath, "..") {
+					return
+				}
+				cmdBinPath := cmdPath(relBinPath)
+				if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
+					return
+				}
+				if err = os.Remove(cmdBinPath); err != nil {
+					e.mainLog("failed to remove %s, error: %s", relBinPath, err)
+				}
+			}
+		}()
+
+		return shutdown
 	}
 
 	e.runnerLog("running...")
 	go func() {
-		wg := sync.WaitGroup{}
 
 		defer func() {
 			select {
 			case <-e.exitCh:
 				e.mainDebug("exit in runBin")
-				wg.Wait()
 			default:
 			}
 		}()
@@ -531,30 +731,32 @@ func (e *Engine) runBin() error {
 			case <-killCh:
 				return
 			default:
-				command := strings.Join(append([]string{e.config.Build.Bin}, e.runArgs...), " ")
-				cmd, stdout, stderr, _ := e.startCmd(command)
+				formattedBin := formatPath(e.config.runnerBin())
+				command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
+				cmd, stdout, stderr, err := e.startCmd(command)
+				if err != nil {
+					e.mainLog("failed to start %s, error: %s", e.config.rel(e.config.binPath()), err.Error())
+					close(killCh)
+					continue
+				}
+
 				processExit := make(chan struct{})
 				e.mainDebug("running process pid %v", cmd.Process.Pid)
+				if e.config.Proxy.Enabled {
+					e.mainDebug("reloading proxy")
+					e.proxy.Reload()
+				}
 
-				wg.Add(1)
-				atomic.AddUint64(&e.round, 1)
 				e.withLock(func() {
-					close(e.binStopCh)
-					e.binStopCh = make(chan bool)
-					go killFunc(cmd, stdout, stderr, killCh, processExit, &wg)
+					e.binStopCh = killFunc(cmd, stdout, stderr, killCh, processExit)
 				})
 
-				go func() {
-					_, _ = io.Copy(os.Stdout, stdout)
-					_, _ = cmd.Process.Wait()
-				}()
+				go copyOutput(os.Stdout, stdout)
+				go copyOutput(os.Stderr, stderr)
 
-				go func() {
-					_, _ = io.Copy(os.Stderr, stderr)
-					_, _ = cmd.Process.Wait()
-				}()
 				state, _ := cmd.Process.Wait()
 				close(processExit)
+
 				switch state.ExitCode() {
 				case 0:
 					e.runnerLog("Process Exit with Code 0")
@@ -575,15 +777,47 @@ func (e *Engine) runBin() error {
 	return nil
 }
 
+func (e *Engine) stopBin() {
+	e.mainDebug("initiating shutdown sequence")
+	start := time.Now()
+	e.mainDebug("shutdown completed in %v", time.Since(start))
+
+	exitCode := make(chan int)
+
+	e.withLock(func() {
+		if e.binStopCh != nil {
+			e.mainDebug("sending shutdown command to killfunc")
+			e.binStopCh <- exitCode
+			e.binStopCh = nil
+		} else {
+			close(exitCode)
+		}
+	})
+
+	select {
+	case ret := <-exitCode:
+		if ret != 0 {
+			e.exiter.Exit(ret) // Use exiter instead of direct os.Exit, it's for tests purpose.
+		}
+	case <-time.After(5 * time.Second):
+		e.mainDebug("timed out waiting for process exit")
+	}
+}
+
 func (e *Engine) cleanup() {
 	e.mainLog("cleaning...")
 	defer e.mainLog("see you again~")
+	defer e.mainDebug("exited")
 
-	e.withLock(func() {
-		close(e.binStopCh)
-		e.binStopCh = make(chan bool)
-	})
-	e.mainDebug("wating for	close watchers..")
+	if e.config.Proxy.Enabled {
+		e.mainDebug("powering down the proxy...")
+		if err := e.proxy.Stop(); err != nil {
+			e.mainLog("failed to stop proxy: %+v", err)
+		}
+	}
+
+	e.stopBin()
+	e.mainDebug("waiting for close watchers..")
 
 	e.withLock(func() {
 		for i := 0; i < int(e.watchers); i++ {
@@ -606,10 +840,7 @@ func (e *Engine) cleanup() {
 		}
 	}
 
-	e.mainDebug("waiting for exit...")
-
-	e.running = false
-	e.mainDebug("exited")
+	e.running.Store(false)
 }
 
 // Stop the air

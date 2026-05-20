@@ -1,8 +1,9 @@
 package runner
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,11 +11,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsDirRootPath(t *testing.T) {
@@ -38,6 +40,29 @@ func TestIsDirFileNot(t *testing.T) {
 	}
 }
 
+func TestExpandPathWithRelPath(t *testing.T) {
+	tmp := filepath.Join("_testdata", "tmp")
+	_, err := os.Create(tmp)
+	defer os.Remove(tmp)
+	if err != nil {
+		t.Fatalf("Error creating temp directory for testing: %v", err)
+	}
+
+	expandedPath, _ := expandPath("_testdata/tmp")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Error getting cwd: %v", err)
+	}
+	expected := filepath.Join(wd, tmp)
+	// expandPath resolves symlinks, so resolve expected too
+	if resolved, err := filepath.EvalSymlinks(expected); err == nil {
+		expected = resolved
+	}
+	if expandedPath != expected {
+		t.Errorf("expected %s got %s", expected, expandedPath)
+	}
+}
+
 func TestExpandPathWithDot(t *testing.T) {
 	path, _ := expandPath(".")
 	wd, _ := os.Getwd()
@@ -47,16 +72,201 @@ func TestExpandPathWithDot(t *testing.T) {
 }
 
 func TestExpandPathWithHomePath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("HOME-based tilde expansion is not reliable on Windows")
+	}
 	path := "~/.conf"
-	result, _ := expandPath(path)
+	result, err := expandPath(path)
+	if err != nil {
+		t.Errorf("expandPath returned an error: %v", err)
+	}
 	home := os.Getenv("HOME")
-	want := home + path[1:]
+	want := filepath.Join(home, path[1:])
 	if result != want {
 		t.Errorf("expected '%s' but got '%s'", want, result)
 	}
 }
 
+func TestExpandPathSymlinkError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("ENOTDIR behavior differs on Windows")
+	}
+	// Create a regular file, then try to expand a path *inside* it.
+	// filepath.EvalSymlinks will return ENOTDIR (not ErrNotExist), triggering
+	// the "unexpected error" branch in expandPath.
+	f, err := os.CreateTemp("", "expandpath-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	f.Close()
+	defer os.Remove(f.Name())
+
+	_, err = expandPath(filepath.Join(f.Name(), "subpath"))
+	if err == nil {
+		t.Fatal("expected an error but got nil")
+	}
+}
+
+func TestIsHiddenDirectory(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "hidden dir", path: "/tmp/.git", want: true},
+		{name: "not hidden", path: "/tmp/project", want: false},
+		{name: "parent dir", path: "..", want: false},
+		{name: "single dot", path: ".", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isHiddenDirectory(tt.path))
+		})
+	}
+}
+
+func TestCleanPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "trim space", path: "  foo/bar  ", want: "foo/bar"},
+		{name: "trim trailing slash", path: "foo/bar/", want: "foo/bar"},
+		{name: "trim both", path: "  foo/bar/ ", want: "foo/bar"},
+		{name: "empty", path: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, cleanPath(tt.path))
+		})
+	}
+}
+
+func TestIsSubPath(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	inside := filepath.Join(base, "a", "b")
+	outside := filepath.Join(filepath.Dir(base), "outside")
+
+	assert.True(t, isSubPath(base, base))
+	assert.True(t, isSubPath(base, inside))
+	assert.False(t, isSubPath(base, outside))
+	assert.False(t, isSubPath("", inside))
+	assert.False(t, isSubPath(base, ""))
+}
+
+func TestValidAndRemoveEvent(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Create}))
+	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Write}))
+	assert.True(t, validEvent(fsnotify.Event{Op: fsnotify.Remove}))
+	assert.False(t, validEvent(fsnotify.Event{Op: fsnotify.Rename}))
+
+	assert.True(t, removeEvent(fsnotify.Event{Op: fsnotify.Remove}))
+	assert.False(t, removeEvent(fsnotify.Event{Op: fsnotify.Write}))
+}
+
+func TestCmdPath(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "go", cmdPath("go test ./..."))
+	assert.Equal(t, "air", cmdPath("air"))
+}
+
+func TestCopyOutput(t *testing.T) {
+	t.Parallel()
+
+	var out bytes.Buffer
+	copyOutput(&out, strings.NewReader("line1\nline2"))
+	assert.Equal(t, "line1\nline2\n", out.String())
+}
+
+func TestWriteBuildErrorLogAppends(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	tmpDir := "tmp"
+	logName := "build-errors.log"
+	require.NoError(t, os.MkdirAll(filepath.Join(root, tmpDir), 0o755))
+
+	e := &Engine{
+		config: &Config{
+			Root:   root,
+			TmpDir: tmpDir,
+			Build: cfgBuild{
+				Log: logName,
+			},
+		},
+	}
+
+	require.NoError(t, e.writeBuildErrorLog("first\n"))
+	require.NoError(t, e.writeBuildErrorLog("second\n"))
+
+	content, err := os.ReadFile(filepath.Join(root, tmpDir, logName))
+	require.NoError(t, err)
+	assert.Equal(t, "first\nsecond\n", string(content))
+}
+
+func TestNormalizeIncludeDirOutsideRoot(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	parent := filepath.Dir(root)
+	external := filepath.Join(parent, "pkg")
+
+	cfg := &Config{
+		Root: root,
+		Build: cfgBuild{
+			IncludeDir: []string{"../pkg"},
+		},
+	}
+	cfg.Build.normalizeIncludeDirs(cfg.Root)
+
+	require.Empty(t, cfg.Build.includeDirAbs)
+	require.Equal(t, []string{filepath.Clean(external)}, cfg.Build.extraIncludeDirs)
+
+	engine := &Engine{config: cfg}
+	isIn, walk := engine.checkIncludeDir(filepath.Join(root, "runner"))
+	require.True(t, isIn)
+	require.True(t, walk)
+}
+
+func TestCheckIncludeDirRestrictsWithinRoot(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	runnerDir := filepath.Join(root, "runner")
+	require.NoError(t, os.Mkdir(runnerDir, 0o755))
+	otherDir := filepath.Join(root, "other")
+	require.NoError(t, os.Mkdir(otherDir, 0o755))
+
+	cfg := &Config{
+		Root: root,
+		Build: cfgBuild{
+			IncludeDir: []string{"runner"},
+		},
+	}
+	cfg.Build.normalizeIncludeDirs(cfg.Root)
+
+	engine := &Engine{config: cfg}
+	isIn, walk := engine.checkIncludeDir(runnerDir)
+	require.True(t, isIn)
+	require.True(t, walk)
+
+	isIn, walk = engine.checkIncludeDir(otherDir)
+	require.False(t, isIn)
+	require.False(t, walk)
+}
+
 func TestFileChecksum(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                  string
 		fileContents          []byte
@@ -117,6 +327,7 @@ func TestFileChecksum(t *testing.T) {
 }
 
 func TestChecksumMap(t *testing.T) {
+	t.Parallel()
 	m := &checksumMap{m: make(map[string]string, 3)}
 
 	if !m.updateFileChecksum("foo.txt", "abcxyz") {
@@ -137,9 +348,12 @@ func TestChecksumMap(t *testing.T) {
 }
 
 func TestAdaptToVariousPlatforms(t *testing.T) {
+	t.Parallel()
 	config := &Config{
 		Build: cfgBuild{
-			Bin: "tmp\\main.exe  -dev",
+			CfgBuildCommon: CfgBuildCommon{
+				Bin: "tmp\\main.exe  -dev",
+			},
 		},
 	}
 	adaptToVariousPlatforms(config)
@@ -148,28 +362,11 @@ func TestAdaptToVariousPlatforms(t *testing.T) {
 	}
 }
 
-func Test_killCmd_no_process(t *testing.T) {
-	e := Engine{
-		config: &Config{
-			Build: cfgBuild{
-				SendInterrupt: false,
-			},
-		},
-	}
-	_, err := e.killCmd(&exec.Cmd{
-		Process: &os.Process{
-			Pid: 9999,
-		},
-	})
-	if err == nil {
-		t.Errorf("expected error but got none")
-	}
-	if !errors.Is(err, syscall.ESRCH) {
-		t.Errorf("expected '%s' but got '%s'", syscall.ESRCH, errors.Unwrap(err))
-	}
-}
-
 func Test_killCmd_SendInterrupt_false(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	_, b, _, _ := runtime.Caller(0)
 
 	// Root folder of this project
@@ -219,12 +416,74 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 	// check processes were being killed
 	// read pids from file
 	bytesRead, err := os.ReadFile("pid")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	lines := strings.Split(string(bytesRead), "\n")
 	for _, line := range lines {
 		_, err := strconv.Atoi(line)
 		if err != nil {
-			t.Logf("failed to covert str to int %v", err)
+			t.Logf("failed to convert str to int %v", err)
+			continue
+		}
+		_, err = exec.Command("ps", "-p", line, "-o", "comm= ").Output()
+		if err == nil {
+			t.Fatalf("process should be killed %v", line)
+		}
+	}
+}
+
+func Test_killCmd_KillsDetachedChildren(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("requires /proc")
+	}
+
+	_, b, _, _ := runtime.Caller(0)
+	dir := filepath.Dir(b)
+	err := os.Chdir(dir)
+	if err != nil {
+		t.Fatalf("couldn't change directory: %v", err)
+	}
+
+	_ = os.Remove("pid")
+	defer os.Remove("pid")
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: false,
+			},
+		},
+	}
+
+	startChan := make(chan *exec.Cmd)
+	go func() {
+		cmd, _, _, err := e.startCmd("sh _testdata/run-detached-process.sh")
+		if err != nil {
+			t.Errorf("failed to start command: %v", err)
+			return
+		}
+		startChan <- cmd
+		if err := cmd.Wait(); err != nil {
+			t.Logf("failed to wait command: %v", err)
+		}
+	}()
+
+	cmd := <-startChan
+	time.Sleep(2 * time.Second)
+
+	if _, err := e.killCmd(cmd); err != nil {
+		t.Fatalf("failed to kill command: %v", err)
+	}
+
+	bytesRead, err := os.ReadFile("pid")
+	require.NoError(t, err)
+	lines := strings.Split(string(bytesRead), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if _, err := strconv.Atoi(line); err != nil {
+			t.Logf("failed to convert str to int %v", err)
 			continue
 		}
 		_, err = exec.Command("ps", "-p", line, "-o", "comm= ").Output()
@@ -235,6 +494,7 @@ func Test_killCmd_SendInterrupt_false(t *testing.T) {
 }
 
 func TestGetStructureFieldTagMap(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	tagMap := flatConfig(c)
 	assert.NotEmpty(t, tagMap)
@@ -244,6 +504,7 @@ func TestGetStructureFieldTagMap(t *testing.T) {
 }
 
 func TestSetStructValue(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "TmpDir", "asdasd")
@@ -251,6 +512,7 @@ func TestSetStructValue(t *testing.T) {
 }
 
 func TestNestStructValue(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "Build.Cmd", "asdasd")
@@ -258,6 +520,7 @@ func TestNestStructValue(t *testing.T) {
 }
 
 func TestNestStructArrayValue(t *testing.T) {
+	t.Parallel()
 	c := Config{}
 	v := reflect.ValueOf(&c)
 	setValue2Struct(v, "Build.ExcludeDir", "dir1,dir2")
@@ -265,6 +528,7 @@ func TestNestStructArrayValue(t *testing.T) {
 }
 
 func TestNestStructArrayValueOverride(t *testing.T) {
+	t.Parallel()
 	c := Config{
 		Build: cfgBuild{
 			ExcludeDir: []string{"default1", "default2"},
@@ -276,6 +540,7 @@ func TestNestStructArrayValueOverride(t *testing.T) {
 }
 
 func TestCheckIncludeFile(t *testing.T) {
+	t.Parallel()
 	e := Engine{
 		config: &Config{
 			Build: cfgBuild{
@@ -283,7 +548,574 @@ func TestCheckIncludeFile(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal(t, e.checkIncludeFile("main.go"), true)
-	assert.Equal(t, e.checkIncludeFile("no.go"), false)
-	assert.Equal(t, e.checkIncludeFile("."), false)
+	assert.True(t, e.checkIncludeFile("main.go"))
+	assert.False(t, e.checkIncludeFile("no.go"))
+	assert.False(t, e.checkIncludeFile("."))
+}
+
+func TestIsIncludeExt(t *testing.T) {
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				IncludeExt: []string{"go", "html"},
+			},
+		},
+	}
+	assert.True(t, e.isIncludeExt("main.go"))
+	assert.True(t, e.isIncludeExt("/path/to/file.html"))
+	assert.False(t, e.isIncludeExt("main.js"))
+	assert.False(t, e.isIncludeExt("file"))
+}
+
+func TestIsIncludeExtWildcard(t *testing.T) {
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "tmp", "main")
+
+	e := Engine{
+		config: &Config{
+			Root: tmpDir,
+			Build: cfgBuild{
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{binPath},
+				},
+				IncludeExt: []string{"*"},
+			},
+		},
+	}
+	// Wildcard should match all file extensions
+	assert.True(t, e.isIncludeExt("main.go"))
+	assert.True(t, e.isIncludeExt("/path/to/file.html"))
+	assert.True(t, e.isIncludeExt("main.js"))
+	assert.True(t, e.isIncludeExt("file.css"))
+	assert.True(t, e.isIncludeExt("file"))           // files without extension
+	assert.True(t, e.isIncludeExt("/path/noext"))    // files without extension
+	assert.False(t, e.isIncludeExt(binPath))         // binary file should be excluded
+	assert.True(t, e.isIncludeExt("some/other/bin")) // other files without extension are ok
+}
+
+func TestIsIncludeExtWildcardWithSpaces(t *testing.T) {
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{"/tmp/main"},
+				},
+				IncludeExt: []string{" * "},
+			},
+		},
+	}
+	// Wildcard with spaces should still work
+	assert.True(t, e.isIncludeExt("main.go"))
+	assert.True(t, e.isIncludeExt("file.html"))
+}
+
+func TestIsBinPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "tmp", "main")
+
+	e := Engine{
+		config: &Config{
+			Root: tmpDir,
+			Build: cfgBuild{
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{binPath},
+				},
+			},
+		},
+	}
+
+	// Test matching path returns true
+	assert.True(t, e.isBinPath(binPath))
+	// Test non-matching paths return false
+	assert.False(t, e.isBinPath(filepath.Join(tmpDir, "other", "file")))
+	assert.False(t, e.isBinPath("unrelated.go"))
+}
+
+func TestIsBinPathEmptyBinPath(t *testing.T) {
+	// Test when binPath is empty (no entrypoint configured)
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				CfgBuildCommon: CfgBuildCommon{
+					Entrypoint: entrypoint{}, // empty entrypoint
+				},
+			},
+		},
+	}
+
+	// Should return false when binPath is empty
+	assert.False(t, e.isBinPath("/some/path"))
+	assert.False(t, e.isBinPath("main.go"))
+}
+
+func TestJoinPathRelative(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, "x")
+
+	assert.Equal(t, result, filepath.Join(root, "x"))
+}
+
+func TestJoinPathAbsolute(t *testing.T) {
+	root, err := filepath.Abs("test")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	path, err := filepath.Abs("x")
+
+	if err != nil {
+		t.Fatalf("couldn't get absolute path for testing: %v", err)
+	}
+
+	result := joinPath(root, path)
+
+	assert.Equal(t, result, path)
+}
+
+func TestFormatPath(t *testing.T) {
+	t.Parallel()
+	type testCase struct {
+		name     string
+		path     string
+		expected string
+	}
+
+	runTests := func(t *testing.T, tests []testCase) {
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				result := formatPath(tt.path)
+				if result != tt.expected {
+					t.Errorf("formatPath(%q) = %q, want %q", tt.path, result, tt.expected)
+				}
+			})
+		}
+	}
+
+	t.Run("PathPlatformSpecific", func(t *testing.T) {
+		if runtime.GOOS == PlatformWindows {
+			// Windows-specific tests
+			tests := []testCase{
+				{
+					name:     "Windows style absolute path with spaces",
+					path:     `C:\My Documents\My Project\tmp\app.exe`,
+					expected: `& "C:\My Documents\My Project\tmp\app.exe"`,
+				},
+				{
+					name:     "Windows style relative path with spaces",
+					path:     `My Project\tmp\app.exe`,
+					expected: `My Project\tmp\app.exe`,
+				},
+				{
+					name:     "Windows style absolute path without spaces",
+					path:     `C:\Documents\Project\tmp\app.exe`,
+					expected: `C:\Documents\Project\tmp\app.exe`,
+				},
+			}
+			runTests(t, tests)
+		} else {
+			// Unix-specific tests
+			tests := []testCase{
+				{
+					name:     "Unix style absolute path with spaces",
+					path:     `/usr/local/my project/tmp/main`,
+					expected: `"/usr/local/my project/tmp/main"`,
+				},
+				{
+					name:     "Unix style relative path with spaces",
+					path:     "./my project/tmp/main",
+					expected: "./my project/tmp/main",
+				},
+				{
+					name:     "Unix style absolute path without spaces",
+					path:     `/usr/local/project/tmp/main`,
+					expected: `/usr/local/project/tmp/main`,
+				},
+			}
+			runTests(t, tests)
+		}
+	})
+
+	t.Run("CommonCases", func(t *testing.T) {
+		tests := []testCase{
+			{
+				name:     "Empty path",
+				path:     "",
+				expected: "",
+			},
+			{
+				name:     "Simple path",
+				path:     "main.go",
+				expected: "main.go",
+			},
+			{
+				name:     "TestShouldIncludeIncludedFile",
+				path:     "sh main.sh",
+				expected: "sh main.sh",
+			},
+		}
+		runTests(t, tests)
+	})
+}
+
+// Test_killCmd_SendInterrupt_FastGracefulExit is a regression test for issue #671.
+// It verifies that when a process exits quickly after receiving SIGINT, Air detects
+// this and returns immediately instead of waiting the full kill_delay.
+//
+// This optimization was implemented in commit 4d26204 (2024-11-01) by Isak Styf.
+// Before the fix, Air would always sleep for the full kill_delay (wasting time).
+// After the fix, Air uses goroutines to detect process exit and returns early.
+//
+// Related: https://github.com/air-verse/air/issues/671
+func Test_killCmd_SendInterrupt_FastGracefulExit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("send_interrupt not supported on windows")
+	}
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: true,
+				KillDelay:     2 * time.Second, // Set high to make the waste observable
+			},
+		},
+	}
+
+	// Process that exits immediately on SIGINT
+	// trap "exit 0" INT means: exit cleanly when receiving SIGINT
+	// sleep 100 means: if no signal, run for 100 seconds
+	cmd, _, _, err := e.startCmd(`sh -c 'trap "exit 0" INT; sleep 100'`)
+	require.NoError(t, err, "failed to start command")
+
+	// Give the process a moment to start and set up the signal handler
+	time.Sleep(100 * time.Millisecond)
+
+	start := time.Now()
+	pid, err := e.killCmd(cmd)
+	elapsed := time.Since(start)
+
+	require.NoError(t, err, "killCmd should succeed")
+	assert.Positive(t, pid, "should return valid pid")
+
+	// Core assertion: should complete in much less than 2 seconds
+	// Process exits immediately on SIGINT, so should finish in <500ms
+	// With the fix (commit 4d26204), this should PASS
+	// Without the fix, this would FAIL (would take 2+ seconds)
+	assert.Less(t, elapsed, 500*time.Millisecond,
+		"killCmd should return quickly when process exits gracefully on SIGINT, "+
+			"but took %v (expected < 500ms). Regression of issue #671!",
+		elapsed)
+
+	t.Logf("✅ PASS: Process exited gracefully in %v (kill_delay was 2s, saved ~%.1fs)",
+		elapsed, 2.0-elapsed.Seconds())
+}
+
+// Test_killCmd_SendInterrupt_IgnoresSIGINT is a regression test for issue #671.
+// It verifies that processes which ignore SIGINT are still killed with SIGKILL
+// after kill_delay. This ensures the optimization (commit 4d26204) doesn't break
+// the fallback behavior for misbehaving processes.
+//
+// Related: https://github.com/air-verse/air/issues/671
+func Test_killCmd_SendInterrupt_IgnoresSIGINT(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("send_interrupt not supported on windows")
+	}
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: true,
+				KillDelay:     500 * time.Millisecond,
+			},
+		},
+	}
+
+	// Process that ignores SIGINT
+	// trap "" INT means: ignore SIGINT signal
+	cmd, _, _, err := e.startCmd(`sh -c 'trap "" INT; sleep 100'`)
+	require.NoError(t, err, "failed to start command")
+
+	// Give the process a moment to start and set up the signal handler
+	time.Sleep(100 * time.Millisecond)
+
+	start := time.Now()
+	pid, err := e.killCmd(cmd)
+	elapsed := time.Since(start)
+
+	require.NoError(t, err, "killCmd should succeed")
+	assert.Positive(t, pid, "should return valid pid")
+
+	// Should wait at least kill_delay before sending SIGKILL
+	assert.GreaterOrEqual(t, elapsed, 500*time.Millisecond,
+		"killCmd should wait at least kill_delay when process ignores SIGINT")
+
+	// But should not wait too long after SIGKILL
+	assert.Less(t, elapsed, 1*time.Second,
+		"killCmd should not wait too long after sending SIGKILL, "+
+			"but took %v", elapsed)
+
+	t.Logf("✅ PASS: Process ignored SIGINT, killed with SIGKILL after %v (expected behavior)", elapsed)
+}
+
+// Test_killCmd_SendInterrupt_SlowGracefulExit is a regression test for issue #671.
+// It verifies that when a process takes some time to clean up after receiving
+// SIGINT but still exits within kill_delay, Air returns as soon as the process exits
+// (not waiting the full kill_delay).
+//
+// This optimization was implemented in commit 4d26204 (2024-11-01).
+// Related: https://github.com/air-verse/air/issues/671
+func Test_killCmd_SendInterrupt_SlowGracefulExit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("send_interrupt not supported on windows")
+	}
+
+	e := Engine{
+		config: &Config{
+			Build: cfgBuild{
+				SendInterrupt: true,
+				KillDelay:     1 * time.Second,
+			},
+		},
+	}
+
+	// Process that takes 300ms to exit after SIGINT (simulating cleanup)
+	// trap "sleep 0.3; exit 0" INT means: when SIGINT received, sleep 300ms then exit
+	cmd, _, _, err := e.startCmd(`sh -c 'trap "sleep 0.3; exit 0" INT; sleep 100'`)
+	require.NoError(t, err, "failed to start command")
+
+	// Give the process a moment to start and set up the signal handler
+	time.Sleep(100 * time.Millisecond)
+
+	start := time.Now()
+	pid, err := e.killCmd(cmd)
+	elapsed := time.Since(start)
+
+	require.NoError(t, err, "killCmd should succeed")
+	assert.Positive(t, pid, "should return valid pid")
+
+	// Should wait at least for the process cleanup time (~300ms)
+	assert.Greater(t, elapsed, 250*time.Millisecond,
+		"should wait at least for process cleanup time (~300ms)")
+
+	// Should return shortly after process exits (~300-500ms)
+	// With the fix (commit 4d26204), this should PASS
+	// Without the fix, this would FAIL (would take 1+ seconds)
+	assert.Less(t, elapsed, 600*time.Millisecond,
+		"killCmd should return soon after process exits, "+
+			"but took %v (expected ~300-500ms). Regression of issue #671!",
+		elapsed)
+
+	t.Logf("✅ PASS: Process exited gracefully in %v after cleanup (kill_delay was 1s, saved ~%.1fs)",
+		elapsed, 1.0-elapsed.Seconds())
+}
+
+// Regression test for https://github.com/air-verse/air/issues/894
+// Child process must inherit stdout/stderr so ANSI color codes pass through
+// and TTY detection (isatty) works correctly.
+func TestStartCmdPreservesColorOutput(t *testing.T) {
+	chdir(t, "_testdata")
+
+	origStdout := os.Stdout
+	origStderr := os.Stderr
+	captureOutR, captureOutW, err := os.Pipe()
+	require.NoError(t, err)
+	captureErrR, captureErrW, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdout = captureOutW
+	os.Stderr = captureErrW
+	t.Cleanup(func() {
+		os.Stdout = origStdout
+		os.Stderr = origStderr
+		captureOutR.Close()
+		captureOutW.Close()
+		captureErrR.Close()
+		captureErrW.Close()
+	})
+
+	cfg := &Config{Build: cfgBuild{}}
+	e := Engine{config: cfg, logger: newLogger(cfg)}
+
+	var colorCmd string
+	if runtime.GOOS == "windows" {
+		colorCmd = `$e=[char]0x1b; [Console]::Out.Write("${e}[31mhello${e}[0m"); [Console]::Error.Write("${e}[32mworld${e}[0m")`
+	} else {
+		colorCmd = `printf '\033[31mhello\033[0m'; printf '\033[32mworld\033[0m' >&2`
+	}
+
+	cmd, _, _, err := e.startCmd(colorCmd)
+	require.NoError(t, err)
+	_ = cmd.Wait()
+
+	captureOutW.Close()
+	captureErrW.Close()
+	stdoutData, _ := io.ReadAll(captureOutR)
+	stderrData, _ := io.ReadAll(captureErrR)
+
+	assert.Contains(t, string(stdoutData), "\033[31m",
+		"child process stdout should preserve ANSI escape codes for color output")
+	assert.Contains(t, string(stderrData), "\033[32m",
+		"child process stderr should preserve ANSI escape codes for color output")
+}
+
+func TestIsDangerousRoot(t *testing.T) {
+	t.Parallel()
+
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err, "failed to get user home directory")
+
+	var tests []struct {
+		name        string
+		path        string
+		isDangerous bool
+		description string
+	}
+
+	if runtime.GOOS == "windows" {
+		tests = []struct {
+			name        string
+			path        string
+			isDangerous bool
+			description string
+		}{
+			{
+				name:        "user home directory",
+				path:        homeDir,
+				isDangerous: true,
+				description: "home directory (~)",
+			},
+			{
+				name:        "normal project directory",
+				path:        filepath.Join(homeDir, "work", "myapp"),
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "current directory in project",
+				path:        ".",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "subdirectory of home",
+				path:        filepath.Join(homeDir, "projects", "myapp"),
+				isDangerous: false,
+				description: "",
+			},
+		}
+	} else {
+		tests = []struct {
+			name        string
+			path        string
+			isDangerous bool
+			description string
+		}{
+			{
+				name:        "root directory",
+				path:        "/",
+				isDangerous: true,
+				description: "root directory (/)",
+			},
+			{
+				name:        "root user home",
+				path:        "/root",
+				isDangerous: true,
+				description: "/root directory",
+			},
+			{
+				name:        "user home directory",
+				path:        homeDir,
+				isDangerous: true,
+				description: "home directory (~)",
+			},
+			{
+				name:        "normal project directory",
+				path:        "/home/user/myproject",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "tmp directory",
+				path:        "/tmp/test-project",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "current directory in project",
+				path:        ".",
+				isDangerous: false,
+				description: "",
+			},
+			{
+				name:        "subdirectory of home",
+				path:        filepath.Join(homeDir, "projects", "myapp"),
+				isDangerous: false,
+				description: "",
+			},
+		}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isDangerous, desc := isDangerousRoot(tt.path)
+			assert.Equal(t, tt.isDangerous, isDangerous, "isDangerous mismatch for path %s", tt.path)
+			if tt.isDangerous {
+				assert.Equal(t, tt.description, desc, "description mismatch for path %s", tt.path)
+			}
+		})
+	}
+}
+
+// Regression test for https://github.com/air-verse/air/issues/531. Makes sure
+// that if the project's root directory is a symlink, it will be correctly
+// expanded.
+func TestExpandPathRootDirectoryIsSymlink(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+
+	// Temp directories on some OSs (like macOS) are themselves symlinks.
+	// We need the fully resolved base directory to correctly construct our expected path.
+	realTempDir, err := filepath.EvalSymlinks(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to resolve real temp dir: %v", err)
+	}
+
+	fooBarDir := filepath.Join(realTempDir, "foo", "bar")
+	if err := os.MkdirAll(fooBarDir, 0755); err != nil {
+		t.Fatalf("Failed to create nested directories: %v", err)
+	}
+
+	// Create a file <realTempDir>/foo/bar/baz
+	bazFile := filepath.Join(fooBarDir, "baz")
+	if err := os.WriteFile(bazFile, []byte("dummy content"), 0644); err != nil {
+		t.Fatalf("Failed to create regular file baz: %v", err)
+	}
+
+	// Symlink <realTempDir>/bar -> <realTempDir>/foo/bar
+	symlinkDir := filepath.Join(realTempDir, "bar")
+	if err := os.Symlink(fooBarDir, symlinkDir); err != nil {
+		t.Fatalf("Failed to create symlink: %v", err)
+	}
+
+	// The expected fully resolved absolute path is the real file location
+	expectedPath := bazFile
+
+	// Test expandPath by passing the absolute path via the symlink
+	// This removes the need to pretend our CWD is inside the symlink.
+	targetPath := filepath.Join(symlinkDir, "baz")
+
+	gotPath, err := expandPath(targetPath)
+	if err != nil {
+		t.Fatalf("expandPath returned an unexpected error: %v", err)
+	}
+
+	if gotPath != expectedPath {
+		t.Errorf("expandPath failed to correctly resolve the symlinked directory.\nGot:  %s\nWant: %s", gotPath, expectedPath)
+	}
 }

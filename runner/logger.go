@@ -53,6 +53,9 @@ func newLogFunc(colorname string, cfg cfgLog) logFunc {
 	return func(msg string, v ...interface{}) {
 		// There are some escape sequences to format color in terminal, so cannot
 		// just trim new line from right.
+		if cfg.Silent {
+			return
+		}
 		msg = strings.ReplaceAll(msg, "\n", "")
 		msg = strings.TrimSpace(msg)
 		if len(msg) == 0 {
@@ -65,9 +68,9 @@ func newLogFunc(colorname string, cfg cfgLog) logFunc {
 			msg = fmt.Sprintf("[%s] %s", t, msg)
 		}
 		if colorname == rawColor {
-			fmt.Fprintf(os.Stdout, msg, v...)
+			fmt.Fprintf(os.Stderr, msg, v...)
 		} else {
-			color.New(getColor(colorname)).Fprintf(color.Output, msg, v...)
+			color.New(getColor(colorname)).Fprintf(color.Error, msg, v...)
 		}
 	}
 }

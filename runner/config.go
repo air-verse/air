@@ -5,95 +5,184 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	pathpkg "path"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	"dario.cat/mergo"
+	"github.com/fatih/color"
 	"github.com/pelletier/go-toml"
 )
 
 const (
 	dftTOML = ".air.toml"
-	dftConf = ".air.conf"
 	airWd   = "air_wd"
+
+	defaultProxyAppStartTimeout = 5000
+
+	schemaHeader = "#:schema https://json.schemastore.org/any.json"
 )
 
 // Config is the main configuration structure for Air.
 type Config struct {
-	Root        string    `toml:"root"`
-	TmpDir      string    `toml:"tmp_dir"`
+	Root        string    `toml:"root" usage:"Working directory, . or absolute path, please note that the directories following must be under root"`
+	TmpDir      string    `toml:"tmp_dir" usage:"Temporary directory for air"`
 	TestDataDir string    `toml:"testdata_dir"`
+	EnvFiles    []string  `toml:"env_files" usage:"Paths to .env files to load before build/run"`
 	Build       cfgBuild  `toml:"build"`
 	Color       cfgColor  `toml:"color"`
 	Log         cfgLog    `toml:"log"`
 	Misc        cfgMisc   `toml:"misc"`
 	Screen      cfgScreen `toml:"screen"`
+	Proxy       cfgProxy  `toml:"proxy"`
+}
+
+type entrypoint []string
+
+func (e *entrypoint) UnmarshalTOML(v interface{}) error {
+	switch val := v.(type) {
+	case nil:
+		*e = nil
+		return nil
+	case string:
+		*e = []string{val}
+		return nil
+	case []interface{}:
+		values := make([]string, len(val))
+		for i, raw := range val {
+			s, ok := raw.(string)
+			if !ok {
+				return fmt.Errorf("entrypoint values must be strings, got %T", raw)
+			}
+			values[i] = s
+		}
+		*e = values
+		return nil
+	default:
+		return fmt.Errorf("entrypoint must be a string or array of strings, got %T", v)
+	}
+}
+
+func (e entrypoint) binary() string {
+	if len(e) == 0 {
+		return ""
+	}
+	return e[0]
+}
+
+func (e entrypoint) args() []string {
+	if len(e) <= 1 {
+		return nil
+	}
+	return e[1:]
+}
+
+type cfgBuildOverrides struct {
+	CfgBuildCommon `toml:",inline"`
+}
+
+type CfgBuildCommon struct {
+	PreCmd     []string   `toml:"pre_cmd" usage:"Array of commands to run before each build"`
+	Cmd        string     `toml:"cmd" usage:"Just plain old shell command. You could use 'make' as well"`
+	PostCmd    []string   `toml:"post_cmd" usage:"Array of commands to run after ^C"`
+	Bin        string     `toml:"bin" usage:"Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint."`
+	Entrypoint entrypoint `toml:"entrypoint" usage:"Binary file plus optional arguments relative to root, prefer [\"./tmp/main\", \"arg\"] form"`
+	FullBin    string     `toml:"full_bin" usage:"Customize binary, can setup environment variables when run your app"`
+	ArgsBin    []string   `toml:"args_bin" usage:"Add additional arguments when running binary (bin/full_bin)."`
 }
 
 type cfgBuild struct {
-	PreCmd           []string      `toml:"pre_cmd"`
-	Cmd              string        `toml:"cmd"`
-	PostCmd          []string      `toml:"post_cmd"`
-	Bin              string        `toml:"bin"`
-	FullBin          string        `toml:"full_bin"`
-	ArgsBin          []string      `toml:"args_bin"`
-	Log              string        `toml:"log"`
-	IncludeExt       []string      `toml:"include_ext"`
-	ExcludeDir       []string      `toml:"exclude_dir"`
-	IncludeDir       []string      `toml:"include_dir"`
-	ExcludeFile      []string      `toml:"exclude_file"`
-	IncludeFile      []string      `toml:"include_file"`
-	ExcludeRegex     []string      `toml:"exclude_regex"`
-	ExcludeUnchanged bool          `toml:"exclude_unchanged"`
-	FollowSymlink    bool          `toml:"follow_symlink"`
-	Poll             bool          `toml:"poll"`
-	PollInterval     int           `toml:"poll_interval"`
-	Delay            int           `toml:"delay"`
-	StopOnError      bool          `toml:"stop_on_error"`
-	SendInterrupt    bool          `toml:"send_interrupt"`
-	KillDelay        time.Duration `toml:"kill_delay"`
-	Rerun            bool          `toml:"rerun"`
-	RerunDelay       int           `toml:"rerun_delay"`
-	regexCompiled    []*regexp.Regexp
+	CfgBuildCommon         `toml:",inline"`
+	Log                    string             `toml:"log" usage:"This log file is placed in your tmp_dir"`
+	IncludeExt             []string           `toml:"include_ext" usage:"Watch these filename extensions"`
+	ExcludeDir             []string           `toml:"exclude_dir" usage:"Ignore these filename extensions or directories"`
+	IncludeDir             []string           `toml:"include_dir" usage:"Watch these directories if you specified"`
+	ExcludeFile            []string           `toml:"exclude_file" usage:"Exclude files"`
+	IncludeFile            []string           `toml:"include_file" usage:"Watch these files"`
+	ExcludeRegex           []string           `toml:"exclude_regex" usage:"Exclude specific regular expressions"`
+	ExcludeUnchanged       bool               `toml:"exclude_unchanged" usage:"Exclude unchanged files"`
+	IgnoreDangerousRootDir bool               `toml:"ignore_dangerous_root_dir" usage:"Ignore dangerous root directory that could cause excessive file watching"`
+	FollowSymlink          bool               `toml:"follow_symlink" usage:"Follow symlink for directories"`
+	Poll                   bool               `toml:"poll" usage:"Poll files for changes instead of using fsnotify"`
+	PollInterval           int                `toml:"poll_interval" usage:"Poll interval (defaults to the minimum interval of 500ms)"`
+	Delay                  int                `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
+	StopOnError            bool               `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
+	SendInterrupt          bool               `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
+	KillDelay              time.Duration      `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
+	Rerun                  bool               `toml:"rerun" usage:"Rerun binary or not"`
+	RerunDelay             int                `toml:"rerun_delay" usage:"Delay after each execution"`
+	Windows                *cfgBuildOverrides `toml:"windows,omitempty"`
+	Darwin                 *cfgBuildOverrides `toml:"darwin,omitempty"`
+	Linux                  *cfgBuildOverrides `toml:"linux,omitempty"`
+	regexCompiled          []*regexp.Regexp
+	includeDirAbs          []string
+	extraIncludeDirs       []string
 }
 
 func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
-	if len(c.ExcludeRegex) > 0 && len(c.regexCompiled) == 0 {
-		c.regexCompiled = make([]*regexp.Regexp, 0, len(c.ExcludeRegex))
-		for _, s := range c.ExcludeRegex {
-			re, err := regexp.Compile(s)
-			if err != nil {
-				return nil, err
-			}
-			c.regexCompiled = append(c.regexCompiled, re)
-		}
-	}
 	return c.regexCompiled, nil
 }
 
+func (c *cfgBuild) normalizeIncludeDirs(root string) {
+	c.includeDirAbs = c.includeDirAbs[:0]
+	c.extraIncludeDirs = c.extraIncludeDirs[:0]
+	if root == "" {
+		return
+	}
+	for _, dir := range c.IncludeDir {
+		dir = cleanPath(dir)
+		if dir == "" {
+			continue
+		}
+		dir = filepath.Clean(dir)
+		abs := dir
+		if !filepath.IsAbs(dir) {
+			abs = filepath.Join(root, dir)
+		}
+		abs = filepath.Clean(abs)
+		if isSubPath(root, abs) {
+			c.includeDirAbs = append(c.includeDirAbs, abs)
+			continue
+		}
+		c.extraIncludeDirs = append(c.extraIncludeDirs, abs)
+	}
+}
+
 type cfgLog struct {
-	AddTime  bool `toml:"time"`
-	MainOnly bool `toml:"main_only"`
+	AddTime  bool `toml:"time" usage:"Show log time"`
+	MainOnly bool `toml:"main_only" usage:"Only show main log (silences watcher, build, runner)"`
+	Silent   bool `toml:"silent" usage:"silence all logs produced by air"`
 }
 
 type cfgColor struct {
-	Main    string `toml:"main"`
-	Watcher string `toml:"watcher"`
-	Build   string `toml:"build"`
-	Runner  string `toml:"runner"`
+	Main    string `toml:"main" usage:"Customize main part's color. If no color found, use the raw app log"`
+	Watcher string `toml:"watcher" usage:"Customize watcher part's color"`
+	Build   string `toml:"build" usage:"Customize build part's color"`
+	Runner  string `toml:"runner" usage:"Customize runner part's color"`
+	Mode    string `toml:"mode" usage:"Colorized output mode, one of always, auto, or never. Defaults to auto"`
 	App     string `toml:"app"`
 }
 
 type cfgMisc struct {
-	CleanOnExit bool `toml:"clean_on_exit"`
+	CleanOnExit   bool    `toml:"clean_on_exit" usage:"Delete tmp directory on exit"`
+	StartupBanner *string `toml:"startup_banner" usage:"Custom startup banner text; set to empty string to hide banner"`
 }
 
 type cfgScreen struct {
-	ClearOnRebuild bool `toml:"clear_on_rebuild"`
-	KeepScroll     bool `toml:"keep_scroll"`
+	ClearOnRebuild bool `toml:"clear_on_rebuild" usage:"Clear screen on rebuild"`
+	KeepScroll     bool `toml:"keep_scroll" usage:"Keep scroll position after rebuild"`
+}
+
+type cfgProxy struct {
+	Enabled         bool `toml:"enabled" usage:"Enable live-reloading on the browser"`
+	ProxyPort       int  `toml:"proxy_port" usage:"Port for proxy server"`
+	AppPort         int  `toml:"app_port" usage:"Port for your app"`
+	AppStartTimeout int  `toml:"app_start_timeout" usage:"Timeout for waiting for app to start in milliseconds (default 5000)"`
 }
 
 type sliceTransformer struct{}
@@ -111,7 +200,39 @@ func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Va
 }
 
 // InitConfig initializes the configuration.
-func InitConfig(path string) (cfg *Config, err error) {
+func InitConfig(path string, cmdArgs map[string]TomlInfo) (*Config, error) {
+	ret, err := initConfigWithoutPreprocess(path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ret.preprocess(cmdArgs)
+	if err != nil {
+		return nil, err
+	}
+	warnDeprecatedBin(ret)
+
+	return ret, nil
+}
+
+// InitConfigForDisplay initializes config without preprocess side effects.
+func InitConfigForDisplay(path string, cmdArgs map[string]TomlInfo) (*Config, error) {
+	ret, err := initConfigWithoutPreprocess(path)
+	if err != nil {
+		return nil, err
+	}
+	if cmdArgs != nil {
+		ret.withArgs(cmdArgs)
+	}
+	return ret, nil
+}
+
+func initConfigWithoutPreprocess(path string) (*Config, error) {
+	var (
+		cfg *Config
+		err error
+	)
+
 	if path == "" {
 		cfg, err = defaultPathConfig()
 		if err != nil {
@@ -137,21 +258,19 @@ func InitConfig(path string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	err = ret.preprocess()
-	return ret, err
+	if err = applyPlatformOverrides(ret); err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func writeDefaultConfig() (string, error) {
-	confFiles := []string{dftTOML, dftConf}
-
-	for _, fname := range confFiles {
-		fstat, err := os.Stat(fname)
-		if err != nil && !os.IsNotExist(err) {
-			return "", fmt.Errorf("failed to check for existing configuration: %w", err)
-		}
-		if err == nil && fstat != nil {
-			return "", errors.New("configuration already exists")
-		}
+	fstat, err := os.Stat(dftTOML)
+	if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to check for existing configuration: %w", err)
+	}
+	if err == nil && fstat != nil {
+		return "", errors.New("configuration already exists")
 	}
 
 	file, err := os.Create(dftTOML)
@@ -160,13 +279,18 @@ func writeDefaultConfig() (string, error) {
 	}
 	defer file.Close()
 
-	config := defaultConfig()
+	config := defaultConfigBase()
+	setEntrypointFromBin(&config)
+	addPlatformOverridesForInit(&config, runtime.GOOS)
 	configFile, err := toml.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal the default configuration: %w", err)
 	}
 
-	_, err = file.Write(configFile)
+	headers := []byte(schemaHeader + "\n\n")
+	content := append(headers, configFile...)
+
+	_, err = file.Write(content)
 	if err != nil {
 		return "", fmt.Errorf("failed to write to %s: %w", dftTOML, err)
 	}
@@ -175,18 +299,20 @@ func writeDefaultConfig() (string, error) {
 }
 
 func defaultPathConfig() (*Config, error) {
-	// when path is blank, first find `.air.toml`, `.air.conf` in `air_wd` and current working directory, if not found, use defaults
-	for _, name := range []string{dftTOML, dftConf} {
-		cfg, err := readConfByName(name)
-		if err == nil {
-			if name == dftConf {
-				fmt.Println("`.air.conf` will be deprecated soon, recommend using `.air.toml`.")
-			}
-			return cfg, nil
-		}
+	// when path is blank, first find `.air.toml` in `air_wd` and current working directory, if not found, use defaults
+	cfg, err := readConfByName(dftTOML)
+	if err == nil {
+		return cfg, nil
+	}
+
+	// If the config file exists but failed to parse, report the error
+	// Only use defaults if no config file exists
+	if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to parse %s: %w", dftTOML, err)
 	}
 
 	dftCfg := defaultConfig()
+	setEntrypointFromBin(&dftCfg)
 	return &dftCfg, nil
 }
 
@@ -205,31 +331,31 @@ func readConfByName(name string) (*Config, error) {
 	return cfg, err
 }
 
-func defaultConfig() Config {
+func defaultConfigBase() Config {
 	build := cfgBuild{
-		Cmd:          "go build -o ./tmp/main .",
-		Bin:          "./tmp/main",
+		CfgBuildCommon: CfgBuildCommon{
+			Cmd:        "go build -o ./tmp/main .",
+			Bin:        "./tmp/main",
+			Entrypoint: entrypoint{},
+			PreCmd:     []string{},
+			PostCmd:    []string{},
+			ArgsBin:    []string{},
+		},
 		Log:          "build-errors.log",
 		IncludeExt:   []string{"go", "tpl", "tmpl", "html"},
 		IncludeDir:   []string{},
-		PreCmd:       []string{},
-		PostCmd:      []string{},
 		ExcludeFile:  []string{},
 		IncludeFile:  []string{},
 		ExcludeDir:   []string{"assets", "tmp", "vendor", "testdata"},
-		ArgsBin:      []string{},
 		ExcludeRegex: []string{"_test.go"},
 		Delay:        1000,
 		Rerun:        false,
 		RerunDelay:   500,
 	}
-	if runtime.GOOS == PlatformWindows {
-		build.Bin = `tmp\main.exe`
-		build.Cmd = "go build -o ./tmp/main.exe ."
-	}
 	log := cfgLog{
 		AddTime:  false,
 		MainOnly: false,
+		Silent:   false,
 	}
 	color := cfgColor{
 		Main:    "magenta",
@@ -244,6 +370,7 @@ func defaultConfig() Config {
 		Root:        ".",
 		TmpDir:      "tmp",
 		TestDataDir: "testdata",
+		EnvFiles:    []string{},
 		Build:       build,
 		Color:       color,
 		Log:         log,
@@ -253,6 +380,151 @@ func defaultConfig() Config {
 			KeepScroll:     true,
 		},
 	}
+}
+
+func defaultConfigForOS(goos string) Config {
+	cfg := defaultConfigBase()
+	applyPlatformDefaults(&cfg, goos)
+	return cfg
+}
+
+func defaultConfig() Config {
+	return defaultConfigForOS(runtime.GOOS)
+}
+
+func applyPlatformDefaults(cfg *Config, goos string) {
+	if cfg == nil {
+		return
+	}
+	if goos == PlatformWindows {
+		cfg.Build.Bin = `tmp\main.exe`
+		cfg.Build.Cmd = "go build -o ./tmp/main.exe ."
+	}
+}
+
+func applyPlatformOverrides(cfg *Config) error {
+	if cfg == nil {
+		return nil
+	}
+
+	override := platformBuildOverrides(&cfg.Build, runtime.GOOS)
+	if override == nil {
+		return nil
+	}
+
+	applyBuildOverrides(&cfg.Build, override)
+	return nil
+}
+
+func platformBuildOverrides(build *cfgBuild, goos string) *cfgBuildOverrides {
+	if build == nil {
+		return nil
+	}
+	switch goos {
+	case PlatformWindows:
+		return build.Windows
+	case "darwin":
+		return build.Darwin
+	case "linux":
+		return build.Linux
+	default:
+		return nil
+	}
+}
+
+func applyBuildOverrides(build *cfgBuild, override *cfgBuildOverrides) {
+	if build == nil || override == nil {
+		return
+	}
+	if override.PreCmd != nil {
+		build.PreCmd = override.PreCmd
+	}
+	if override.Cmd != "" {
+		build.Cmd = override.Cmd
+	}
+	if override.PostCmd != nil {
+		build.PostCmd = override.PostCmd
+	}
+	if override.Bin != "" {
+		build.Bin = override.Bin
+	}
+	if override.Entrypoint != nil {
+		build.Entrypoint = override.Entrypoint
+	}
+	if override.FullBin != "" {
+		build.FullBin = override.FullBin
+	}
+	if override.ArgsBin != nil {
+		build.ArgsBin = override.ArgsBin
+	}
+}
+
+func setEntrypointFromBin(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if len(cfg.Build.Entrypoint) == 0 && cfg.Build.Bin != "" {
+		cfg.Build.Entrypoint = entrypoint{cfg.Build.Bin}
+	}
+}
+
+func addPlatformOverridesForInit(cfg *Config, goos string) {
+	if cfg == nil {
+		return
+	}
+	platformConfig := defaultConfigForOS(goos)
+	setEntrypointFromBin(&platformConfig)
+	override := buildOverridesFromDiff(cfg.Build, platformConfig.Build)
+	if override == nil {
+		return
+	}
+	switch goos {
+	case PlatformWindows:
+		cfg.Build.Windows = override
+	case "darwin":
+		cfg.Build.Darwin = override
+	case "linux":
+		cfg.Build.Linux = override
+	}
+}
+
+func buildOverridesFromDiff(base cfgBuild, target cfgBuild) *cfgBuildOverrides {
+	var override cfgBuildOverrides
+	changed := false
+
+	if !reflect.DeepEqual(base.PreCmd, target.PreCmd) {
+		override.PreCmd = target.PreCmd
+		changed = true
+	}
+	if base.Cmd != target.Cmd {
+		override.Cmd = target.Cmd
+		changed = true
+	}
+	if !reflect.DeepEqual(base.PostCmd, target.PostCmd) {
+		override.PostCmd = target.PostCmd
+		changed = true
+	}
+	if base.Bin != target.Bin {
+		override.Bin = target.Bin
+		changed = true
+	}
+	if !reflect.DeepEqual(base.Entrypoint, target.Entrypoint) {
+		override.Entrypoint = target.Entrypoint
+		changed = true
+	}
+	if base.FullBin != target.FullBin {
+		override.FullBin = target.FullBin
+		changed = true
+	}
+	if !reflect.DeepEqual(base.ArgsBin, target.ArgsBin) {
+		override.ArgsBin = target.ArgsBin
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+	return &override
 }
 
 func readConfig(path string) (*Config, error) {
@@ -279,8 +551,12 @@ func readConfigOrDefault(path string) (*Config, error) {
 	return cfg, nil
 }
 
-func (c *Config) preprocess() error {
+func (c *Config) preprocess(args map[string]TomlInfo) error {
 	var err error
+
+	if args != nil {
+		c.withArgs(args)
+	}
 	cwd := os.Getenv(airWd)
 	if cwd != "" {
 		if err = os.Chdir(cwd); err != nil {
@@ -292,27 +568,78 @@ func (c *Config) preprocess() error {
 	if err != nil {
 		return err
 	}
+
+	// Check for dangerous root directories that could cause excessive file watching
+	if isDangerous, dirName := isDangerousRoot(c.Root); isDangerous {
+		if !c.Build.IgnoreDangerousRootDir {
+			return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
+		}
+		fmt.Fprintln(os.Stderr, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
+	}
+
 	if c.TmpDir == "" {
 		c.TmpDir = "tmp"
 	}
 	if c.TestDataDir == "" {
 		c.TestDataDir = "testdata"
 	}
-	if err != nil {
-		return err
-	}
+	c.adjustDefaultsForTmpDir()
 	ed := c.Build.ExcludeDir
 	for i := range ed {
 		ed[i] = cleanPath(ed[i])
 	}
 
+	if len(c.Build.Entrypoint) > 0 {
+		entry := c.Build.Entrypoint.binary()
+		if !filepath.IsAbs(entry) {
+			if resolved := resolveCommandPath(entry); resolved != "" {
+				entry = resolved
+			} else {
+				entry = joinPath(c.Root, entry)
+			}
+		}
+
+		entry, err = filepath.Abs(entry)
+		if err != nil {
+			return err
+		}
+		c.Build.Entrypoint[0] = entry
+	}
+
 	adaptToVariousPlatforms(c)
+	c.Build.normalizeIncludeDirs(c.Root)
 
 	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()
 	c.Build.ArgsBin = append(c.Build.ArgsBin, runtimeArgs...)
 
+	// Compile the exclude regexes if there are any patterns in the config file
+	if len(c.Build.ExcludeRegex) > 0 {
+		regexCompiled := make([]*regexp.Regexp, len(c.Build.ExcludeRegex))
+		for idx, expr := range c.Build.ExcludeRegex {
+			re, err := regexp.Compile(expr)
+			if err != nil {
+				return fmt.Errorf("failed to compile regex %q: %w", expr, err)
+			}
+			regexCompiled[idx] = re
+		}
+		c.Build.regexCompiled = regexCompiled
+	}
+
 	c.Build.ExcludeDir = ed
+
+	// Set colorful output, see https://github.com/fatih/color#disableenable-color
+	switch c.Color.Mode {
+	case "always":
+		color.NoColor = false
+	case "never":
+		color.NoColor = true
+	case "auto", "":
+		break
+	default:
+		return fmt.Errorf("unsupported color mode: %s. Expected always, auto, or never", c.Color.Mode)
+	}
+
 	if len(c.Build.FullBin) > 0 {
 		c.Build.Bin = c.Build.FullBin
 		return err
@@ -322,6 +649,92 @@ func (c *Config) preprocess() error {
 	c.Build.Bin, err = filepath.Abs(c.Build.Bin)
 
 	return err
+}
+
+// adjustDefaultsForTmpDir updates Build.Cmd, Build.Bin, and Build.ExcludeDir
+// when they still hold their default values but TmpDir has been changed.
+func (c *Config) adjustDefaultsForTmpDir() {
+	c.adjustDefaultsForTmpDirWithOS(runtime.GOOS)
+}
+
+func (c *Config) adjustDefaultsForTmpDirWithOS(goos string) {
+	const defaultTmpDir = "tmp"
+	if c.TmpDir == defaultTmpDir {
+		return
+	}
+
+	defaultCmd := "go build -o ./tmp/main ."
+	defaultBin := "./tmp/main"
+	mainBinary := "main"
+	if goos == PlatformWindows {
+		defaultCmd = "go build -o ./tmp/main.exe ."
+		defaultBin = `tmp\main.exe`
+		mainBinary = "main.exe"
+	}
+
+	newBinPath := filepath.Join(c.TmpDir, mainBinary)
+	normalizedBinPath := strings.ReplaceAll(newBinPath, `\`, "/")
+	newBin := "./" + normalizedBinPath
+	cmdOut := newBin
+	if isAbsPathForOS(goos, c.TmpDir) {
+		newBin = newBinPath
+		cmdOut = normalizedBinPath
+	}
+	if goos == PlatformWindows {
+		if isAbsPathForOS(goos, c.TmpDir) {
+			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
+			cmdOut = normalizedBinPath
+		} else {
+			newBin = strings.ReplaceAll(newBinPath, "/", "\\")
+			cmdOut = "./" + normalizedBinPath
+		}
+	}
+	newCmd := "go build -o " + cmdOut + " ."
+
+	if c.Build.Cmd == defaultCmd {
+		c.Build.Cmd = newCmd
+	}
+	if c.Build.Bin == defaultBin {
+		c.Build.Bin = newBin
+	}
+	if isDefaultExcludeDir(c.Build.ExcludeDir) {
+		for i, dir := range c.Build.ExcludeDir {
+			if dir == defaultTmpDir {
+				c.Build.ExcludeDir[i] = c.TmpDir
+			}
+		}
+	}
+}
+
+func isDefaultExcludeDir(dirs []string) bool {
+	defaultDirs := []string{"assets", "tmp", "vendor", "testdata"}
+	if len(dirs) != len(defaultDirs) {
+		return false
+	}
+	for i := range dirs {
+		if dirs[i] != defaultDirs[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func isAbsPathForOS(goos, path string) bool {
+	if goos != PlatformWindows {
+		return pathpkg.IsAbs(path)
+	}
+
+	if strings.HasPrefix(path, `\\`) {
+		return true
+	}
+	if len(path) < 3 {
+		return false
+	}
+	drive := path[0]
+	if ((drive >= 'a' && drive <= 'z') || (drive >= 'A' && drive <= 'Z')) && path[1] == ':' {
+		return path[2] == '\\' || path[2] == '/'
+	}
+	return false
 }
 
 func (c *Config) colorInfo() map[string]string {
@@ -334,7 +747,7 @@ func (c *Config) colorInfo() map[string]string {
 }
 
 func (c *Config) buildLogPath() string {
-	return filepath.Join(c.tmpPath(), c.Build.Log)
+	return joinPath(c.tmpPath(), c.Build.Log)
 }
 
 func (c *Config) buildDelay() time.Duration {
@@ -350,22 +763,31 @@ func (c *Config) killDelay() time.Duration {
 	// interpret as milliseconds if less than the value of 1 millisecond
 	if c.Build.KillDelay < time.Millisecond {
 		return c.Build.KillDelay * time.Millisecond
-	} else {
-		// normalize kill delay to milliseconds
-		return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 	}
+	// normalize kill delay to milliseconds
+	return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 }
 
 func (c *Config) binPath() string {
-	return filepath.Join(c.Root, c.Build.Bin)
+	if len(c.Build.Entrypoint) > 0 {
+		return c.Build.Entrypoint.binary()
+	}
+	return joinPath(c.Root, c.Build.Bin)
+}
+
+func (c *Config) runnerBin() string {
+	if len(c.Build.Entrypoint) > 0 && len(c.Build.FullBin) == 0 {
+		return c.Build.Entrypoint.binary()
+	}
+	return c.Build.Bin
 }
 
 func (c *Config) tmpPath() string {
-	return filepath.Join(c.Root, c.TmpDir)
+	return joinPath(c.Root, c.TmpDir)
 }
 
 func (c *Config) testDataPath() string {
-	return filepath.Join(c.Root, c.TestDataDir)
+	return joinPath(c.Root, c.TestDataDir)
 }
 
 func (c *Config) rel(path string) string {
@@ -376,12 +798,42 @@ func (c *Config) rel(path string) string {
 	return s
 }
 
-// WithArgs returns a new config with the given arguments added to the configuration.
-func (c *Config) WithArgs(args map[string]TomlInfo) {
+func resolveCommandPath(entry string) string {
+	if entry == "" || strings.ContainsAny(entry, `/\`) {
+		return ""
+	}
+
+	path, err := exec.LookPath(entry)
+	if err != nil {
+		return ""
+	}
+	return path
+}
+
+// withArgs returns a new config with the given arguments added to the configuration.
+func (c *Config) withArgs(args map[string]TomlInfo) {
 	for _, value := range args {
-		if value.Value != nil && *value.Value != unsetDefault {
+		// Ignore values that match the default configuration.
+		// This ensures user-specified configurations are not overwritten by default values.
+		if value.Value != nil && *value.Value != value.fieldValue {
 			v := reflect.ValueOf(c)
 			setValue2Struct(v, value.fieldPath, *value.Value)
 		}
 	}
+
+}
+
+func warnDeprecatedBin(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Build.Bin == "" || len(cfg.Build.Entrypoint) > 0 {
+		return
+	}
+
+	if cfg.Build.Bin != "" && len(cfg.Build.Entrypoint) > 0 {
+		return
+	}
+
+	fmt.Fprintln(os.Stderr, "[warning] build.bin is deprecated; set build.entrypoint instead")
 }

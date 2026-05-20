@@ -1,1 +1,3 @@
+#:schema https://json.schemastore.org/any.json
+
 root = "toml_root"

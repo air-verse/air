@@ -1,0 +1,6 @@
+# Config file with duplicate key to trigger parse error
+root = "."
+
+[build]
+delay = 1000
+delay = 2000

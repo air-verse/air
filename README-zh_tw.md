@@ -1,6 +1,6 @@
 # :cloud: Air - Live reload for Go apps
 
-[![Go](https://github.com/cosmtrek/air/actions/workflows/release.yml/badge.svg)](https://github.com/cosmtrek/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/cosmtrek/air/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=cosmtrek/air&amp;utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/cosmtrek/air)](https://goreportcard.com/report/github.com/cosmtrek/air) [![codecov](https://codecov.io/gh/cosmtrek/air/branch/master/graph/badge.svg)](https://codecov.io/gh/cosmtrek/air)
+[![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=air-verse/air&utm_campaign=Badge_Grade) [![Go Report Card](https://goreportcard.com/badge/github.com/air-verse/air)](https://goreportcard.com/report/github.com/air-verse/air) [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
 
 ![air](docs/air.png)
 
@@ -16,11 +16,11 @@ Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 
 
 ## 功能列表
 
-* 彩色的日誌輸出
-* 自訂建立或任何命令
-* 支援排除子目錄
-* 允許在 Air 開始後監視新目錄
-* 更佳的建置過程
+- 彩色的日誌輸出
+- 自訂建立或任何命令
+- 支援排除子目錄
+- 允許在 Air 開始後監視新目錄
+- 更佳的建置過程
 
 ### 用參數覆寫指定的配置
 
@@ -28,57 +28,88 @@ Air 是一個另類的自動重新編譯執行命令列工具，用於開發 Go 
 
 如果你想設定建置命令和執行命令，你可以在不需要配置檔案的情況下如下使用命令：
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api"
+```
 
 對於需要輸入列表的參數，可以使用逗號將項目分隔：
 
-`air --build.cmd "go build -o bin/api cmd/run.go" --build.bin "./bin/api" --build.exclude_dir "templates,build"`
+```shell
+air --build.cmd "go build -o bin/api cmd/run.go" --build.entrypoint "./bin/api" --build.exclude_dir "templates,build"
+```
+
+舊的 `build.bin` 欄位已被棄用，未來版本會移除，請改用 `build.entrypoint`。
+
+`build.entrypoint` 可以寫成單一字串（只指定執行檔），也可以寫成字串陣列（執行檔加上預設參數）。
 
 ## 安裝
 
 ### 使用 `go install` （推薦）
 
-需要使用 go 1.18 或更高版本：
+需要使用 go 1.25 或更高版本：
 
-```bash
-go install github.com/cosmtrek/air@latest
+```shell
+go install github.com/air-verse/air@latest
+```
+
+### 使用 `go get -tool`
+
+需要使用 go 1.25 或更高版本：
+
+```shell
+go get -tool github.com/air-verse/air@latest
+
+# 然後這樣使用：
+go tool air -v
 ```
 
 ### 透過 install.sh
 
-```bash
+```shell
 # binary will be $(go env GOPATH)/bin/air
-curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 
 # or install it into ./bin/
-curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s
+curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s
 
 air -v
 ```
 
 ### 透過 [goblin.run](https://goblin.run)
 
-```sh
+```shell
 # binary will be /usr/local/bin/air
-curl -sSfL https://goblin.run/github.com/cosmtrek/air | sh
+curl -sSfL https://goblin.run/github.com/air-verse/air | sh
 
 # to put to a custom path
-curl -sSfL https://goblin.run/github.com/cosmtrek/air | PREFIX=/tmp sh
+curl -sSfL https://goblin.run/github.com/air-verse/air | PREFIX=/tmp sh
+```
+
+### 使用軟體套件管理器 [mise](https://github.com/jdx/mise)
+
+```shell
+mise use -g air
+```
+
+### 透過 [Scoop](https://scoop.sh)
+
+```shell
+scoop install air
 ```
 
 ### 透過 `go install`
 
-使用 go 1.18 或更高版本:
+使用 go 1.25 或更高版本:
 
 ```bash
-go install github.com/cosmtrek/air@latest
+go install github.com/air-verse/air@latest
 ```
 
 ### Docker/Podman
 
 請讀取 Docker 映像檔 [cosmtrek/air](https://hub.docker.com/r/cosmtrek/air).
 
-```bash
+```shell
 docker/podman run -it --rm \
     -w "<PROJECT>" \
     -e "air_wd=<PROJECT>" \
@@ -90,9 +121,9 @@ docker/podman run -it --rm \
 
 #### Docker/Podman .${SHELL}rc
 
-如果你想像常規應用程式一樣持續使用 air，你可以在你的 ${SHELL}rc (bash,zsh, etc...) 中創建一個函數。
+如果你想像常規應用程式一樣持續使用 air，你可以在你的 ${SHELL}rc (Bash, Zsh, etc…) 中創建一個函數。
 
-```bash
+```shell
 air() {
   podman/docker run -it --rm \
     -w "$PWD" -v "$PWD":"$PWD" \
@@ -106,19 +137,19 @@ air() {
 <details>
   <summary>For example</summary>
 
-我其中一個專案是在 docker 中運行
+我其中一個專案是在 Docker 中運行
 
-```bash
+```shell
 docker run -it --rm \
   -w "/go/src/github.com/cosmtrek/hub" \
   -v $(pwd):/go/src/github.com/cosmtrek/hub \
   -p 9090:9090 \
   cosmtrek/air
 ```
-  
+
 另一個例子
 
-```bash
+```shell
 cd /go/src/github.com/cosmtrek/hub
 AIR_PORT=8080 air -c "config.toml"
 ```
@@ -129,30 +160,40 @@ AIR_PORT=8080 air -c "config.toml"
 
 ## 使用方式
 
-為了減少輸入，你可以將 `alias air='~/.air'` 加到你的 `.bashrc` 或者 `.zshrc`。
+如果你使用 `go install` 安裝 Air，請確認你的 Go bin 目錄已加入 `PATH`：
+
+```shell
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
 
 首先，進入你的專案目錄
 
-```bash
+```shell
 cd /path/to/your_project
 ```
 
 最簡單的使用方式是運行
 
-```bash
-# firstly find `.air.toml` in current directory, if not found, use defaults
+```shell
+# 先嘗試讀取目前目錄中的 `.air.toml`；如果不存在，則使用預設配置
+air
+```
+
+如果要明確指定配置檔，可以使用：
+
+```shell
 air -c .air.toml
 ```
 
 你可以用以下命令初始化 `.air.toml` 配置檔到當前目錄，並使用預設設置。
 
-```bash
+```shell
 air init
 ```
 
 此後，你可以只運行 `air` 命令，而不需要額外的參數，它將使用 `.air.toml` 檔案作為配置。
 
-```bash
+```shell
 air
 ```
 
@@ -162,7 +203,7 @@ air
 
 你可以在 air 命令後添加參數來運行已構建的二進制檔。
 
-```bash
+```shell
 # Will run ./tmp/main bench
 air bench
 
@@ -172,7 +213,7 @@ air server --port 8080
 
 你可以使用 `--` 參數來分隔傳遞給 air 命令和已建構的二進制檔的參數。
 
-```bash
+```shell
 # Will run ./tmp/main -h
 air -- -h
 
@@ -180,7 +221,7 @@ air -- -h
 air -c .air.toml -- -h
 ```
 
-### Docker-compose
+### Docker Compose
 
 ```yaml
 services:
@@ -207,12 +248,12 @@ services:
 `Dockerfile`
 
 ```Dockerfile
-# Choose whatever you want, version >= 1.16
-FROM golang:1.21-alpine
+# Choose whatever you want, version >= 1.25
+FROM golang:1.25-alpine
 
 WORKDIR /app
 
-RUN go install github.com/cosmtrek/air@latest
+RUN go install github.com/air-verse/air@latest
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -241,7 +282,7 @@ services:
 
 ### "找不到命令：air" 或者 "找不到檔案或目錄"
 
-```zsh
+```shell
 export GOPATH=$HOME/xxxxx
 export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
 export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
@@ -249,13 +290,13 @@ export PATH=$PATH:$(go env GOPATH)/bin <---- Confirm this line in you profile!!!
 
 ### 當 bin 中包含 ' 時，在 wsl 下的錯誤
 
-應該使用 `\` 來轉義 bin 中的 `'。相關議題：[#305](https://github.com/cosmtrek/air/issues/305)
+應該使用 `\` 來轉義 bin 中的 `'。相關議題：[#305](https://github.com/air-verse/air/issues/305)
 
 ## 開發
 
-請注意，由於我使用 `go mod` 來管理依賴，所以需要 Go 1.16+。
+請注意：目前需要 Go 1.25+（請參考 `go.mod`）。
 
-```bash
+```shell
 # Fork this project
 
 # Clone it
@@ -275,7 +316,7 @@ make install
 
 ### 發佈版本
 
-```bash
+```shell
 # Checkout to master
 git checkout master
 
@@ -290,7 +331,7 @@ git push origin v1.xx.x
 
 ## 星星歷史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=cosmtrek/air&type=Date)](https://star-history.com/#cosmtrek/air&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=air-verse/air&type=Date)](https://star-history.com/#air-verse/air&Date)
 
 ## 贊助專案
 
