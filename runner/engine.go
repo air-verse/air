@@ -322,7 +322,7 @@ func (e *Engine) watchPath(path string) error {
 				}
 				// Rewatch the file if the editor is using atomic saving.
 				if renameOrRemoveEvent(ev) {
-					if e.checkIncludeFile(path) {
+					if e.checkIncludeFile(ev.Name) {
 						if err := e.watcher.Add(ev.Name); err != nil {
 							e.watcherLog("error rewatching file: %v", err)
 						}
