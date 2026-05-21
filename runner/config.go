@@ -202,7 +202,7 @@ func (t sliceTransformer) Transformer(typ reflect.Type) func(dst, src reflect.Va
 
 // InitConfig initializes the configuration.
 func InitConfig(path string, cmdArgs map[string]TomlInfo) (*Config, error) {
-	ret, err := initConfigWithoutPreprocess(path)
+	ret, fromFile, err := initConfigWithoutPreprocess(path)
 	if err != nil {
 		return nil, err
 	}
@@ -211,14 +211,14 @@ func InitConfig(path string, cmdArgs map[string]TomlInfo) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	warnDeprecatedBin(ret)
+	warnDeprecatedBin(ret, fromFile || hasChangedArg(cmdArgs, "build.bin"))
 
 	return ret, nil
 }
 
 // InitConfigForDisplay initializes config without preprocess side effects.
 func InitConfigForDisplay(path string, cmdArgs map[string]TomlInfo) (*Config, error) {
-	ret, err := initConfigWithoutPreprocess(path)
+	ret, _, err := initConfigWithoutPreprocess(path)
 	if err != nil {
 		return nil, err
 	}
@@ -228,22 +228,24 @@ func InitConfigForDisplay(path string, cmdArgs map[string]TomlInfo) (*Config, er
 	return ret, nil
 }
 
-func initConfigWithoutPreprocess(path string) (*Config, error) {
+func initConfigWithoutPreprocess(path string) (*Config, bool, error) {
 	var (
-		cfg *Config
-		err error
+		cfg      *Config
+		fromFile bool
+		err      error
 	)
 
 	if path == "" {
-		cfg, err = defaultPathConfig()
+		cfg, fromFile, err = defaultPathConfig()
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	} else {
 		cfg, err = readConfigOrDefault(path)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
+		fromFile = true
 	}
 	config := defaultConfig()
 	// get addr
@@ -256,13 +258,13 @@ func initConfigWithoutPreprocess(path string) (*Config, error) {
 		config.Overwrite = true
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if err = applyPlatformOverrides(ret); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return ret, nil
+	return ret, fromFile, nil
 }
 
 func writeDefaultConfig() (string, error) {
@@ -299,23 +301,24 @@ func writeDefaultConfig() (string, error) {
 	return dftTOML, nil
 }
 
-func defaultPathConfig() (*Config, error) {
+// defaultPathConfig loads `.air.toml` or `.config/air.toml` when present.
+// The bool is true when a config file was loaded, false when defaults are returned.
+func defaultPathConfig() (*Config, bool, error) {
 	// when path is blank, first find `.air.toml` in `air_wd` and current working directory or .config/air.toml, if not found, use defaults
 	for _, name := range []string{dftTOML, cfgTOML} {
 		cfg, err := readConfByName(name)
 		if err == nil {
-			return cfg, nil
+			return cfg, true, nil
 		}
 		// If the config file exists but failed to parse, report the error
 		// Only use defaults if no config file exists
 		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("failed to parse %s: %w", name, err)
+			return nil, false, fmt.Errorf("failed to parse %s: %w", name, err)
 		}
 	}
 
 	dftCfg := defaultConfig()
-	setEntrypointFromBin(&dftCfg)
-	return &dftCfg, nil
+	return &dftCfg, false, nil
 }
 
 func readConfByName(name string) (*Config, error) {
@@ -817,7 +820,7 @@ func (c *Config) withArgs(args map[string]TomlInfo) {
 	for _, value := range args {
 		// Ignore values that match the default configuration.
 		// This ensures user-specified configurations are not overwritten by default values.
-		if value.Value != nil && *value.Value != value.fieldValue {
+		if value.changed() {
 			v := reflect.ValueOf(c)
 			setValue2Struct(v, value.fieldPath, *value.Value)
 		}
@@ -825,15 +828,24 @@ func (c *Config) withArgs(args map[string]TomlInfo) {
 
 }
 
-func warnDeprecatedBin(cfg *Config) {
+// hasChangedArg reports whether the named CLI flag was supplied with a
+// non-default value.
+func hasChangedArg(args map[string]TomlInfo, key string) bool {
+	info, ok := args[key]
+	return ok && info.changed()
+}
+
+// warnDeprecatedBin warns when build.bin is in use without build.entrypoint.
+// binExplicit must be true to warn, so plain `air` with no config or flags
+// stays quiet about a default the user never set.
+func warnDeprecatedBin(cfg *Config, binExplicit bool) {
 	if cfg == nil {
 		return
 	}
-	if cfg.Build.Bin == "" || len(cfg.Build.Entrypoint) > 0 {
+	if !binExplicit {
 		return
 	}
-
-	if cfg.Build.Bin != "" && len(cfg.Build.Entrypoint) > 0 {
+	if cfg.Build.Bin == "" || len(cfg.Build.Entrypoint) > 0 {
 		return
 	}
 

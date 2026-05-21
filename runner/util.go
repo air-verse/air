@@ -390,6 +390,12 @@ type TomlInfo struct {
 	usage      string
 }
 
+// changed reports whether the flag value differs from the built-in default.
+// A flag supplied with its literal default is treated as not changed.
+func (t TomlInfo) changed() bool {
+	return t.Value != nil && *t.Value != t.fieldValue
+}
+
 func setValue2Struct(v reflect.Value, fieldName string, value string) {
 	index := strings.Index(fieldName, ".")
 	if index == -1 && len(fieldName) == 0 {

@@ -3,6 +3,7 @@ package runner
 import (
 	"flag"
 	"log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -155,14 +156,45 @@ func TestConfigRuntimeArgs(t *testing.T) {
 				assert.True(t, strings.HasSuffix(conf.Build.Entrypoint.binary(), want), "entrypoint %s does not end with %s", conf.Build.Entrypoint.binary(), want)
 			},
 		},
+		{
+			name: "build.bin alone is honored when no config file exists",
+			args: []string{"--build.bin", "tmp/server"},
+			check: func(t *testing.T, conf *Config) {
+				assert.Empty(t, conf.Build.Entrypoint,
+					"Entrypoint should stay empty so Bin wins in runnerBin/binPath")
+				want := filepath.Join("tmp", "server")
+				assert.True(t, strings.HasSuffix(conf.Build.Bin, want),
+					"Build.Bin = %q, want suffix %q", conf.Build.Bin, want)
+				assert.True(t, strings.HasSuffix(conf.runnerBin(), want),
+					"runnerBin() = %q, want suffix %q", conf.runnerBin(), want)
+				assert.True(t, strings.HasSuffix(conf.binPath(), want),
+					"binPath() = %q, want suffix %q", conf.binPath(), want)
+			},
+		},
+		{
+			name: "build.bin + build.cmd together (issue repro)",
+			args: []string{
+				"--build.cmd", "go build -o ./tmp/server ./main.go",
+				"--build.bin", "tmp/server",
+			},
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, "go build -o ./tmp/server ./main.go", conf.Build.Cmd)
+				want := filepath.Join("tmp", "server")
+				assert.True(t, strings.HasSuffix(conf.runnerBin(), want),
+					"runnerBin() = %q, want suffix %q", conf.runnerBin(), want)
+				assert.True(t, strings.HasSuffix(conf.binPath(), want),
+					"binPath() = %q, want suffix %q", conf.binPath(), want)
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			chdir(t, dir)
+			silenceStderr(t)
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
-			_ = flag.Parse(tc.args)
+			require.NoError(t, flag.Parse(tc.args))
 			cfg, err := InitConfig("", cmdArgs)
 			if err != nil {
 				log.Fatal(err)
@@ -171,4 +203,19 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			tc.check(t, cfg)
 		})
 	}
+}
+
+// silenceStderr redirects os.Stderr to the OS null device for the lifetime
+// of the test, hiding warnings (e.g. the build.bin deprecation notice) that
+// would otherwise leak into test output.
+func silenceStderr(t *testing.T) {
+	t.Helper()
+	orig := os.Stderr
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	require.NoError(t, err)
+	os.Stderr = devNull
+	t.Cleanup(func() {
+		os.Stderr = orig
+		_ = devNull.Close()
+	})
 }

@@ -94,7 +94,7 @@ func TestDefaultPathConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(airWd, tt.path)
-			c, err := defaultPathConfig()
+			c, _, err := defaultPathConfig()
 			if err != nil {
 				t.Fatalf("Should not be fail: %s.", err)
 			}
@@ -118,7 +118,7 @@ func TestDefaultPathConfigWithInvalidTOML(t *testing.T) {
 	// Test that defaultPathConfig returns an error when .air.toml exists but has parse errors
 	// This is a regression test for issue #678
 	t.Setenv(airWd, "_testdata/invalid_toml")
-	_, err := defaultPathConfig()
+	_, _, err := defaultPathConfig()
 	if err == nil {
 		t.Fatal("expected error when .air.toml has parse errors, but got nil")
 	}
@@ -127,6 +127,22 @@ func TestDefaultPathConfigWithInvalidTOML(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "defined twice") {
 		t.Fatalf("expected error message to contain 'defined twice', got: %s", err.Error())
+	}
+}
+
+func TestDefaultPathConfigDoesNotPrepopulateEntrypoint(t *testing.T) {
+	// A non-empty Entrypoint takes precedence over Bin at runtime, so leaving
+	// it unset is what lets a later --build.bin override actually take effect.
+	t.Setenv(airWd, t.TempDir())
+	c, fromFile, err := defaultPathConfig()
+	if err != nil {
+		t.Fatalf("defaultPathConfig: %v", err)
+	}
+	if fromFile {
+		t.Fatalf("fromFile = true, want false (no TOML in temp dir)")
+	}
+	if len(c.Build.Entrypoint) != 0 {
+		t.Fatalf("Build.Entrypoint = %v, want empty", c.Build.Entrypoint)
 	}
 }
 
