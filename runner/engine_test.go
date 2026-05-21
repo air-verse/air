@@ -302,6 +302,112 @@ func TestBuildRunStopsExistingBinAfterSuccessfulBuild(t *testing.T) {
 	}
 }
 
+func TestBuildRunKeepsFreshBinaryAfterSuccessfulBuildWithStopOnError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell commands")
+	}
+
+	tmpDir := t.TempDir()
+	chdir(t, tmpDir)
+
+	require.NoError(t, os.Mkdir("tmp", 0o755))
+	binPath := filepath.Join("tmp", "dev")
+	initialScript := []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n")
+	require.NoError(t, os.WriteFile(binPath, initialScript, 0o755))
+	require.NoError(t, os.WriteFile("next.sh", initialScript, 0o755))
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "cp ./next.sh ./tmp/dev && chmod +x ./tmp/dev"
+	engine.config.Build.Entrypoint = entrypoint{"./tmp/dev"}
+	engine.config.Build.StopOnError = true
+	engine.config.Build.SendInterrupt = true
+	engine.config.Build.KillDelay = 100 * time.Millisecond
+
+	require.NoError(t, engine.runBin())
+	defer engine.stopBin()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "initial binary process to start")
+	require.NoError(t, err)
+
+	engine.buildRun()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "rebuilt binary process to start")
+	require.NoError(t, err)
+	require.FileExists(t, binPath)
+}
+
+func TestBuildRunKeepsIssue910GoBuildEntrypoint(t *testing.T) {
+	if runtime.GOOS == PlatformWindows {
+		t.Skip("issue #910 was reported on Linux; Windows stops before build because running executables are locked")
+	}
+
+	tmpDir := t.TempDir()
+	chdir(t, tmpDir)
+
+	require.NoError(t, os.Mkdir("tmp", 0o755))
+	require.NoError(t, os.WriteFile("go.mod", []byte("module issue910.test\n\ngo 1.17\n"), 0o644))
+	require.NoError(t, os.WriteFile("main.go", []byte(`package main
+
+import "time"
+
+func main() {
+	for {
+		time.Sleep(time.Second)
+	}
+}
+`), 0o644))
+
+	binPath := filepath.Join("tmp", "dev")
+	require.NoError(t, exec.Command("go", "build", "-o", binPath, ".").Run())
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "go build -o ./tmp/dev .; echo 'build ok'; sleep 1"
+	engine.config.Build.Entrypoint = entrypoint{"./tmp/dev"}
+	engine.config.Build.StopOnError = true
+	engine.config.Build.SendInterrupt = true
+	engine.config.Build.KillDelay = 500 * time.Millisecond
+
+	require.NoError(t, engine.runBin())
+	defer engine.stopBin()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "initial issue #910 binary process to start")
+	require.NoError(t, err)
+
+	engine.buildRun()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "rebuilt issue #910 binary process to start")
+	require.NoError(t, err)
+	require.FileExists(t, binPath)
+}
+
 func TestBuildRunStopsExistingBinWhenBuildFailsWithStopOnError(t *testing.T) {
 	engine, err := NewEngine("", nil, true)
 	require.NoError(t, err)
@@ -325,6 +431,96 @@ func TestBuildRunStopsExistingBinWhenBuildFailsWithStopOnError(t *testing.T) {
 	case <-stopped:
 	case <-time.After(time.Second):
 		t.Fatal("expected failed build with stop_on_error to stop the existing binary")
+	}
+}
+
+func TestBuildRunKeepsBinaryAfterFailedBuildWithStopOnError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell commands")
+	}
+
+	tmpDir := t.TempDir()
+	chdir(t, tmpDir)
+
+	require.NoError(t, os.Mkdir("tmp", 0o755))
+	binPath := filepath.Join("tmp", "dev")
+	script := []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n")
+	require.NoError(t, os.WriteFile(binPath, script, 0o755))
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "false"
+	engine.config.Build.Entrypoint = entrypoint{"./tmp/dev"}
+	engine.config.Build.StopOnError = true
+	engine.config.Build.SendInterrupt = true
+	engine.config.Build.KillDelay = 100 * time.Millisecond
+
+	require.NoError(t, engine.runBin())
+	defer engine.stopBin()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "initial binary process to start")
+	require.NoError(t, err)
+
+	engine.buildRun()
+
+	require.FileExists(t, binPath)
+}
+
+func TestShouldStopBinBeforeBuild(t *testing.T) {
+	tests := []struct {
+		goos string
+		want bool
+	}{
+		{goos: PlatformWindows, want: true},
+		{goos: PlatformDarwin, want: false},
+		{goos: PlatformLinux, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.goos, func(t *testing.T) {
+			assert.Equal(t, tt.want, shouldStopBinBeforeBuild(tt.goos))
+		})
+	}
+}
+
+func TestStopBinBeforeBuildIfNeeded(t *testing.T) {
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+
+	stopped := make(chan struct{})
+	shutdown := make(chan chan int, 1)
+	engine.binStopCh = shutdown
+	go func() {
+		closer := <-shutdown
+		close(closer)
+		close(stopped)
+	}()
+
+	engine.stopBinBeforeBuildIfNeeded(PlatformWindows)
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("expected Windows pre-build stop to stop the existing binary")
+	}
+
+	shutdown = make(chan chan int, 1)
+	engine.binStopCh = shutdown
+
+	engine.stopBinBeforeBuildIfNeeded(PlatformLinux)
+
+	select {
+	case <-shutdown:
+		t.Fatal("non-Windows pre-build step should keep the existing binary running")
+	default:
 	}
 }
 
