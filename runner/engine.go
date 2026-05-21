@@ -273,6 +273,23 @@ func (e *Engine) cacheFileChecksums(root string) error {
 	})
 }
 
+func (e *Engine) rewatchFile(name string) {
+	delay := time.Millisecond * 100
+	maxRetries := 5
+
+	for i := 0; i < maxRetries; i++ {
+		time.Sleep(delay)
+		err := e.watcher.Add(name)
+		if err == nil {
+			return
+		}
+
+		delay *= 2
+	}
+	e.watcherLog("failed to rewatch %s after %d retries", name, maxRetries)
+
+}
+
 func (e *Engine) watchPath(path string) error {
 	if err := e.watcher.Add(path); err != nil {
 		e.watcherLog("failed to watch %s, error: %s", path, err.Error())
@@ -323,12 +340,7 @@ func (e *Engine) watchPath(path string) error {
 				// Rewatch the file if the editor is using atomic saving.
 				if renameOrRemoveEvent(ev) {
 					if e.checkIncludeFile(ev.Name) {
-						go func(name string) {
-							time.Sleep(100 * time.Millisecond)
-							if err := e.watcher.Add(name); err != nil {
-								e.watcherLog("error rewatching file: %v", err)
-							}
-						}(ev.Name)
+						go e.rewatchFile(ev.Name)
 					}
 				}
 				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
