@@ -425,9 +425,9 @@ func platformBuildOverrides(build *cfgBuild, goos string) *cfgBuildOverrides {
 	switch goos {
 	case PlatformWindows:
 		return build.Windows
-	case "darwin":
+	case PlatformDarwin:
 		return build.Darwin
-	case "linux":
+	case PlatformLinux:
 		return build.Linux
 	default:
 		return nil
@@ -483,9 +483,9 @@ func addPlatformOverridesForInit(cfg *Config, goos string) {
 	switch goos {
 	case PlatformWindows:
 		cfg.Build.Windows = override
-	case "darwin":
+	case PlatformDarwin:
 		cfg.Build.Darwin = override
-	case "linux":
+	case PlatformLinux:
 		cfg.Build.Linux = override
 	}
 }

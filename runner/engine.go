@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -540,6 +541,8 @@ func (e *Engine) buildRun() {
 	default:
 	}
 
+	e.stopBinBeforeBuildIfNeeded(runtime.GOOS)
+
 	e.loadEnvFile()
 
 	var err error
@@ -583,6 +586,18 @@ func (e *Engine) buildRun() {
 
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
+	}
+}
+
+func shouldStopBinBeforeBuild(goos string) bool {
+	return goos == PlatformWindows
+}
+
+func (e *Engine) stopBinBeforeBuildIfNeeded(goos string) {
+	// Windows locks running executables, so direct builds to entrypoint need
+	// the old process stopped before build.cmd can overwrite the binary.
+	if shouldStopBinBeforeBuild(goos) {
+		e.stopBin()
 	}
 }
 
@@ -716,20 +731,6 @@ func (e *Engine) runBin() error {
 				}
 			} else {
 				e.mainDebug("cmd killed, pid: %d", pid)
-			}
-
-			if e.config.Build.StopOnError {
-				relBinPath := e.config.rel(e.config.binPath())
-				if relBinPath == "" || strings.HasPrefix(relBinPath, "..") {
-					return
-				}
-				cmdBinPath := cmdPath(relBinPath)
-				if _, err = os.Stat(cmdBinPath); os.IsNotExist(err) {
-					return
-				}
-				if err = os.Remove(cmdBinPath); err != nil {
-					e.mainLog("failed to remove %s, error: %s", relBinPath, err)
-				}
 			}
 		}()
 

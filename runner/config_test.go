@@ -369,6 +369,28 @@ func TestAddPlatformOverridesForInit(t *testing.T) {
 	if !reflect.DeepEqual(cfg.Build.Windows.Entrypoint, entrypoint{`tmp\main.exe`}) {
 		t.Fatalf("windows entrypoint mismatch: got %v", cfg.Build.Windows.Entrypoint)
 	}
+
+	cfg = defaultConfigBase()
+	cfg.Build.Cmd = "darwin-cmd"
+	setEntrypointFromBin(&cfg)
+	addPlatformOverridesForInit(&cfg, PlatformDarwin)
+	if cfg.Build.Darwin == nil {
+		t.Fatal("expected darwin overrides to be set")
+	}
+	if cfg.Build.Darwin.Cmd != "go build -o ./tmp/main ." {
+		t.Fatalf("darwin cmd mismatch: got %s", cfg.Build.Darwin.Cmd)
+	}
+
+	cfg = defaultConfigBase()
+	cfg.Build.Cmd = "linux-cmd"
+	setEntrypointFromBin(&cfg)
+	addPlatformOverridesForInit(&cfg, PlatformLinux)
+	if cfg.Build.Linux == nil {
+		t.Fatal("expected linux overrides to be set")
+	}
+	if cfg.Build.Linux.Cmd != "go build -o ./tmp/main ." {
+		t.Fatalf("linux cmd mismatch: got %s", cfg.Build.Linux.Cmd)
+	}
 }
 
 func TestDefaultConfigForOS(t *testing.T) {
@@ -382,7 +404,7 @@ func TestDefaultConfigForOS(t *testing.T) {
 		t.Fatalf("windows bin mismatch: got %q", winCfg.Build.Bin)
 	}
 
-	linuxCfg := defaultConfigForOS("linux")
+	linuxCfg := defaultConfigForOS(PlatformLinux)
 	if linuxCfg.Build.Cmd != "go build -o ./tmp/main ." {
 		t.Fatalf("linux cmd mismatch: got %q", linuxCfg.Build.Cmd)
 	}
@@ -511,10 +533,10 @@ func TestPlatformBuildOverridesSelection(t *testing.T) {
 	if got := platformBuildOverrides(build, PlatformWindows); got != win {
 		t.Fatalf("windows override mismatch: got %v", got)
 	}
-	if got := platformBuildOverrides(build, "darwin"); got != darwin {
+	if got := platformBuildOverrides(build, PlatformDarwin); got != darwin {
 		t.Fatalf("darwin override mismatch: got %v", got)
 	}
-	if got := platformBuildOverrides(build, "linux"); got != linux {
+	if got := platformBuildOverrides(build, PlatformLinux); got != linux {
 		t.Fatalf("linux override mismatch: got %v", got)
 	}
 	if got := platformBuildOverrides(build, "freebsd"); got != nil {
