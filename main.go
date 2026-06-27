@@ -79,7 +79,8 @@ func defaultSplashText() string {
 	return fmt.Sprintf(`
   __    _   ___  
  / /\  | | | |_) 
-/_/--\ |_| |_| \_ %s, built with Go %s
+/_/--\ |_| |_| \_ 
+%s, built with Go %s
 
 `, versionInfo.airVersion, versionInfo.goVersion)
 }
@@ -112,7 +113,7 @@ func printStartupBanner(cfg *runner.Config, respectSilent bool) {
 
 func printVersionOutput(cfg *runner.Config) {
 	if cfg == nil || cfg.Misc.StartupBanner == nil {
-		fmt.Fprint(os.Stderr, defaultSplashText())
+		fmt.Fprint(os.Stdout, defaultSplashText())
 		return
 	}
 
@@ -145,7 +146,7 @@ func main() {
 			printVersionOutput(cfg)
 			return
 		}
-		fmt.Fprint(os.Stderr, defaultSplashText())
+		fmt.Fprint(os.Stdout, defaultSplashText())
 		return
 	}
 	sigs := make(chan os.Signal, 1)
