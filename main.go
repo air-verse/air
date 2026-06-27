@@ -119,13 +119,13 @@ func printVersionOutput(cfg *runner.Config) {
 
 	banner := *cfg.Misc.StartupBanner
 	if banner != "" {
-		fmt.Fprint(os.Stderr, banner)
+		fmt.Fprint(os.Stdout, banner)
 		if !strings.HasSuffix(banner, "\n") {
-			fmt.Fprintln(os.Stderr)
+			fmt.Fprintln(os.Stdout)
 		}
 	}
 
-	fmt.Fprint(os.Stderr, versionLineText())
+	fmt.Fprint(os.Stdout, versionLineText())
 }
 
 func main() {
