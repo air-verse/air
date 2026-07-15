@@ -492,6 +492,11 @@ func setTage2Map(root string, t reflect.Type, v reflect.Value, m map[string]Toml
 			continue
 		}
 
+		// slices of tables (e.g. build.rules) cannot be expressed as CLI flags
+		if field.Type.Kind() == reflect.Slice && field.Type.Elem().Kind() == reflect.Struct {
+			continue
+		}
+
 		tomlPath := root + tomlVal
 		path := fieldPath + field.Name
 		var v *string

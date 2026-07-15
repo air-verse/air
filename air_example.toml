@@ -63,6 +63,26 @@ rerun = false
 # Delay after each execution
 rerun_delay = 500
 
+# Rules watch files and run a command when they change, without rebuilding
+# and restarting the main binary. Useful for assets, code generation, etc.
+# A file matched by a rule never triggers a rebuild; if the rule's command
+# generates watched files (e.g. .go files), the rebuild follows naturally.
+# [[build.rules]]
+# # Rule name used in logs. Defaults to "rule-<index>".
+# name = "assets"
+# # Command to run when a matched file changes. Required.
+# cmd = "npm run build"
+# # Match files under these directories, even ones listed in exclude_dir.
+# include_dir = ["web"]
+# # Match these filename extensions. Empty matches any extension.
+# include_ext = ["js", "ts", "css"]
+# # Match these files.
+# include_file = []
+# # Exclude specific regular expressions.
+# exclude_regex = []
+# # Debounce delay in milliseconds before running cmd.
+# delay = 1000
+
 # Platform-specific build overrides
 [build.windows]
 cmd = "go build -o ./tmp/main.exe ."
