@@ -1,3 +1,7 @@
+release:
+  # release-please creates the GitHub release with the changelog;
+  # goreleaser only uploads artifacts to it.
+  mode: keep-existing
 builds:
   - goos:
       - linux

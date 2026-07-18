@@ -1,0 +1,20 @@
+name: Release Please
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Must be a PAT (or GitHub App token), not the default GITHUB_TOKEN:
+          # tags pushed with GITHUB_TOKEN do not trigger the release.yml workflow.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          release-type: go
