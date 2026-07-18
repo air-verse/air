@@ -48,9 +48,9 @@ func (e *Engine) ruleMatches(r *cfgRule, path string) bool {
 			return true
 		}
 	}
-	rel := cleanPath(e.config.rel(path))
+	rel := filepath.ToSlash(cleanPath(e.config.rel(path)))
 	for _, f := range r.IncludeFile {
-		if f == rel {
+		if filepath.ToSlash(f) == rel {
 			return true
 		}
 	}
