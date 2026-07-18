@@ -294,6 +294,33 @@ entrypoint = ["tmp\\main.exe"]
 
 Running `air init` adds a platform block for the current OS when its defaults differ from the base configuration.
 
+### Watch rules: run a command instead of rebuilding
+
+Sometimes a change should run a command rather than rebuild your app — frontend assets served from disk, `templ`/`sqlc`/`go generate` pipelines, and so on. Declare a `[[build.rules]]` block for each of them:
+
+```toml
+[build]
+cmd = "go build -o ./tmp/main ."
+# the main build ignores the frontend...
+exclude_dir = ["web"]
+
+# ...but this rule watches it and rebuilds the assets on change
+[[build.rules]]
+name = "assets"
+include_dir = ["web"]
+include_ext = ["js", "ts", "css"]
+cmd = "npm run build"
+
+[[build.rules]]
+name = "templ"
+include_ext = ["templ"]
+cmd = "templ generate"
+```
+
+A file matched by a rule runs the rule's `cmd` and never triggers a rebuild, even if it would also match the main build's watch settings. Rule directories are watched even when listed in `exclude_dir`. If a rule's command generates files the main build watches (for example, `templ generate` writing `.go` files), the rebuild follows naturally.
+
+Each rule supports `include_dir`, `include_ext`, `include_file`, `exclude_regex`, and a `delay` (debounce in milliseconds, default 1000). At least one of the `include_*` matchers is required. Rules run their commands to completion; changes arriving meanwhile queue a follow-up run.
+
 ### Docker Compose
 
 ```yaml

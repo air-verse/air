@@ -117,6 +117,7 @@ type cfgBuild struct {
 	KillDelay              time.Duration      `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
 	Rerun                  bool               `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay             int                `toml:"rerun_delay" usage:"Delay after each execution"`
+	Rules                  []cfgRule          `toml:"rules"`
 	Windows                *cfgBuildOverrides `toml:"windows,omitempty"`
 	Darwin                 *cfgBuildOverrides `toml:"darwin,omitempty"`
 	Linux                  *cfgBuildOverrides `toml:"linux,omitempty"`
@@ -127,6 +128,63 @@ type cfgBuild struct {
 
 func (c *cfgBuild) RegexCompiled() ([]*regexp.Regexp, error) {
 	return c.regexCompiled, nil
+}
+
+// cfgRule watches a set of files and runs a command when they change,
+// without triggering a rebuild of the main binary.
+type cfgRule struct {
+	Name          string   `toml:"name" usage:"Rule name used in logs"`
+	Cmd           string   `toml:"cmd" usage:"Command to run when a matched file changes"`
+	IncludeDir    []string `toml:"include_dir" usage:"Match files under these directories"`
+	IncludeExt    []string `toml:"include_ext" usage:"Match these filename extensions"`
+	IncludeFile   []string `toml:"include_file" usage:"Match these files"`
+	ExcludeRegex  []string `toml:"exclude_regex" usage:"Exclude specific regular expressions"`
+	Delay         int      `toml:"delay" usage:"Debounce delay in milliseconds before running cmd"`
+	regexCompiled []*regexp.Regexp
+	includeDirAbs []string
+}
+
+func (r *cfgRule) delay() time.Duration {
+	if r.Delay <= 0 {
+		return 1000 * time.Millisecond
+	}
+	return time.Duration(r.Delay) * time.Millisecond
+}
+
+func (c *cfgBuild) normalizeRules(root string) error {
+	for i := range c.Rules {
+		r := &c.Rules[i]
+		if r.Name == "" {
+			r.Name = fmt.Sprintf("rule-%d", i)
+		}
+		if r.Cmd == "" {
+			return fmt.Errorf("build.rules[%d] (%s): cmd is required", i, r.Name)
+		}
+		if len(r.IncludeDir) == 0 && len(r.IncludeExt) == 0 && len(r.IncludeFile) == 0 {
+			return fmt.Errorf("build.rules[%d] (%s): at least one of include_dir, include_ext or include_file is required", i, r.Name)
+		}
+		r.includeDirAbs = r.includeDirAbs[:0]
+		for _, dir := range r.IncludeDir {
+			dir = cleanPath(dir)
+			if dir == "" {
+				continue
+			}
+			abs := filepath.Clean(dir)
+			if !filepath.IsAbs(abs) {
+				abs = filepath.Join(root, abs)
+			}
+			r.includeDirAbs = append(r.includeDirAbs, filepath.Clean(abs))
+		}
+		r.regexCompiled = r.regexCompiled[:0]
+		for _, expr := range r.ExcludeRegex {
+			re, err := regexp.Compile(expr)
+			if err != nil {
+				return fmt.Errorf("build.rules[%d] (%s): failed to compile regex %q: %w", i, r.Name, expr, err)
+			}
+			r.regexCompiled = append(r.regexCompiled, re)
+		}
+	}
+	return nil
 }
 
 func (c *cfgBuild) normalizeIncludeDirs(root string) {
@@ -610,6 +668,9 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 
 	adaptToVariousPlatforms(c)
 	c.Build.normalizeIncludeDirs(c.Root)
+	if err = c.Build.normalizeRules(c.Root); err != nil {
+		return err
+	}
 
 	// Join runtime arguments with the configuration arguments
 	runtimeArgs := flag.Args()

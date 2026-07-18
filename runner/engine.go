@@ -30,6 +30,7 @@ type Engine struct {
 	running   atomic.Bool
 
 	eventCh       chan string
+	ruleEventChs  []chan string
 	watcherStopCh chan bool
 	// buildRunCh serves dual purpose:
 	// 1. As a semaphore ensuring only one build runs at a time (buffer size 1)
@@ -73,6 +74,10 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		runArgs = append(runArgs, entryArgs...)
 	}
 	runArgs = append(runArgs, cfg.Build.ArgsBin...)
+	ruleEventChs := make([]chan string, len(cfg.Build.Rules))
+	for i := range ruleEventChs {
+		ruleEventChs[i] = make(chan string, 100)
+	}
 	e := Engine{
 		config:        cfg,
 		exiter:        defaultExiter{},
@@ -82,6 +87,7 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		debugMode:     debugMode,
 		runArgs:       runArgs,
 		eventCh:       make(chan string, 1000),
+		ruleEventChs:  ruleEventChs,
 		watcherStopCh: make(chan bool, 10),
 		buildRunCh:    make(chan chan struct{}, 1),
 		exitCh:        make(chan bool),
@@ -149,6 +155,11 @@ func (e *Engine) watchConfiguredDirs() error {
 	for _, dir := range e.config.Build.extraIncludeDirs {
 		targets = append(targets, watchTarget{path: dir, optional: true})
 	}
+	for _, rule := range e.config.Build.Rules {
+		for _, dir := range rule.includeDirAbs {
+			targets = append(targets, watchTarget{path: dir, optional: true})
+		}
+	}
 
 	seen := make(map[string]struct{}, len(targets))
 	for _, target := range targets {
@@ -197,12 +208,16 @@ func (e *Engine) watching(root string) error {
 		if isHiddenDirectory(path) {
 			return filepath.SkipDir
 		}
-		// exclude user specified directories
-		if e.isExcludeDir(path) {
+		// exclude user specified directories, except a rule's own include_dir:
+		// rules watch their dirs even when the main build excludes them
+		if e.isExcludeDir(path) && !e.isRuleDir(path) {
 			e.watcherLog("!exclude %s", e.config.rel(path))
 			return filepath.SkipDir
 		}
 		isIn, walkDir := e.checkIncludeDir(path)
+		if e.inRuleDir(path) {
+			isIn, walkDir = true, true
+		}
 		if !walkDir {
 			e.watcherLog("!exclude %s", e.config.rel(path))
 			return filepath.SkipDir
@@ -328,6 +343,17 @@ func (e *Engine) watchPath(path string) error {
 					e.watchNewDir(ev.Name, removeEvent(ev))
 					break
 				}
+				// rules take precedence: a file matched by a rule runs the
+				// rule's cmd and never triggers a rebuild
+				if idx := e.matchRuleIndex(ev.Name); idx >= 0 {
+					e.watcherDebug("%s matches rule %s", e.config.rel(ev.Name), e.config.Build.Rules[idx].Name)
+					select {
+					case e.ruleEventChs[idx] <- ev.Name:
+					default:
+						// channel full means a run is already queued
+					}
+					break
+				}
 				if e.isExcludeFile(ev.Name) {
 					break
 				}
@@ -361,7 +387,7 @@ func (e *Engine) watchNewDir(dir string, removeDir bool) {
 	if e.isTestDataDir(dir) {
 		return
 	}
-	if isHiddenDirectory(dir) || e.isExcludeDir(dir) {
+	if isHiddenDirectory(dir) || (e.isExcludeDir(dir) && !e.isRuleDir(dir)) {
 		e.watcherLog("!exclude %s", e.config.rel(dir))
 		return
 	}
@@ -401,6 +427,11 @@ func (e *Engine) start() {
 	}
 
 	e.running.Store(true)
+
+	for i := range e.config.Build.Rules {
+		go e.runRule(i)
+	}
+
 	firstRunCh := make(chan bool, 1)
 	firstRunCh <- true
 
