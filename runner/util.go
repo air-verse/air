@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -341,6 +342,19 @@ func adaptToVariousPlatforms(c *Config) {
 	}
 }
 
+// errEmptyFile is returned when a file reads back as zero bytes. The read may
+// have landed in the middle of somebody else's write, so no checksum is stored.
+var errEmptyFile = errors.New("empty file, forcing rebuild without updating checksum")
+
+// Writers that truncate before writing (shell redirection, os.Create, editors
+// running format-on-save) leave the file at zero bytes for a moment. Reading it
+// there reports a change that never happened, so give the writer a bounded
+// chance to finish before deciding. See air-verse/air#527.
+const (
+	emptyReadRetries    = 5
+	emptyReadRetryDelay = 20 * time.Millisecond
+)
+
 // fileChecksum returns a checksum for the given file's contents.
 func fileChecksum(filename string) (checksum string, err error) {
 	contents, err := os.ReadFile(filename)
@@ -352,7 +366,7 @@ func fileChecksum(filename string) (checksum string, err error) {
 	// This can happen often if editors are configured to run format after save.
 	// Instead of calculating a new checksum, we'll assume the file was unchanged, but return an error to force a rebuild anyway.
 	if len(contents) == 0 {
-		return "", errors.New("empty file, forcing rebuild without updating checksum")
+		return "", errEmptyFile
 	}
 
 	h := sha256.New()
@@ -361,6 +375,19 @@ func fileChecksum(filename string) (checksum string, err error) {
 	}
 
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// settledFileChecksum is fileChecksum for live change events, where the write
+// that triggered the event may still be in flight. A file that stays empty for
+// the whole retry budget is treated as genuinely empty.
+func settledFileChecksum(filename string) (checksum string, err error) {
+	for attempt := 0; ; attempt++ {
+		checksum, err = fileChecksum(filename)
+		if !errors.Is(err, errEmptyFile) || attempt == emptyReadRetries {
+			return checksum, err
+		}
+		time.Sleep(emptyReadRetryDelay)
+	}
 }
 
 // checksumMap is a thread-safe map to store file checksums.
