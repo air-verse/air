@@ -54,6 +54,18 @@ func TestFlag(t *testing.T) {
 			expected: `["_test.go"]`,
 			key:      "build.exclude_regex",
 		},
+		{
+			name:     "repeated slice flag appends",
+			args:     []string{"--env_files", "a,b", "--env_files", "c", "--env_files", "d,e"},
+			expected: "a,b,c,d,e",
+			key:      "env_files",
+		},
+		{
+			name:     "repeated slice flag overrides default on first use",
+			args:     []string{"--build.exclude_dir", "foo", "--build.exclude_dir", "bar"},
+			expected: "foo,bar",
+			key:      "build.exclude_dir",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
