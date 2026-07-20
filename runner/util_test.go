@@ -330,6 +330,133 @@ func TestFileChecksum(t *testing.T) {
 	}
 }
 
+// TestIsModifiedDuringTruncatingWrite reproduces air-verse/air#527.
+//
+// Generators that write with shell redirection (`cat > gen.go <<EOF`) truncate
+// the file before the content is written, so a watcher event can arrive while
+// the file is zero bytes. fileChecksum reports an error for an empty file and
+// isModified turns any error into "the file changed", which silently defeats
+// exclude_unchanged: air rebuilds, the build regenerates the file, and the
+// loop never settles even though the generated content is identical each run.
+func TestIsModifiedDuringTruncatingWrite(t *testing.T) {
+	t.Parallel()
+
+	const generated = "package main\n\nconst GeneratedValue = \"stable-output\"\n"
+
+	newEngine := func(t *testing.T) *Engine {
+		t.Helper()
+		return &Engine{
+			config:        &Config{},
+			fileChecksums: &checksumMap{m: make(map[string]string)},
+		}
+	}
+
+	t.Run("rewriting identical content in place is skipped", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "gen.go")
+		require.NoError(t, os.WriteFile(path, []byte(generated), 0o644))
+
+		e := newEngine(t)
+		require.True(t, e.isModified(path), "first sighting of a file always counts as modified")
+
+		// A generator that does not truncate leaves the checksum intact.
+		require.NoError(t, os.WriteFile(path, []byte(generated), 0o644))
+		require.False(t, e.isModified(path), "identical content must not trigger a rebuild")
+	})
+
+	t.Run("truncate then write identical content is not skipped", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "gen.go")
+		require.NoError(t, os.WriteFile(path, []byte(generated), 0o644))
+
+		e := newEngine(t)
+		require.True(t, e.isModified(path), "first sighting of a file always counts as modified")
+		require.False(t, e.isModified(path), "checksum cache should be primed")
+
+		// Simulate `cat > gen.go <<EOF`: the shell truncates the file, then the
+		// content is written by a separate process a moment later.
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o644)
+		require.NoError(t, err)
+
+		written := make(chan struct{})
+		go func() {
+			defer close(written)
+			time.Sleep(30 * time.Millisecond)
+			_, _ = f.WriteString(generated)
+			_ = f.Close()
+		}()
+
+		// The watcher event for the truncation arrives here, while the file is
+		// still empty. The content that eventually lands is byte-for-byte the
+		// same as what is already cached, so this must not force a rebuild.
+		modified := e.isModified(path)
+		<-written
+
+		require.Equal(t, generated, readFileString(t, path), "generator must produce identical content")
+		require.False(t, modified, "a transient empty read must not defeat exclude_unchanged")
+	})
+
+	t.Run("file that stays empty still counts as modified", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "gen.go")
+		require.NoError(t, os.WriteFile(path, []byte(generated), 0o644))
+
+		e := newEngine(t)
+		require.True(t, e.isModified(path), "first sighting of a file always counts as modified")
+		require.False(t, e.isModified(path), "checksum cache should be primed")
+
+		// Emptying a file is a real change, not a write in flight. Waiting out
+		// the retry budget must not turn it into "unchanged".
+		require.NoError(t, os.WriteFile(path, nil, 0o644))
+		require.True(t, e.isModified(path), "a genuinely empty file must still trigger a rebuild")
+	})
+}
+
+func TestSettledFileChecksum(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns errEmptyFile once the retry budget is spent", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "empty.go")
+		require.NoError(t, os.WriteFile(path, nil, 0o644))
+
+		start := time.Now()
+		_, err := settledFileChecksum(path)
+		elapsed := time.Since(start)
+
+		require.ErrorIs(t, err, errEmptyFile)
+		require.GreaterOrEqual(t, elapsed, emptyReadRetryDelay*emptyReadRetries,
+			"should exhaust the retry budget before giving up")
+	})
+
+	t.Run("does not wait for a file that already has content", func(t *testing.T) {
+		t.Parallel()
+		path := filepath.Join(t.TempDir(), "full.go")
+		require.NoError(t, os.WriteFile(path, []byte("package main\n"), 0o644))
+
+		start := time.Now()
+		checksum, err := settledFileChecksum(path)
+
+		require.NoError(t, err)
+		require.NotEmpty(t, checksum)
+		require.Less(t, time.Since(start), emptyReadRetryDelay, "non-empty reads must not sleep")
+	})
+
+	t.Run("propagates errors other than empty reads", func(t *testing.T) {
+		t.Parallel()
+		_, err := settledFileChecksum(filepath.Join(t.TempDir(), "missing.go"))
+		require.Error(t, err)
+		require.NotErrorIs(t, err, errEmptyFile)
+	})
+}
+
+func readFileString(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(b)
+}
+
 func TestChecksumMap(t *testing.T) {
 	t.Parallel()
 	m := &checksumMap{m: make(map[string]string, 3)}

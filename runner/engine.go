@@ -283,7 +283,7 @@ func (e *Engine) cacheFileChecksums(root string) error {
 		}
 
 		// update the checksum cache for the current file
-		_ = e.isModified(path)
+		e.primeChecksum(path)
 
 		return nil
 	})
@@ -404,8 +404,20 @@ func (e *Engine) watchNewDir(dir string, removeDir bool) {
 	}(dir)
 }
 
+// primeChecksum records a file's current checksum without waiting for any
+// in-flight write. Used when seeding the cache at startup, where nothing is
+// being written and every wait would be pure startup latency.
+func (e *Engine) primeChecksum(filename string) {
+	checksum, err := fileChecksum(filename)
+	if err != nil {
+		e.watcherDebug("can't cache checksum for %s: %v", e.config.rel(filename), err)
+		return
+	}
+	e.fileChecksums.updateFileChecksum(filename, checksum)
+}
+
 func (e *Engine) isModified(filename string) bool {
-	newChecksum, err := fileChecksum(filename)
+	newChecksum, err := settledFileChecksum(filename)
 	if err != nil {
 		e.watcherDebug("can't determine if file was changed: %v - assuming it did without updating cache", err)
 		return true
