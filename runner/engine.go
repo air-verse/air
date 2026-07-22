@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gohugoio/hugo/watcher/filenotify"
 	"github.com/joho/godotenv"
 )
@@ -28,6 +29,10 @@ type Engine struct {
 	debugMode bool
 	runArgs   []string
 	running   atomic.Bool
+	// eventLoops counts live runEventLoop goroutines. Exactly one should ever
+	// run; watched paths are registered with the shared watcher instead of
+	// each getting its own consumer (air-verse/air#918).
+	eventLoops atomic.Int32
 
 	eventCh       chan string
 	ruleEventChs  []chan string
@@ -46,7 +51,6 @@ type Engine struct {
 	exitCh    chan bool
 
 	mu            sync.RWMutex
-	watchers      uint
 	fileChecksums *checksumMap
 
 	ll sync.Mutex // lock for logger
@@ -92,7 +96,6 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		buildRunCh:    make(chan chan struct{}, 1),
 		exitCh:        make(chan bool),
 		fileChecksums: &checksumMap{m: make(map[string]string)},
-		watchers:      0,
 		globalEnv:     map[string]*string{},
 	}
 
@@ -126,6 +129,12 @@ func (e *Engine) Run() {
 	if err = e.checkRunEnv(); err != nil {
 		os.Exit(1)
 	}
+
+	// Start consuming before the initial walk registers paths. The walk can
+	// take a while on a large tree, and nothing else drains the watcher, so a
+	// later start would let the kernel queue overflow and drop events.
+	go e.runEventLoop()
+
 	if err = e.watchConfiguredDirs(); err != nil {
 		os.Exit(1)
 	}
@@ -306,6 +315,12 @@ func (e *Engine) rewatchFile(name string) {
 
 }
 
+// watchPath registers path with the shared watcher. It is safe to call again
+// for a path that is already watched: the watcher deduplicates, and event
+// handling lives in a single loop rather than one consumer per path. Spawning
+// a consumer per path used to leak a goroutine every time an already-watched
+// directory produced an event, which Docker volume drivers do routinely
+// (see air-verse/air#918).
 func (e *Engine) watchPath(path string) error {
 	if err := e.watcher.Add(path); err != nil {
 		e.watcherLog("failed to watch %s, error: %s", path, err.Error())
@@ -313,71 +328,82 @@ func (e *Engine) watchPath(path string) error {
 	}
 	e.watcherLog("watching %s", e.config.rel(path))
 
-	go func() {
-		e.withLock(func() {
-			e.watchers++
-		})
-		defer func() {
-			e.withLock(func() {
-				e.watchers--
-			})
-		}()
-
-		if e.config.Build.ExcludeUnchanged {
-			err := e.cacheFileChecksums(path)
-			if err != nil {
+	if e.config.Build.ExcludeUnchanged {
+		// Seed in the background so a large tree does not hold up the first
+		// build. This is a one-shot walk, not a long-lived consumer.
+		go func() {
+			if err := e.cacheFileChecksums(path); err != nil {
 				e.watcherLog("error building checksum cache: %v", err)
 			}
-		}
+		}()
+	}
+	return nil
+}
 
-		for {
-			select {
-			case <-e.watcherStopCh:
+// runEventLoop consumes watcher events for the lifetime of the engine. Exactly
+// one instance runs, started by start().
+func (e *Engine) runEventLoop() {
+	e.eventLoops.Add(1)
+	defer e.eventLoops.Add(-1)
+
+	for {
+		select {
+		case <-e.watcherStopCh:
+			return
+		case ev, ok := <-e.watcher.Events():
+			if !ok {
 				return
-			case ev := <-e.watcher.Events():
-				e.mainDebug("event: %+v", ev)
-				if !validEvent(ev) {
-					break
-				}
-				if isDir(ev.Name) {
-					e.watchNewDir(ev.Name, removeEvent(ev))
-					break
-				}
-				// rules take precedence: a file matched by a rule runs the
-				// rule's cmd and never triggers a rebuild
-				if idx := e.matchRuleIndex(ev.Name); idx >= 0 {
-					e.watcherDebug("%s matches rule %s", e.config.rel(ev.Name), e.config.Build.Rules[idx].Name)
-					select {
-					case e.ruleEventChs[idx] <- ev.Name:
-					default:
-						// channel full means a run is already queued
-					}
-					break
-				}
-				if e.isExcludeFile(ev.Name) {
-					break
-				}
-				excludeRegex, _ := e.isExcludeRegex(ev.Name)
-				if excludeRegex {
-					break
-				}
-				if !e.isIncludeExt(ev.Name) && !e.checkIncludeFile(ev.Name) {
-					break
-				}
-				// Rewatch the file if the editor is using atomic saving.
-				if renameOrRemoveEvent(ev) {
-					if e.checkIncludeFile(ev.Name) {
-						go e.rewatchFile(ev.Name)
-					}
-				}
-				e.watcherDebug("%s has changed", e.config.rel(ev.Name))
-				e.eventCh <- ev.Name
-			case err := <-e.watcher.Errors():
+			}
+			e.handleWatchEvent(ev)
+		case err, ok := <-e.watcher.Errors():
+			if !ok {
+				return
+			}
+			if err != nil {
 				e.watcherLog("error: %s", err.Error())
 			}
 		}
-	}()
-	return nil
+	}
+}
+
+func (e *Engine) handleWatchEvent(ev fsnotify.Event) {
+	e.mainDebug("event: %+v", ev)
+	if !validEvent(ev) {
+		return
+	}
+	if isDir(ev.Name) {
+		e.watchNewDir(ev.Name, removeEvent(ev))
+		return
+	}
+	// rules take precedence: a file matched by a rule runs the
+	// rule's cmd and never triggers a rebuild
+	if idx := e.matchRuleIndex(ev.Name); idx >= 0 {
+		e.watcherDebug("%s matches rule %s", e.config.rel(ev.Name), e.config.Build.Rules[idx].Name)
+		select {
+		case e.ruleEventChs[idx] <- ev.Name:
+		default:
+			// channel full means a run is already queued
+		}
+		return
+	}
+	if e.isExcludeFile(ev.Name) {
+		return
+	}
+	excludeRegex, _ := e.isExcludeRegex(ev.Name)
+	if excludeRegex {
+		return
+	}
+	if !e.isIncludeExt(ev.Name) && !e.checkIncludeFile(ev.Name) {
+		return
+	}
+	// Rewatch the file if the editor is using atomic saving.
+	if renameOrRemoveEvent(ev) {
+		if e.checkIncludeFile(ev.Name) {
+			go e.rewatchFile(ev.Name)
+		}
+	}
+	e.watcherDebug("%s has changed", e.config.rel(ev.Name))
+	e.eventCh <- ev.Name
 }
 
 func (e *Engine) watchNewDir(dir string, removeDir bool) {
@@ -886,11 +912,10 @@ func (e *Engine) cleanup() {
 	e.stopBin()
 	e.mainDebug("waiting for close watchers..")
 
-	e.withLock(func() {
-		for i := 0; i < int(e.watchers); i++ {
-			e.watcherStopCh <- true
-		}
-	})
+	// A single event loop consumes watcher events, so one signal stops it.
+	// The channel is buffered, so this does not block if the loop already
+	// returned because the watcher was closed.
+	e.watcherStopCh <- true
 
 	e.mainDebug("waiting for buildRun...")
 	var err error

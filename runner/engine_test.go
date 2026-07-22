@@ -1831,3 +1831,90 @@ TEST_GLOBAL_VAR=still_overridden
 	assert.Equal(t, "final_value", os.Getenv("TEST_VAR1"), "TEST_VAR1 should be final")
 	assert.Equal(t, originalValue, os.Getenv("TEST_GLOBAL_VAR"), "TEST_GLOBAL_VAR should be restored to original value")
 }
+
+func newWatchTestEngine(t *testing.T, root string) *Engine {
+	t.Helper()
+	cfg := &Config{Root: root, TmpDir: "tmp", TestDataDir: "testdata"}
+	cfg.Build.IncludeExt = []string{"go"}
+	cfg.Log.Silent = true
+	watcher, err := newWatcher(cfg)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = watcher.Close() })
+	return &Engine{
+		config:        cfg,
+		logger:        newLogger(cfg),
+		watcher:       watcher,
+		watcherStopCh: make(chan bool, 10),
+		eventCh:       make(chan string, 100),
+		fileChecksums: &checksumMap{m: make(map[string]string)},
+	}
+}
+
+// TestWatchPathIsIdempotent covers air-verse/air#918. Docker volume drivers
+// emit events named for directories that are already watched. Handling one
+// used to spawn a fresh watcher consumer every time, leaking a goroutine per
+// event; event handling now lives in a single loop instead.
+func TestWatchPathIsIdempotent(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "internal")
+	require.NoError(t, os.Mkdir(sub, 0o755))
+
+	e := newWatchTestEngine(t, root)
+	require.NoError(t, e.watching(root))
+
+	go e.runEventLoop()
+	require.Eventually(t, func() bool { return e.eventLoops.Load() == 1 },
+		2*time.Second, 10*time.Millisecond, "the single event loop should start")
+
+	// Re-register the root and an already-watched subdirectory, which is what
+	// an event naming either of them triggers via watchNewDir.
+	for i := 0; i < 10; i++ {
+		require.NoError(t, e.watchPath(root))
+		require.NoError(t, e.watchPath(sub))
+	}
+	time.Sleep(200 * time.Millisecond)
+
+	require.Equal(t, int32(1), e.eventLoops.Load(),
+		"re-watching a watched path must not spawn another event loop")
+}
+
+// TestWatchNewDirOnWatchedDirDoesNotLeak exercises the same guarantee through
+// the call the event loop actually makes for a directory event.
+func TestWatchNewDirOnWatchedDirDoesNotLeak(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "internal")
+	require.NoError(t, os.Mkdir(sub, 0o755))
+
+	e := newWatchTestEngine(t, root)
+	require.NoError(t, e.watching(root))
+
+	go e.runEventLoop()
+	require.Eventually(t, func() bool { return e.eventLoops.Load() == 1 },
+		2*time.Second, 10*time.Millisecond, "the single event loop should start")
+
+	for i := 0; i < 10; i++ {
+		e.watchNewDir(root, false)
+		e.watchNewDir(sub, false)
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	require.Equal(t, int32(1), e.eventLoops.Load(),
+		"repeated directory events must not accumulate event loops")
+}
+
+// TestEventLoopStopsOnSignal keeps cleanup() honest: it now sends exactly one
+// stop signal, so one signal must end the loop.
+func TestEventLoopStopsOnSignal(t *testing.T) {
+	root := t.TempDir()
+	e := newWatchTestEngine(t, root)
+	require.NoError(t, e.watching(root))
+
+	go e.runEventLoop()
+	require.Eventually(t, func() bool { return e.eventLoops.Load() == 1 },
+		2*time.Second, 10*time.Millisecond, "the single event loop should start")
+
+	e.watcherStopCh <- true
+
+	require.Eventually(t, func() bool { return e.eventLoops.Load() == 0 },
+		2*time.Second, 10*time.Millisecond, "one signal must stop the event loop")
+}
