@@ -101,7 +101,9 @@ func TestEngineIsExcludeFile(t *testing.T) {
 
 	cfg := defaultConfig()
 	cfg.Root = tmpDir
-	cfg.Build.ExcludeFile = []string{"skip.go", "docs/*.md"}
+	// isExcludeFile matches with filepath.Match, so the directory pattern has
+	// to use the platform separator to match on Windows too.
+	cfg.Build.ExcludeFile = []string{"skip.go", filepath.Join("docs", "*.md")}
 	require.NoError(t, cfg.preprocess(nil))
 
 	engine, err := NewEngineWithConfig(&cfg, false)
