@@ -2,7 +2,6 @@ package runner
 
 import (
 	"bytes"
-	"regexp"
 	"testing"
 
 	"github.com/fatih/color"
@@ -80,7 +79,7 @@ func TestNewLogFuncAddsTime(t *testing.T) {
 
 	out := buf.String()
 	assert.Contains(t, out, "hello air")
-	assert.Regexp(t, regexp.MustCompile(`^\[\d{2}:\d{2}:\d{2}\] `), out)
+	assert.Regexp(t, `^\[\d{2}:\d{2}:\d{2}\] `, out)
 }
 
 func TestNewLoggerReturnsNilWithoutConfig(t *testing.T) {
