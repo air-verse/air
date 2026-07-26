@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	pathpkg "path"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"dario.cat/mergo"
@@ -28,6 +30,20 @@ const (
 
 	schemaHeader = "#:schema https://json.schemastore.org/any.json"
 )
+
+// warnOut is where configuration warnings are written, guarded by warnMu. It
+// exists so tests can capture or silence warnings without swapping the
+// process-wide os.Stderr, which races with tests running in parallel.
+var (
+	warnMu  sync.Mutex
+	warnOut io.Writer = os.Stderr
+)
+
+func warnf(format string, a ...any) {
+	warnMu.Lock()
+	defer warnMu.Unlock()
+	fmt.Fprintf(warnOut, format+"\n", a...)
+}
 
 // Config is the main configuration structure for Air.
 type Config struct {
@@ -637,7 +653,7 @@ func (c *Config) preprocess(args map[string]TomlInfo) error {
 		if !c.Build.IgnoreDangerousRootDir {
 			return fmt.Errorf("refusing to run in %s - this would watch too many files. Please run air in a project directory", dirName)
 		}
-		fmt.Fprintln(os.Stderr, "[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
+		warnf("[warning] ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory")
 	}
 
 	if c.TmpDir == "" {
@@ -910,5 +926,5 @@ func warnDeprecatedBin(cfg *Config, binExplicit bool) {
 		return
 	}
 
-	fmt.Fprintln(os.Stderr, "[warning] build.bin is deprecated; set build.entrypoint instead")
+	warnf("[warning] build.bin is deprecated; set build.entrypoint instead")
 }

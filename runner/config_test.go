@@ -2,7 +2,6 @@ package runner
 
 import (
 	"flag"
-	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -653,37 +652,19 @@ func TestInitConfigWithoutConfigDoesNotWarnDeprecatedBin(t *testing.T) {
 		}
 	})
 
-	oldStderr := os.Stderr
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	os.Stderr = w
-	t.Cleanup(func() {
-		os.Stderr = oldStderr
-	})
+	warnings := captureWarnings(t)
 
 	if _, err := InitConfig("", nil); err != nil {
 		t.Fatalf("InitConfig returned error: %v", err)
 	}
 
-	if err := w.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
-	}
-
-	out, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("failed to read output: %v", err)
-	}
-
-	output := string(out)
+	output := warnings()
 	if strings.Contains(output, "build.bin is deprecated") {
 		t.Fatalf("unexpected bin deprecation warning in output: %q", output)
 	}
 }
 
 func TestWarnDeprecatedBin(t *testing.T) {
-	t.Parallel()
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, ".air.toml")
 	cfgContent := `
@@ -695,25 +676,11 @@ cmd = "go build -o ./tmp/main ."
 		t.Fatalf("failed to write config: %v", err)
 	}
 
-	oldStderr := os.Stderr
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	os.Stderr = w
+	warnings := captureWarnings(t)
 
 	_, _ = InitConfig(cfgPath, nil)
 
-	if err := w.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
-	}
-	os.Stderr = oldStderr
-
-	out, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("failed to read output: %v", err)
-	}
-	output := string(out)
+	output := warnings()
 	if !strings.Contains(output, "build.bin is deprecated") {
 		t.Fatalf("missing bin deprecation warning in output: %q", output)
 	}
@@ -929,7 +896,9 @@ func TestTmpDirAdjustsDefaultsWindows(t *testing.T) {
 }
 
 func TestTmpDirDoesNotOverrideExplicitCmd(t *testing.T) {
-	t.Parallel()
+	// Not parallel: build.bin triggers a deprecation warning, and warnOut is
+	// process-wide, so this must not overlap tests capturing warnings.
+	silenceWarnings(t)
 	tmpDir := t.TempDir()
 	cfgPath := filepath.Join(tmpDir, ".air.toml")
 	cfgContent := `tmp_dir = ".tmp"
@@ -1061,25 +1030,11 @@ ignore_dangerous_root_dir = true
 			t.Fatalf("failed to write config: %v", err)
 		}
 
-		oldStderr := os.Stderr
-		r, w, err := os.Pipe()
-		if err != nil {
-			t.Fatalf("failed to create pipe: %v", err)
-		}
-		os.Stderr = w
+		warnings := captureWarnings(t)
 
 		_, _ = InitConfig(cfgPath, nil)
 
-		if err := w.Close(); err != nil {
-			t.Fatalf("failed to close writer: %v", err)
-		}
-		os.Stderr = oldStderr
-
-		out, err := io.ReadAll(r)
-		if err != nil {
-			t.Fatalf("failed to read output: %v", err)
-		}
-		output := string(out)
+		output := warnings()
 		if !strings.Contains(output, "ignoring root directory protections. This could cause excessive file watching. It is recommended to run air in a project directory") {
 			t.Fatalf("missing root directory protection warning in output: %q", output)
 		}
@@ -1098,25 +1053,11 @@ ignore_dangerous_root_dir = false
 			t.Fatalf("failed to write config: %v", err)
 		}
 
-		oldStderr := os.Stderr
-		r, w, err := os.Pipe()
-		if err != nil {
-			t.Fatalf("failed to create pipe: %v", err)
-		}
-		os.Stderr = w
+		warnings := captureWarnings(t)
 
 		_, _ = InitConfig(cfgPath, nil)
 
-		if err := w.Close(); err != nil {
-			t.Fatalf("failed to close writer: %v", err)
-		}
-		os.Stderr = oldStderr
-
-		out, err := io.ReadAll(r)
-		if err != nil {
-			t.Fatalf("failed to read output: %v", err)
-		}
-		output := string(out)
+		output := warnings()
 		if strings.Contains(output, "ignoring root directory protections") {
 			t.Fatalf("unexpected root directory protection warning in output: %q", output)
 		}
@@ -1135,25 +1076,11 @@ cmd = "go build -o ./tmp/main ."
 			t.Fatalf("failed to write config: %v", err)
 		}
 
-		oldStderr := os.Stderr
-		r, w, err := os.Pipe()
-		if err != nil {
-			t.Fatalf("failed to create pipe: %v", err)
-		}
-		os.Stderr = w
+		warnings := captureWarnings(t)
 
 		_, _ = InitConfig(cfgPath, nil)
 
-		if err := w.Close(); err != nil {
-			t.Fatalf("failed to close writer: %v", err)
-		}
-		os.Stderr = oldStderr
-
-		out, err := io.ReadAll(r)
-		if err != nil {
-			t.Fatalf("failed to read output: %v", err)
-		}
-		output := string(out)
+		output := warnings()
 		if strings.Contains(output, "ignoring root directory protections") {
 			t.Fatalf("unexpected root directory protection warning in output: %q", output)
 		}

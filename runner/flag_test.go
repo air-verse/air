@@ -3,7 +3,6 @@ package runner
 import (
 	"flag"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -203,7 +202,7 @@ func TestConfigRuntimeArgs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
 			chdir(t, dir)
-			silenceStderr(t)
+			silenceWarnings(t)
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			require.NoError(t, flag.Parse(tc.args))
@@ -215,19 +214,4 @@ func TestConfigRuntimeArgs(t *testing.T) {
 			tc.check(t, cfg)
 		})
 	}
-}
-
-// silenceStderr redirects os.Stderr to the OS null device for the lifetime
-// of the test, hiding warnings (e.g. the build.bin deprecation notice) that
-// would otherwise leak into test output.
-func silenceStderr(t *testing.T) {
-	t.Helper()
-	orig := os.Stderr
-	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-	require.NoError(t, err)
-	os.Stderr = devNull
-	t.Cleanup(func() {
-		os.Stderr = orig
-		_ = devNull.Close()
-	})
 }
