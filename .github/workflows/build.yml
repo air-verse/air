@@ -73,6 +73,13 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
+      # Without a checkout, build-push-action builds from the remote Git
+      # context, which has no .git directory, so `git describe --tags` inside
+      # the image cannot stamp a version. Fetch tags for the same reason.
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -92,6 +99,7 @@ jobs:
         id: docker_build
         uses: docker/build-push-action@v5
         with:
+          context: .
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |

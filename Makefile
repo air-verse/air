@@ -1,4 +1,6 @@
-AIRVER := $(shell git describe --tags)
+# Builds outside a git checkout (e.g. a Docker build context without .git) have
+# no tags to describe, so fall back instead of stamping an empty version.
+AIRVER ?= $(shell git describe --tags 2>/dev/null || echo dev)
 LDFLAGS += -X "main.BuildTimestamp=$(shell date -u "+%Y-%m-%d %H:%M:%S")"
 LDFLAGS += -X "main.airVersion=$(AIRVER)"
 LDFLAGS += -X "main.goVersion=$(shell go version | sed -r 's/go version go(.*)\ .*/\1/')"
