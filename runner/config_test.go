@@ -314,6 +314,22 @@ func TestReadConfigWithWrongPath(t *testing.T) {
 	}
 }
 
+func TestBuildAndRerunDelay(t *testing.T) {
+	t.Parallel()
+	config := Config{
+		Build: cfgBuild{
+			Delay:      300,
+			RerunDelay: 700,
+		},
+	}
+	if got, want := config.buildDelay(), 300*time.Millisecond; got != want {
+		t.Fatalf("buildDelay() = %v, want %v", got, want)
+	}
+	if got, want := config.rerunDelay(), 700*time.Millisecond; got != want {
+		t.Fatalf("rerunDelay() = %v, want %v", got, want)
+	}
+}
+
 func TestKillDelay(t *testing.T) {
 	t.Parallel()
 	config := Config{
