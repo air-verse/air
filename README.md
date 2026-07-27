@@ -39,6 +39,7 @@ Air is a live-reloading command line utility for developing Go applications. Run
     - [Environment files](#environment-files)
     - [Platform-specific build overrides](#platform-specific-build-overrides)
     - [Watch rules: run a command instead of rebuilding](#watch-rules-run-a-command-instead-of-rebuilding)
+    - [Proxy: reload the browser automatically](#proxy-reload-the-browser-automatically)
   - [Docker](#docker)
     - [Using the official image](#using-the-official-image)
     - [Shell function](#shell-function)
@@ -314,6 +315,34 @@ A file matched by a rule runs the rule's `cmd` and never triggers a rebuild, eve
 
 Each rule supports `include_dir`, `include_ext`, `include_file`, `exclude_regex`, and a `delay` (debounce in milliseconds, default 1000). At least one of the `include_*` matchers is required. Rules run their commands to completion; changes arriving meanwhile queue a follow-up run.
 
+### Proxy: reload the browser automatically
+
+Air can put a small proxy in front of your web app that refreshes the browser after every successful rebuild, so you no longer have to hit reload yourself.
+
+```toml
+[proxy]
+enabled = true
+# the port you open in the browser
+proxy_port = 8090
+# the port your app listens on
+app_port = 8080
+```
+
+Start `air` as usual and open `http://localhost:8090` instead of your app's own port. Requests are forwarded to `app_port`, and Air injects a tiny script before the `</body>` tag of every HTML response; when a rebuild finishes, the script reloads the page.
+
+Two things are required for this to work:
+
+- your HTML must contain a `</body>` tag — there is nowhere to inject the script otherwise, and the page is served unchanged;
+- the files you edit must be watched, so static assets need to be covered by `include_dir`, `include_ext`, or `include_file`.
+
+If your app is slow to boot (database connections, config loading) and you see "unable to reach app" errors, give it more time:
+
+```toml
+[proxy]
+# how long to keep retrying the app after a rebuild, in milliseconds (default 5000)
+app_start_timeout = 10000
+```
+
 ## Docker
 
 ### Using the official image
@@ -442,18 +471,7 @@ See [#365](https://github.com/air-verse/air/issues/365).
 
 ### How to reload the browser automatically on static file changes?
 
-Refer to issue [#512](https://github.com/air-verse/air/issues/512) for additional details.
-
-- Ensure your static files are in `include_dir`, `include_ext`, or `include_file`.
-- Ensure your HTML has a `</body>` tag.
-- Activate the proxy by configuring the following config:
-
-```toml
-[proxy]
-  enabled = true
-  proxy_port = <air proxy port>
-  app_port = <your server port>
-```
+Enable the proxy — see [Proxy: reload the browser automatically](#proxy-reload-the-browser-automatically). Make sure your static files are covered by `include_dir`, `include_ext`, or `include_file`, otherwise editing them never triggers a reload. Refer to issue [#512](https://github.com/air-verse/air/issues/512) for additional details.
 
 ## Development
 
