@@ -106,6 +106,7 @@ Guidelines for contributors and AI coding agents working in this repository.
 - CLI flags: update `runner/flag.go`, sync help text, update README usage.
 - Keep `air_example.toml` aligned with any config changes.
 - Behavior changes must include README updates and tests.
+- README updates cover the translations too — see "Translated READMEs".
 
 ## Documentation
 
@@ -113,6 +114,39 @@ Guidelines for contributors and AI coding agents working in this repository.
 - Keep `docs/` content accurate when behavior changes.
 - Add concise migration notes for breaking or behavioral changes.
 - Mention new environment variables or defaults in docs.
+
+### Translated READMEs
+
+`README.md` is the source of truth. `README-zh_cn.md` (简体中文),
+`README-zh_tw.md` (繁體中文), and `README-ja.md` (日本語) are translations of it
+and must be updated in the same change — never leave them for a follow-up.
+
+- Any edit that adds, removes, renames, or reorders a section in `README.md`
+  must be mirrored in all three translations.
+- The four files share one heading skeleton: the same `##`/`###` headings in the
+  same order. Only the heading text is translated. Verify parity before
+  committing:
+
+  ```shell
+  for f in README.md README-zh_cn.md README-zh_tw.md README-ja.md; do
+    printf '%s: ' "$f"
+    awk '/^```/{c=!c; next} !c && /^#{2,3} /{printf "%d", length($1)}' "$f"
+    echo
+  done
+  ```
+
+  All four lines must be identical.
+- Each file opens with the same block: title, one badge per line, the language
+  switcher (current language unlinked), a one-paragraph description, the
+  `docs/air.png` screenshot, then a nested table of contents.
+- Keep the table of contents in sync with the headings. Anchors follow GitHub's
+  rules — lowercase, punctuation stripped, spaces to hyphens; CJK characters are
+  kept as-is. Check that every `](#...)` link resolves to a real heading.
+- Code blocks, config snippets, and links stay identical across all four files;
+  translate only prose and code comments.
+- If you genuinely cannot write a translation, still add the section with the
+  English text in place and say so in the PR description, so the gap is visible
+  rather than silent.
 
 ## Tooling and Linters
 
