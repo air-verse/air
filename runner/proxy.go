@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
@@ -40,6 +41,38 @@ const (
 	encodingGzip
 	encodingBrotli
 )
+
+// hopByHopHeaders are connection-specific headers, as defined by RFC 7230
+// section 6.1. A proxy must consume them itself rather than forwarding them
+// on to the next hop.
+var hopByHopHeaders = []string{
+	"Connection",
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"Proxy-Connection", // non-standard, but widely used
+	"Te",
+	"Trailer",
+	"Transfer-Encoding",
+	"Upgrade",
+}
+
+// delHopByHopHeaders removes the hop-by-hop headers from h, including any
+// header named by the Connection header.
+func delHopByHopHeaders(h http.Header) {
+	// The headers named by Connection must be dropped before Connection itself
+	// is removed, otherwise there is nothing left to read the names from.
+	for _, f := range h.Values("Connection") {
+		for _, sf := range strings.Split(f, ",") {
+			if sf = textproto.TrimString(sf); sf != "" {
+				h.Del(sf)
+			}
+		}
+	}
+	for _, k := range hopByHopHeaders {
+		h.Del(k)
+	}
+}
 
 type Proxy struct {
 	server *http.Server
@@ -142,6 +175,7 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			req.Header.Add(name, value)
 		}
 	}
+	delHopByHopHeaders(req.Header)
 	req.Header.Set("X-Forwarded-For", r.RemoteAddr)
 
 	// set the via header
@@ -183,6 +217,9 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add(k, v)
 		}
 	}
+	// Only the copy in w is filtered: resp.Header is still needed intact below
+	// to detect streaming responses.
+	delHopByHopHeaders(w.Header())
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Via", viaHeaderValue)
 

@@ -643,6 +643,131 @@ func TestProxy_proxyHandler_NonStreaming(t *testing.T) {
 	assert.Equal(t, content, string(body))
 }
 
+func TestDelHopByHopHeaders(t *testing.T) {
+	tests := []struct {
+		name   string
+		header http.Header
+		want   http.Header
+	}{
+		{
+			name: "removes_standard_hop_by_hop_headers",
+			header: http.Header{
+				"Connection":          {"keep-alive"},
+				"Keep-Alive":          {"timeout=5"},
+				"Proxy-Authenticate":  {"Basic"},
+				"Proxy-Authorization": {"Bearer secret"},
+				"Proxy-Connection":    {"keep-alive"},
+				"Te":                  {"trailers"},
+				"Trailer":             {"Expires"},
+				"Transfer-Encoding":   {"chunked"},
+				"Upgrade":             {"websocket"},
+			},
+			want: http.Header{},
+		},
+		{
+			name: "removes_headers_named_by_connection",
+			header: http.Header{
+				"Connection":   {"keep-alive, X-Custom-Hop"},
+				"X-Custom-Hop": {"drop me"},
+			},
+			want: http.Header{},
+		},
+		{
+			name: "removes_headers_named_across_multiple_connection_values",
+			header: http.Header{
+				"Connection": {"X-First", "X-Second"},
+				"X-First":    {"drop me"},
+				"X-Second":   {"drop me too"},
+			},
+			want: http.Header{},
+		},
+		{
+			name: "keeps_end_to_end_headers",
+			header: http.Header{
+				"Connection":   {"keep-alive"},
+				"Content-Type": {"application/json"},
+				"Accept":       {"*/*"},
+				"X-Real-Ip":    {"127.0.0.1"},
+			},
+			want: http.Header{
+				"Content-Type": {"application/json"},
+				"Accept":       {"*/*"},
+				"X-Real-Ip":    {"127.0.0.1"},
+			},
+		},
+		{
+			name:   "no_connection_header_is_a_no_op",
+			header: http.Header{"Content-Type": {"text/html"}},
+			want:   http.Header{"Content-Type": {"text/html"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			delHopByHopHeaders(tt.header)
+			assert.Equal(t, tt.want, tt.header)
+		})
+	}
+}
+
+func TestProxy_proxyHandler_StripsHopByHopRequestHeaders(t *testing.T) {
+	var upstream http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		upstream = r.Header.Clone()
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d", proxyPort), nil)
+	req.Header.Set("Connection", "keep-alive, X-Custom-Hop")
+	req.Header.Set("X-Custom-Hop", "should not reach the app")
+	req.Header.Set("Proxy-Authorization", "Bearer secret")
+	req.Header.Set("Keep-Alive", "timeout=5")
+	req.Header.Set("X-Real-Header", "should reach the app")
+	proxy.proxyHandler(httptest.NewRecorder(), req)
+
+	require.NotNil(t, upstream)
+	for _, name := range []string{"X-Custom-Hop", "Proxy-Authorization", "Keep-Alive"} {
+		assert.Empty(t, upstream.Get(name), "%s must not be forwarded upstream", name)
+	}
+	// End-to-end headers must still make it through.
+	assert.Equal(t, "should reach the app", upstream.Get("X-Real-Header"))
+}
+
+func TestProxy_proxyHandler_StripsHopByHopResponseHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Connection", "X-Custom-Hop")
+		w.Header().Set("X-Custom-Hop", "should not reach the client")
+		w.Header().Set("Keep-Alive", "timeout=5")
+		w.Header().Set("X-Real-Header", "should reach the client")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d", proxyPort), nil)
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+	for _, name := range []string{"X-Custom-Hop", "Keep-Alive"} {
+		assert.Empty(t, resp.Header.Get(name), "%s must not be returned to the client", name)
+	}
+	assert.Equal(t, "should reach the client", resp.Header.Get("X-Real-Header"))
+}
+
 func TestProxy_appStartTimeout(t *testing.T) {
 	tests := []struct {
 		name            string
