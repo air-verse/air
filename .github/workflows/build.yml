@@ -5,6 +5,9 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     strategy:
@@ -72,6 +75,9 @@ jobs:
     name: Push master code to docker latest image
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push the ghcr.io/air-verse/air image with GITHUB_TOKEN
     steps:
       # Without a checkout, build-push-action builds from the remote Git
       # context, which has no .git directory, so `git describe --tags` inside

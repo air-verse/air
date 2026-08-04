@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   smoke_test_ubuntu:
     uses: ./.github/workflows/smoke_test_reuse_job.yml
