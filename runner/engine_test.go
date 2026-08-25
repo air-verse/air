@@ -1388,6 +1388,10 @@ func Test(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Mute logging: runBin reports process exits from a detached goroutine
+	// that no teardown can join, and its fatih/color access would race with
+	// later tests that swap color globals.
+	engine.config.Log.Silent = true
 	go func() {
 		engine.Run()
 	}()
@@ -1399,7 +1403,7 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		file, err = os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0o644)
+		file, err := os.OpenFile("main_test.go", os.O_APPEND|os.O_WRONLY, 0o644)
 		assert.NoError(t, err)
 		defer file.Close()
 		_, err = file.WriteString("\n")
@@ -1407,6 +1411,14 @@ func Test(t *testing.T) {
 	}()
 	// should Have rebuild
 	if err = waitingPortReady(t, port, time.Second*10); err != nil {
+		t.Fatal(err)
+	}
+
+	// Stop the engine and wait for a full teardown so its goroutines don't
+	// outlive the test and race later tests that mutate package-level
+	// state such as color globals.
+	engine.Stop()
+	if err := waitForEngineState(t, engine, false, time.Second*5); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1483,6 +1495,10 @@ include_file = ["main.sh"]
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Mute logging: runBin reports process exits from a detached goroutine
+	// that no teardown can join, and its fatih/color access would race with
+	// later tests that swap color globals.
+	engine.config.Log.Silent = true
 	go func() {
 		engine.Run()
 	}()
@@ -1510,6 +1526,14 @@ include_file = ["main.sh"]
 		t.Fatal(err)
 	}
 	assert.Equal(t, []byte("modified"), bytes)
+
+	// Stop the engine and wait for a full teardown so its goroutines don't
+	// outlive the test and race later tests that mutate package-level
+	// state such as color globals.
+	engine.Stop()
+	if err := waitForEngineState(t, engine, false, time.Second*5); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestShouldIncludeIncludedFileWithoutIncludedExt(t *testing.T) {
@@ -1546,6 +1570,10 @@ include_file = ["main.sh"]
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Mute logging: runBin reports process exits from a detached goroutine
+	// that no teardown can join, and its fatih/color access would race with
+	// later tests that swap color globals.
+	engine.config.Log.Silent = true
 	go func() {
 		engine.Run()
 	}()
@@ -1560,7 +1588,7 @@ include_file = ["main.sh"]
 
 	t.Logf("start change main.sh")
 	go func() {
-		err = os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
+		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
 		if err != nil {
 			log.Fatalf("Error updating file: %s.", err)
 		}
@@ -1573,6 +1601,14 @@ include_file = ["main.sh"]
 		t.Fatal(err)
 	}
 	assert.Equal(t, []byte("modified"), bytes)
+
+	// Stop the engine and wait for a full teardown so its goroutines don't
+	// outlive the test and race later tests that mutate package-level
+	// state such as color globals.
+	engine.Stop()
+	if err := waitForEngineState(t, engine, false, time.Second*5); err != nil {
+		t.Fatal(err)
+	}
 }
 
 type testExiter struct {
