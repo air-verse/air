@@ -25,6 +25,8 @@ const (
 	sliceCmdArgSeparator = ","
 	// extWildcard is used in include_ext to match all file extensions
 	extWildcard = "*"
+	// keep last 64KiB for build failure overlay
+	maxCapturedOutputSize = 64 << 10
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
@@ -595,4 +597,25 @@ func isDangerousRoot(path string) (bool, string) {
 	}
 
 	return false, ""
+}
+
+type tailBuffer struct {
+	mu  sync.Mutex
+	buf []byte
+}
+
+func (t *tailBuffer) Write(p []byte) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.buf = append(t.buf, p...)
+	if overflow := len(t.buf) - maxCapturedOutputSize; overflow > 0 {
+		t.buf = t.buf[overflow:]
+	}
+	return len(p), nil
+}
+
+func (t *tailBuffer) String() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return string(t.buf)
 }

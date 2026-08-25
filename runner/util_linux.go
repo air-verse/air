@@ -55,7 +55,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	}
 }
 
-func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+func (e *Engine) startCmdWithOptions(cmd string, capture bool) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
 	// Set Setpgid to create a new process group (not possible when using pty)
 	c.SysProcAttr = &syscall.SysProcAttr{
@@ -71,14 +71,24 @@ func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, 
 		return nil, nil, nil, err
 	}
 
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
+	if !capture {
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+	}
 
 	err = c.Start()
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	return c, stdout, stderr, nil
+}
+
+func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+	return e.startCmdWithOptions(cmd, false) // backward compatible
+}
+
+func (e *Engine) startCmdWithCapture(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+	return e.startCmdWithOptions(cmd, true)
 }
 
 func sendSignalToProcessTree(pid int, sig syscall.Signal) error {

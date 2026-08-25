@@ -674,25 +674,32 @@ func (e *Engine) runCommand(command string) error {
 }
 
 func (e *Engine) runCommandCopyOutput(command string) (string, error) {
-	// both stdout and stderr are piped to the same buffer, so ignore the second
-	// one
-	cmd, stdout, _, err := e.startCmd(command)
+	cmd, stdout, stderr, err := e.startCmdWithCapture(command)
 	if err != nil {
 		return "", err
 	}
 	defer func() {
 		stdout.Close()
+		stderr.Close()
 	}()
 
-	stdoutBytes, _ := io.ReadAll(stdout)
-	_, _ = io.Copy(os.Stdout, strings.NewReader(string(stdoutBytes)))
+	var captured tailBuffer
+
+	stderrDone := make(chan struct{})
+	go func() {
+		defer close(stderrDone)
+		_, _ = io.Copy(io.MultiWriter(os.Stderr, &captured), stderr)
+	}()
+
+	_, _ = io.Copy(io.MultiWriter(os.Stdout, &captured), stdout)
+	<-stderrDone
 
 	// wait for command to finish
 	err = cmd.Wait()
 	if err != nil {
-		return string(stdoutBytes), err
+		return captured.String(), err
 	}
-	return string(stdoutBytes), nil
+	return captured.String(), nil
 }
 
 // run cmd option in .air.toml
