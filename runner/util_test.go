@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1249,4 +1250,58 @@ func TestExpandPathRootDirectoryIsSymlink(t *testing.T) {
 	if gotPath != expectedPath {
 		t.Errorf("expandPath failed to correctly resolve the symlinked directory.\nGot:  %s\nWant: %s", gotPath, expectedPath)
 	}
+}
+
+func TestTailBuffer(t *testing.T) {
+	t.Run("keeps everything under the cap", func(t *testing.T) {
+		var buf tailBuffer
+		n, err := buf.Write([]byte("hello world"))
+		require.NoError(t, err)
+		assert.Equal(t, 11, n)
+		assert.Equal(t, "hello world", buf.String())
+	})
+
+	t.Run("keeps exactly the cap", func(t *testing.T) {
+		var buf tailBuffer
+		payload := strings.Repeat("a", maxCapturedOutputSize)
+		_, err := buf.Write([]byte(payload))
+		require.NoError(t, err)
+		assert.Equal(t, payload, buf.String())
+	})
+
+	t.Run("drops the head when a single write exceeds the cap", func(t *testing.T) {
+		var buf tailBuffer
+		payload := strings.Repeat("a", maxCapturedOutputSize) + "TAIL"
+		_, err := buf.Write([]byte(payload))
+		require.NoError(t, err)
+		expectedTail := strings.Repeat("a", maxCapturedOutputSize-len("TAIL")) + "TAIL"
+		got := buf.String()
+		assert.Len(t, got, maxCapturedOutputSize)
+		assert.Equal(t, expectedTail, got)
+	})
+
+	t.Run("drops the oldest bytes across incremental writes", func(t *testing.T) {
+		var buf tailBuffer
+		_, err := buf.Write([]byte("123456"))
+		require.NoError(t, err)
+		_, err = buf.Write([]byte(strings.Repeat("x", maxCapturedOutputSize)))
+		require.NoError(t, err)
+		assert.Equal(t, strings.Repeat("x", maxCapturedOutputSize), buf.String())
+	})
+
+	t.Run("stays bounded under concurrent writers", func(t *testing.T) {
+		var buf tailBuffer
+		var wg sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for j := 0; j < 100; j++ {
+					_, _ = buf.Write([]byte("0123456789abcdef"))
+				}
+			}()
+		}
+		wg.Wait()
+		assert.LessOrEqual(t, len(buf.String()), maxCapturedOutputSize)
+	})
 }

@@ -8,7 +8,8 @@ import (
 )
 
 func TestLogFuncWritesToStderr(t *testing.T) {
-	t.Parallel()
+	// Not parallel: this test swaps the process-wide os.Stdout and os.Stderr
+	// globals, so a parallel sibling reading them via fmt.Print would race.
 
 	// Capture stderr
 	oldStderr := os.Stderr
