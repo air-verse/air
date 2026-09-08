@@ -3,7 +3,7 @@ package runner
 import (
 	"time"
 
-	"github.com/gohugoio/hugo/watcher/filenotify"
+	"github.com/air-verse/air/internal/filenotify"
 )
 
 func newWatcher(cfg *Config) (filenotify.FileWatcher, error) {
