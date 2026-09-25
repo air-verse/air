@@ -1779,6 +1779,110 @@ func TestBuildRunRaceConditionRapidChanges(t *testing.T) {
 	<-e.buildRunCh
 }
 
+// TestReleaseBuildRunTokenKeepsNewerBuildsToken is a regression test for
+// issue #938: a build superseded while it was still building (e.g. blocked
+// in the build command) must not steal its successor's token from
+// buildRunCh when it finally unwinds and releases its own. Losing that
+// token left the successor un-cancellable and unaccounted for by the main
+// loop's next non-blocking receive in start().
+func TestReleaseBuildRunTokenKeepsNewerBuildsToken(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	e.config.Log.Silent = true
+
+	// Build A registers, then gets superseded: start() drains and closes
+	// its token exactly as it does in the main loop.
+	buildA := make(chan struct{})
+	e.buildRunCh <- buildA
+	oldStopCh := <-e.buildRunCh
+	close(oldStopCh)
+
+	// Build B registers its own fresh token before Build A's goroutine has
+	// unwound far enough to release its own.
+	buildB := make(chan struct{})
+	e.buildRunCh <- buildB
+
+	// Build A's deferred cleanup now runs.
+	e.releaseBuildRunToken(buildA)
+
+	// Build B's token must still be the one buildRunCh holds, and still
+	// open, so the main loop can still find and cancel it later.
+	select {
+	case ch := <-e.buildRunCh:
+		if ch != buildB {
+			t.Fatal("buildRunCh should still hold build B's token, not some other one")
+		}
+		select {
+		case <-ch:
+			t.Error("build B's token should not have been closed")
+		default:
+		}
+	default:
+		t.Fatal("build A releasing its own token must not empty buildRunCh of build B's live token")
+	}
+}
+
+// TestReleaseBuildRunTokenRemovesOwnToken checks the ordinary, non-raced
+// path: a build that finishes on its own (was never superseded) removes its
+// own token from buildRunCh so the semaphore is empty for the next build.
+func TestReleaseBuildRunTokenRemovesOwnToken(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	e.config.Log.Silent = true
+
+	myStopCh := make(chan struct{})
+	e.buildRunCh <- myStopCh
+
+	e.releaseBuildRunToken(myStopCh)
+
+	select {
+	case <-e.buildRunCh:
+		t.Error("releaseBuildRunToken should have removed the caller's own token")
+	default:
+		// good: buildRunCh is empty
+	}
+}
+
+// TestRunCommandCopyOutputCancelsInFlightProcess is a regression test for
+// issue #938's core mechanism: building() blocked on cmd.Wait() with no
+// kill path, so closing a build's stop channel stopped nothing that was
+// already compiling. Build concurrency was therefore unbounded -- every
+// save during a slow build started one more build that nothing could ever
+// cancel.
+func TestRunCommandCopyOutputCancelsInFlightProcess(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell commands")
+	}
+
+	e, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	e.config.Log.Silent = true
+
+	stopCh := make(chan struct{})
+	done := make(chan struct{})
+	var runErr error
+
+	start := time.Now()
+	go func() {
+		_, runErr = e.runCommandCopyOutput("sleep 30", stopCh)
+		close(done)
+	}()
+
+	// give the shell time to actually exec `sleep` before cancelling it
+	time.Sleep(200 * time.Millisecond)
+	close(stopCh)
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelling stopCh should kill the in-flight command promptly, not wait for it to finish")
+	}
+
+	assert.Less(t, time.Since(start), 10*time.Second,
+		"command should have been killed well before its own 30s sleep completed")
+	assert.Error(t, runErr, "a killed command should return a non-nil error")
+}
+
 func TestEngineLoadEnvFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	envPath := filepath.Join(tmpDir, ".env")

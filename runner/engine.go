@@ -570,9 +570,7 @@ func (e *Engine) buildRun() {
 
 	// Put our stop channel in buildRunCh (acts as semaphore + carries our stop token)
 	e.buildRunCh <- myStopCh
-	defer func() {
-		<-e.buildRunCh
-	}()
+	defer e.releaseBuildRunToken(myStopCh)
 
 	// Check if we were already signaled to stop before we even started
 	select {
@@ -596,7 +594,27 @@ func (e *Engine) buildRun() {
 			return
 		}
 	}
-	if output, err := e.building(); err != nil {
+
+	// building() watches myStopCh itself and kills the build process the
+	// moment we're superseded, instead of blocking until it finishes on its
+	// own; see the myStopCh check right below for why the result is still
+	// re-checked before being acted on.
+	output, err := e.building(myStopCh)
+
+	// Check again before acting on the build result: once a newer build has
+	// superseded us (myStopCh closed) or air is exiting, our result is
+	// stale -- possibly nothing more than the error from being killed above
+	// -- and must not trigger error handling or run a stale binary.
+	select {
+	case <-myStopCh:
+		return
+	case <-e.exitCh:
+		e.mainDebug("exit in buildRun after build")
+		return
+	default:
+	}
+
+	if err != nil {
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -615,20 +633,29 @@ func (e *Engine) buildRun() {
 		}
 	}
 
-	// Check again before running the binary
-	select {
-	case <-myStopCh:
-		return
-	case <-e.exitCh:
-		e.mainDebug("exit in buildRun after build")
-		return
-	default:
-	}
-
 	e.stopBin()
 
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
+	}
+}
+
+// releaseBuildRunToken removes this build's own stop channel from
+// buildRunCh, if it is still there. buildRunCh only ever holds the most
+// recently started build's token, so finding a different one means a newer
+// build has already superseded us and registered its own token; put it back
+// untouched instead of consuming it. Draining it here unconditionally (the
+// previous behavior) let a superseded build steal its successor's token: the
+// main loop's next non-blocking receive in start() would then find
+// buildRunCh empty and have nothing to close, leaving that successor
+// un-cancellable and its completion unaccounted for by the semaphore.
+func (e *Engine) releaseBuildRunToken(myStopCh chan struct{}) {
+	select {
+	case ch := <-e.buildRunCh:
+		if ch != myStopCh {
+			e.buildRunCh <- ch
+		}
+	default:
 	}
 }
 
@@ -673,7 +700,13 @@ func (e *Engine) runCommand(command string) error {
 	return cmd.Wait()
 }
 
-func (e *Engine) runCommandCopyOutput(command string) (string, error) {
+// runCommandCopyOutput runs command to completion and returns its combined
+// output, unless stopCh fires first: a newer build has superseded this one,
+// so the in-flight process (and its process group) is killed via the same
+// killCmd used to stop the running binary, instead of being left to run to
+// completion. Without this, build concurrency is unbounded -- every save
+// during a slow build starts one more full build that nothing ever stops.
+func (e *Engine) runCommandCopyOutput(command string, stopCh <-chan struct{}) (string, error) {
 	// both stdout and stderr are piped to the same buffer, so ignore the second
 	// one
 	cmd, stdout, _, err := e.startCmd(command)
@@ -684,21 +717,37 @@ func (e *Engine) runCommandCopyOutput(command string) (string, error) {
 		stdout.Close()
 	}()
 
-	stdoutBytes, _ := io.ReadAll(stdout)
-	_, _ = io.Copy(os.Stdout, strings.NewReader(string(stdoutBytes)))
-
-	// wait for command to finish
-	err = cmd.Wait()
-	if err != nil {
-		return string(stdoutBytes), err
+	type buildResult struct {
+		output string
+		err    error
 	}
-	return string(stdoutBytes), nil
+	resultCh := make(chan buildResult, 1)
+	go func() {
+		stdoutBytes, _ := io.ReadAll(stdout)
+		_, _ = io.Copy(os.Stdout, strings.NewReader(string(stdoutBytes)))
+
+		// wait for command to finish
+		resultCh <- buildResult{output: string(stdoutBytes), err: cmd.Wait()}
+	}()
+
+	select {
+	case res := <-resultCh:
+		return res.output, res.err
+	case <-stopCh:
+		if _, killErr := e.killCmd(cmd); killErr != nil {
+			e.mainDebug("failed to kill superseded build, error: %s", killErr.Error())
+		}
+		// killing the process closes its stdout, which unblocks the
+		// io.ReadAll above and lets the goroutine finish reaping it.
+		res := <-resultCh
+		return res.output, res.err
+	}
 }
 
 // run cmd option in .air.toml
-func (e *Engine) building() (string, error) {
+func (e *Engine) building(stopCh <-chan struct{}) (string, error) {
 	e.buildLog("building...")
-	output, err := e.runCommandCopyOutput(e.config.Build.Cmd)
+	output, err := e.runCommandCopyOutput(e.config.Build.Cmd, stopCh)
 	if err != nil {
 		return output, err
 	}
