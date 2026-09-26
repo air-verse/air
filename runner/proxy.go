@@ -153,21 +153,13 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	appURL.Scheme = "http"
 	appURL.Host = fmt.Sprintf("localhost:%d", p.config.AppPort)
 
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "proxy handler: bad form", http.StatusInternalServerError)
-		return
-	}
-	var body io.Reader
-	if len(r.Form) > 0 {
-		body = strings.NewReader(r.Form.Encode())
-	} else {
-		body = r.Body
-	}
-	req, err := http.NewRequest(r.Method, appURL.String(), body)
+	req, err := http.NewRequest(r.Method, appURL.String(), r.Body)
 	if err != nil {
 		http.Error(w, "proxy handler: unable to create request", http.StatusInternalServerError)
 		return
 	}
+	// Without this the request would be sent chunked.
+	req.ContentLength = r.ContentLength
 
 	// Copy the headers from the original request
 	for name, values := range r.Header {
