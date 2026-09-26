@@ -99,17 +99,20 @@ func TestProxy_proxyHandlerStreamingWithoutFlusher(t *testing.T) {
 	assert.Contains(t, w.body.String(), "streaming not supported")
 }
 
-func TestProxy_proxyHandlerBadForm(t *testing.T) {
-	proxy := NewProxy(&cfgProxy{Enabled: true, ProxyPort: 1111, AppPort: 1112})
+func TestProxy_proxyHandlerForwardsUnparsedBody(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		assert.Equal(t, "%zz=1", string(body))
+	}))
+	defer srv.Close()
+
+	proxy := NewProxy(&cfgProxy{Enabled: true, ProxyPort: 1111, AppPort: getServerPort(t, srv)})
 
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("%zz=1"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	rec := httptest.NewRecorder()
-	proxy.proxyHandler(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "bad form")
+	proxy.proxyHandler(httptest.NewRecorder(), req)
 }
 
 func TestProxy_proxyHandlerInvalidMethod(t *testing.T) {

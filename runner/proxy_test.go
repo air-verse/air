@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -132,6 +133,23 @@ func TestProxy_proxyHandler(t *testing.T) {
 				require.NoError(t, json.NewDecoder(resp.Body).Decode(&r))
 				assert.Equal(t, "/a/b/c", resp.URL.Path)
 				assert.Equal(t, "bar", r.Foo)
+			},
+		},
+		{
+			name: "post_multipart_request_with_query_string",
+			req: func() *http.Request {
+				var buf bytes.Buffer
+				mw := multipart.NewWriter(&buf)
+				require.NoError(t, mw.WriteField("foo", "bar"))
+				require.NoError(t, mw.Close())
+				req := httptest.NewRequest("POST", fmt.Sprintf("http://localhost:%d?q=%s", proxyPort, "air"), &buf)
+				req.Header.Set("Content-Type", mw.FormDataContentType())
+				return req
+			},
+			assert: func(resp *http.Request) {
+				require.NoError(t, resp.ParseMultipartForm(1024))
+				assert.Equal(t, "bar", resp.MultipartForm.Value["foo"][0])
+				assert.Equal(t, "q=air", resp.URL.Query().Encode())
 			},
 		},
 		{
