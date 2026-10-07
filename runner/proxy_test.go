@@ -870,3 +870,69 @@ func TestProxy_appStartTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestProxy_proxyHandler_RetryResendsRequestBody(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		body   string
+	}{
+		{
+			name:   "post_with_body",
+			method: "POST",
+			body:   `{"seconds":60}`,
+		},
+		{
+			name:   "get_without_body",
+			method: "GET",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			appPort, closePort := GetPort()
+			closePort()
+
+			var (
+				mu     sync.Mutex
+				bodies []string
+			)
+			srv := &http.Server{
+				Addr: fmt.Sprintf("localhost:%d", appPort),
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					b, _ := io.ReadAll(r.Body)
+					mu.Lock()
+					bodies = append(bodies, string(b))
+					mu.Unlock()
+					w.WriteHeader(http.StatusOK)
+				}),
+			}
+			defer srv.Close()
+
+			go func() {
+				time.Sleep(300 * time.Millisecond)
+				_ = srv.ListenAndServe()
+			}()
+
+			proxy := NewProxy(&cfgProxy{
+				Enabled:         true,
+				ProxyPort:       proxyPort,
+				AppPort:         appPort,
+				AppStartTimeout: 2000,
+			})
+			front := httptest.NewServer(http.HandlerFunc(proxy.proxyHandler))
+			defer front.Close()
+
+			req, err := http.NewRequest(tt.method, front.URL, strings.NewReader(tt.body))
+			require.NoError(t, err)
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			mu.Lock()
+			defer mu.Unlock()
+			assert.Equal(t, []string{tt.body}, bodies)
+		})
+	}
+}

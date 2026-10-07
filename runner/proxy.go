@@ -163,7 +163,12 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		body = r.Body
 	}
-	req, err := http.NewRequest(r.Method, appURL.String(), body)
+	bodyBytes, err := io.ReadAll(body)
+	if err != nil {
+		http.Error(w, "proxy handler: unable to read request body", http.StatusInternalServerError)
+		return
+	}
+	req, err := http.NewRequest(r.Method, appURL.String(), bytes.NewReader(bodyBytes))
 	if err != nil {
 		http.Error(w, "proxy handler: unable to create request", http.StatusInternalServerError)
 		return
@@ -200,6 +205,9 @@ func (p *Proxy) proxyHandler(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
+		if req.Body, err = req.GetBody(); err != nil {
+			break
+		}
 		resp, err = p.client.Do(req.WithContext(ctx))
 	}
 	if err != nil {
