@@ -32,14 +32,11 @@ type Engine struct {
 	eventCh       chan string
 	ruleEventChs  []chan string
 	watcherStopCh chan bool
-	// buildRunCh serves dual purpose:
-	// 1. As a semaphore ensuring only one build runs at a time (buffer size 1)
-	// 2. Carries each build's unique stop channel for cancellation
-	// When a new build starts, it retrieves the previous build's stop channel,
-	// closes it to signal cancellation, then inserts its own fresh channel.
-	// This prevents the race condition where a new build could consume a stop
-	// signal meant for a previous build (issue #784).
-	buildRunCh chan chan struct{}
+	// buildMu lets one buildRun run at a time, so two builds never both stop and start the bin.
+	buildMu sync.Mutex
+	// buildStopCh belongs to the newest build; start closes it to supersede that build. Each build
+	// has its own channel, so a stop signal never reaches a newer build (issue #784).
+	buildStopCh chan struct{}
 	// binStopCh is a channel for process termination control
 	// Type chan<- chan int indicates it's a send-only channel that transmits another channel(chan int)
 	binStopCh chan<- chan int
@@ -89,7 +86,6 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		eventCh:       make(chan string, 1000),
 		ruleEventChs:  ruleEventChs,
 		watcherStopCh: make(chan bool, 10),
-		buildRunCh:    make(chan chan struct{}, 1),
 		exitCh:        make(chan bool),
 		fileChecksums: &checksumMap{m: make(map[string]string)},
 		watchers:      0,
@@ -485,16 +481,14 @@ func (e *Engine) start() {
 			// go down
 		}
 
-		// Stop any currently running build by closing its stop channel
-		select {
-		case oldStopCh := <-e.buildRunCh:
-			// Close the old build's stop channel to signal it to stop
-			close(oldStopCh)
-		default:
-			// No build is currently running
-		}
-
-		go e.buildRun()
+		stopCh := make(chan struct{})
+		e.withLock(func() {
+			if e.buildStopCh != nil {
+				close(e.buildStopCh)
+			}
+			e.buildStopCh = stopCh
+		})
+		go e.buildRun(stopCh)
 	}
 }
 
@@ -564,19 +558,15 @@ func (e *Engine) loadEnvFile() {
 	e.loadedEnv = newEnv
 }
 
-func (e *Engine) buildRun() {
-	// Create this build's unique stop channel
-	myStopCh := make(chan struct{})
-
-	// Put our stop channel in buildRunCh (acts as semaphore + carries our stop token)
-	e.buildRunCh <- myStopCh
-	defer func() {
-		<-e.buildRunCh
-	}()
+// buildRun builds and restarts the bin unless stopCh is closed first, which means a newer build
+// superseded this one.
+func (e *Engine) buildRun(stopCh <-chan struct{}) {
+	e.buildMu.Lock()
+	defer e.buildMu.Unlock()
 
 	// Check if we were already signaled to stop before we even started
 	select {
-	case <-myStopCh:
+	case <-stopCh:
 		return
 	case <-e.exitCh:
 		e.mainDebug("exit in buildRun before pre_cmd")
@@ -617,7 +607,7 @@ func (e *Engine) buildRun() {
 
 	// Check again before running the binary
 	select {
-	case <-myStopCh:
+	case <-stopCh:
 		return
 	case <-e.exitCh:
 		e.mainDebug("exit in buildRun after build")
