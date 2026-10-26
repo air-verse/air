@@ -7,6 +7,7 @@
 [![Go](https://github.com/air-verse/air/actions/workflows/release.yml/badge.svg)](https://github.com/air-verse/air/actions?query=workflow%3AGo+branch%3Amaster)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/dcb95264cc504cad9c2a3d8b0795a7f8)](https://www.codacy.com/gh/air-verse/air/dashboard?utm_source=github.com&utm_medium=referral&utm_content=air-verse/air&utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/air-verse/air/branch/master/graph/badge.svg)](https://codecov.io/gh/air-verse/air)
+[![Plumber Score](https://score.getplumber.io/github.com/air-verse/air.svg)](https://score.getplumber.io/github.com/air-verse/air)
 
 [English](README.md) | [简体中文](README-zh_cn.md) | 繁體中文 | [日本語](README-ja.md)
 
