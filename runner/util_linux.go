@@ -55,6 +55,11 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 	}
 }
 
+// killProcessTree force-kills pid and its descendants without waiting for them.
+func killProcessTree(pid int) error {
+	return sendSignalToProcessTree(pid, syscall.SIGKILL)
+}
+
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
 	c := exec.Command("/bin/sh", "-c", cmd)
 	// Set Setpgid to create a new process group (not possible when using pty)

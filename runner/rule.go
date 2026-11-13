@@ -110,7 +110,7 @@ func (e *Engine) runRule(idx int) {
 			}
 			e.ruleLog(rule.Name, "%s has changed", e.config.rel(filename))
 			e.ruleLog(rule.Name, "> %s", rule.Cmd)
-			if err := e.runCommand(rule.Cmd); err != nil {
+			if err := e.runCommand(rule.Cmd, nil); err != nil {
 				e.ruleLog(rule.Name, "failed to execute cmd: %s", err.Error())
 			}
 		}
