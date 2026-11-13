@@ -166,6 +166,7 @@ For every available option refer to the [air_example.toml](air_example.toml) fil
 - [x] Allow watching new directories after Air started
 - [x] Better building process
 - [x] Configurable `.env` file loading
+- [x] A change during a build cancels that build and starts a fresh one
 
 ## Usage
 

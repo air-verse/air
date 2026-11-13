@@ -24,6 +24,16 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 
 	// Single TASKKILL execution to avoid double-kill bug
 	e.mainDebug("sending TASKKILL to process tree")
+	err = killProcessTree(pid)
+
+	// Wait for process to terminate and release resources
+	_, _ = cmd.Process.Wait()
+
+	return pid, err
+}
+
+// killProcessTree force-kills pid and its descendants without waiting for them.
+func killProcessTree(pid int) error {
 	killCmd := exec.Command("TASKKILL", "/F", "/T", "/PID", strconv.Itoa(pid))
 
 	// Hide the taskkill console window
@@ -32,12 +42,7 @@ func (e *Engine) killCmd(cmd *exec.Cmd) (pid int, err error) {
 		CreationFlags: windows.CREATE_NO_WINDOW,
 	}
 
-	err = killCmd.Run()
-
-	// Wait for process to terminate and release resources
-	_, _ = cmd.Process.Wait()
-
-	return pid, err
+	return killCmd.Run()
 }
 
 func (e *Engine) startCmd(cmd string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {

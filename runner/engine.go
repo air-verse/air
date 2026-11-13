@@ -32,14 +32,11 @@ type Engine struct {
 	eventCh       chan string
 	ruleEventChs  []chan string
 	watcherStopCh chan bool
-	// buildRunCh serves dual purpose:
-	// 1. As a semaphore ensuring only one build runs at a time (buffer size 1)
-	// 2. Carries each build's unique stop channel for cancellation
-	// When a new build starts, it retrieves the previous build's stop channel,
-	// closes it to signal cancellation, then inserts its own fresh channel.
-	// This prevents the race condition where a new build could consume a stop
-	// signal meant for a previous build (issue #784).
-	buildRunCh chan chan struct{}
+	// buildMu lets one buildRun run at a time, so two builds never both stop and start the bin.
+	buildMu sync.Mutex
+	// buildStopCh belongs to the newest build; start closes it to supersede that build. Each build
+	// has its own channel, so a stop signal never reaches a newer build (issue #784).
+	buildStopCh chan struct{}
 	// binStopCh is a channel for process termination control
 	// Type chan<- chan int indicates it's a send-only channel that transmits another channel(chan int)
 	binStopCh chan<- chan int
@@ -89,7 +86,6 @@ func NewEngineWithConfig(cfg *Config, debugMode bool) (*Engine, error) {
 		eventCh:       make(chan string, 1000),
 		ruleEventChs:  ruleEventChs,
 		watcherStopCh: make(chan bool, 10),
-		buildRunCh:    make(chan chan struct{}, 1),
 		exitCh:        make(chan bool),
 		fileChecksums: &checksumMap{m: make(map[string]string)},
 		watchers:      0,
@@ -485,17 +481,20 @@ func (e *Engine) start() {
 			// go down
 		}
 
-		// Stop any currently running build by closing its stop channel
-		select {
-		case oldStopCh := <-e.buildRunCh:
-			// Close the old build's stop channel to signal it to stop
-			close(oldStopCh)
-		default:
-			// No build is currently running
-		}
-
-		go e.buildRun()
+		go e.buildRun(e.supersedeBuild())
 	}
+}
+
+// supersedeBuild closes the newest build's stop channel and returns a new one for the next build.
+func (e *Engine) supersedeBuild() <-chan struct{} {
+	stopCh := make(chan struct{})
+	e.withLock(func() {
+		if e.buildStopCh != nil {
+			close(e.buildStopCh)
+		}
+		e.buildStopCh = stopCh
+	})
+	return stopCh
 }
 
 func (e *Engine) loadEnvFile() {
@@ -564,24 +563,15 @@ func (e *Engine) loadEnvFile() {
 	e.loadedEnv = newEnv
 }
 
-func (e *Engine) buildRun() {
-	// Create this build's unique stop channel
-	myStopCh := make(chan struct{})
+// buildRun builds and restarts the bin unless stopCh is closed first, which means a newer build
+// superseded this one. Closing stopCh also kills a running pre_cmd or cmd, so the newer build
+// does not wait for it.
+func (e *Engine) buildRun(stopCh <-chan struct{}) {
+	e.buildMu.Lock()
+	defer e.buildMu.Unlock()
 
-	// Put our stop channel in buildRunCh (acts as semaphore + carries our stop token)
-	e.buildRunCh <- myStopCh
-	defer func() {
-		<-e.buildRunCh
-	}()
-
-	// Check if we were already signaled to stop before we even started
-	select {
-	case <-myStopCh:
+	if e.buildCanceled(stopCh, "before pre_cmd") {
 		return
-	case <-e.exitCh:
-		e.mainDebug("exit in buildRun before pre_cmd")
-		return
-	default:
 	}
 
 	e.stopBinBeforeBuildIfNeeded(runtime.GOOS)
@@ -589,14 +579,21 @@ func (e *Engine) buildRun() {
 	e.loadEnvFile()
 
 	var err error
-	if err = e.runPreCmd(); err != nil {
+	if err = e.runPreCmd(stopCh); err != nil {
+		// A canceled pre_cmd was killed, so its error is not worth reporting.
+		if e.buildCanceled(stopCh, "after pre_cmd") {
+			return
+		}
 		e.runnerLog("failed to execute pre_cmd: %s", err.Error())
 		if e.config.Build.StopOnError {
 			e.stopBin()
 			return
 		}
 	}
-	if output, err := e.building(); err != nil {
+	if output, err := e.building(stopCh); err != nil {
+		if e.buildCanceled(stopCh, "after build") {
+			return
+		}
 		e.buildLog("failed to build, error: %s", err.Error())
 		_ = e.writeBuildErrorLog(err.Error())
 		if e.config.Build.StopOnError {
@@ -615,20 +612,28 @@ func (e *Engine) buildRun() {
 		}
 	}
 
-	// Check again before running the binary
-	select {
-	case <-myStopCh:
+	if e.buildCanceled(stopCh, "after build") {
 		return
-	case <-e.exitCh:
-		e.mainDebug("exit in buildRun after build")
-		return
-	default:
 	}
 
 	e.stopBin()
 
 	if err = e.runBin(); err != nil {
 		e.runnerLog("failed to run, error: %s", err.Error())
+	}
+}
+
+// buildCanceled reports whether a newer build superseded this one or air is exiting. Either way
+// the build must not touch the bin or report its result.
+func (e *Engine) buildCanceled(stopCh <-chan struct{}, stage string) bool {
+	select {
+	case <-stopCh:
+		return true
+	case <-e.exitCh:
+		e.mainDebug("exit in buildRun %s", stage)
+		return true
+	default:
+		return false
 	}
 }
 
@@ -655,12 +660,37 @@ func (e *Engine) flushEvents() {
 	}
 }
 
-// utility to execute commands, such as cmd & pre_cmd
-func (e *Engine) runCommand(command string) error {
+// killOnStop kills cmd's process tree if stopCh or exitCh closes before cmd exits. A nil stopCh
+// never kills. Call the returned func once cmd has exited.
+func (e *Engine) killOnStop(cmd *exec.Cmd, stopCh <-chan struct{}) (exited func()) {
+	if stopCh == nil {
+		return func() {}
+	}
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-stopCh:
+		case <-e.exitCh:
+		case <-done:
+			return
+		}
+		pid := cmd.Process.Pid
+		e.mainDebug("killing canceled command, pid %d", pid)
+		if err := killProcessTree(pid); err != nil {
+			e.mainDebug("failed to kill PID %d, error: %s", pid, err.Error())
+		}
+	}()
+	return func() { close(done) }
+}
+
+// utility to execute commands, such as cmd & pre_cmd. Closing stopCh kills the command.
+func (e *Engine) runCommand(command string, stopCh <-chan struct{}) error {
 	cmd, stdout, stderr, err := e.startCmd(command)
 	if err != nil {
 		return err
 	}
+	exited := e.killOnStop(cmd, stopCh)
+	defer exited()
 	defer func() {
 		stdout.Close()
 		stderr.Close()
@@ -673,13 +703,15 @@ func (e *Engine) runCommand(command string) error {
 	return cmd.Wait()
 }
 
-func (e *Engine) runCommandCopyOutput(command string) (string, error) {
+func (e *Engine) runCommandCopyOutput(command string, stopCh <-chan struct{}) (string, error) {
 	// both stdout and stderr are piped to the same buffer, so ignore the second
 	// one
 	cmd, stdout, _, err := e.startCmd(command)
 	if err != nil {
 		return "", err
 	}
+	exited := e.killOnStop(cmd, stopCh)
+	defer exited()
 	defer func() {
 		stdout.Close()
 	}()
@@ -696,9 +728,9 @@ func (e *Engine) runCommandCopyOutput(command string) (string, error) {
 }
 
 // run cmd option in .air.toml
-func (e *Engine) building() (string, error) {
+func (e *Engine) building(stopCh <-chan struct{}) (string, error) {
 	e.buildLog("building...")
-	output, err := e.runCommandCopyOutput(e.config.Build.Cmd)
+	output, err := e.runCommandCopyOutput(e.config.Build.Cmd, stopCh)
 	if err != nil {
 		return output, err
 	}
@@ -706,10 +738,10 @@ func (e *Engine) building() (string, error) {
 }
 
 // run pre_cmd option in .air.toml
-func (e *Engine) runPreCmd() error {
+func (e *Engine) runPreCmd(stopCh <-chan struct{}) error {
 	for _, command := range e.config.Build.PreCmd {
 		e.runnerLog("> %s", command)
-		err := e.runCommand(command)
+		err := e.runCommand(command, stopCh)
 		if err != nil {
 			return err
 		}
@@ -721,7 +753,7 @@ func (e *Engine) runPreCmd() error {
 func (e *Engine) runPostCmd() error {
 	for _, command := range e.config.Build.PostCmd {
 		e.runnerLog("> %s", command)
-		err := e.runCommand(command)
+		err := e.runCommand(command, nil)
 		if err != nil {
 			return err
 		}
@@ -781,6 +813,36 @@ func (e *Engine) runBin() error {
 	}
 
 	e.runnerLog("running...")
+
+	// control killFunc should be kill or not
+	killCh := make(chan struct{})
+	// startBin starts the bin and registers its killFunc before returning, so a stopBin that follows
+	// runBin always finds the bin to stop.
+	startBin := func() (*exec.Cmd, chan struct{}, bool) {
+		formattedBin := formatPath(e.config.runnerBin())
+		command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
+		cmd, stdout, stderr, err := e.startCmd(command)
+		if err != nil {
+			e.mainLog("failed to start %s, error: %s", e.config.rel(e.config.binPath()), err.Error())
+			return nil, nil, false
+		}
+
+		processExit := make(chan struct{})
+		e.mainDebug("running process pid %v", cmd.Process.Pid)
+
+		e.withLock(func() {
+			e.binStopCh = killFunc(cmd, stdout, stderr, killCh, processExit)
+		})
+
+		go copyOutput(os.Stdout, stdout)
+		go copyOutput(os.Stderr, stderr)
+		return cmd, processExit, true
+	}
+
+	cmd, processExit, ok := startBin()
+	if !ok {
+		return nil
+	}
 	go func() {
 
 		defer func() {
@@ -791,52 +853,36 @@ func (e *Engine) runBin() error {
 			}
 		}()
 
-		// control killFunc should be kill or not
-		killCh := make(chan struct{})
 		for {
+			if e.config.Proxy.Enabled {
+				e.mainDebug("reloading proxy")
+				e.proxy.Reload()
+			}
+
+			state, _ := cmd.Process.Wait()
+			close(processExit)
+
+			switch state.ExitCode() {
+			case 0:
+				e.runnerLog("Process Exit with Code 0")
+			case -1:
+				// because when we use ctrl + c to stop will return -1
+			default:
+				e.runnerLog("Process Exit with Code: %v", state.ExitCode())
+			}
+
+			if !e.config.Build.Rerun {
+				return
+			}
+			time.Sleep(e.config.rerunDelay())
+
 			select {
 			case <-killCh:
 				return
 			default:
-				formattedBin := formatPath(e.config.runnerBin())
-				command := strings.Join(append([]string{formattedBin}, e.runArgs...), " ")
-				cmd, stdout, stderr, err := e.startCmd(command)
-				if err != nil {
-					e.mainLog("failed to start %s, error: %s", e.config.rel(e.config.binPath()), err.Error())
-					close(killCh)
-					continue
-				}
-
-				processExit := make(chan struct{})
-				e.mainDebug("running process pid %v", cmd.Process.Pid)
-				if e.config.Proxy.Enabled {
-					e.mainDebug("reloading proxy")
-					e.proxy.Reload()
-				}
-
-				e.withLock(func() {
-					e.binStopCh = killFunc(cmd, stdout, stderr, killCh, processExit)
-				})
-
-				go copyOutput(os.Stdout, stdout)
-				go copyOutput(os.Stderr, stderr)
-
-				state, _ := cmd.Process.Wait()
-				close(processExit)
-
-				switch state.ExitCode() {
-				case 0:
-					e.runnerLog("Process Exit with Code 0")
-				case -1:
-					// because when we use ctrl + c to stop will return -1
-				default:
-					e.runnerLog("Process Exit with Code: %v", state.ExitCode())
-				}
-
-				if !e.config.Build.Rerun {
-					return
-				}
-				time.Sleep(e.config.rerunDelay())
+			}
+			if cmd, processExit, ok = startBin(); !ok {
+				return
 			}
 		}
 	}()
@@ -883,7 +929,11 @@ func (e *Engine) cleanup() {
 		}
 	}
 
+	// Wait for the running build, which exitCh cancels, so it cannot start a bin after this stopBin.
+	e.mainDebug("waiting for buildRun...")
+	e.buildMu.Lock()
 	e.stopBin()
+	e.buildMu.Unlock()
 	e.mainDebug("waiting for close watchers..")
 
 	e.withLock(func() {
@@ -892,7 +942,6 @@ func (e *Engine) cleanup() {
 		}
 	})
 
-	e.mainDebug("waiting for buildRun...")
 	var err error
 	if err = e.watcher.Close(); err != nil {
 		e.mainLog("failed to close watcher, error: %s", err.Error())
