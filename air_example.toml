@@ -1,9 +1,15 @@
+#:schema https://json.schemastore.org/any.json
+
 # Config file for [Air](https://github.com/air-verse/air) in TOML format
 
 # Working directory
 # . or absolute path, please note that the directories following must be under root.
 root = "."
 tmp_dir = "tmp"
+
+# Remove to not load any files whatsoever
+# Non-existing files are safely ignored
+env_files = [".env"]
 
 [build]
 # Array of commands to run before each build
@@ -12,13 +18,15 @@ pre_cmd = ["echo 'hello air' > pre_cmd.txt"]
 cmd = "go build -o ./tmp/main ."
 # Array of commands to run after ^C
 post_cmd = ["echo 'hello air' > post_cmd.txt"]
-# Binary file yields from `cmd`.
+# Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint.
 bin = "tmp/main"
+# Entrypoint binary relative to root. First item is the executable, more items are default arguments.
+entrypoint = ["./tmp/main"]
 # Customize binary, can setup environment variables when run your app.
 full_bin = "APP_ENV=dev APP_USER=air ./tmp/main"
 # Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.
 args_bin = ["hello", "world"]
-# Watch these filename extensions.
+# Watch these filename extensions. Use ["*"] to watch all file extensions.
 include_ext = ["go", "tpl", "tmpl", "html"]
 # Ignore these filename extensions or directories.
 exclude_dir = ["assets", "tmp", "vendor", "frontend/node_modules"]
@@ -32,6 +40,8 @@ exclude_file = []
 exclude_regex = ["_test\\.go"]
 # Exclude unchanged files.
 exclude_unchanged = true
+# Ignore dangerous root directory that could cause excessive file watching
+ignore_dangerous_root_dir = false
 # Follow symlink for directories
 follow_symlink = true
 # This log file is placed in your tmp_dir.
@@ -44,7 +54,7 @@ poll_interval = 500 # ms
 delay = 0 # ms
 # Stop running old binary when build errors occur.
 stop_on_error = true
-# Send Interrupt signal before killing process (windows does not support this feature)
+# Send Interrupt signal before killing process (ignored on Windows; uses TASKKILL)
 send_interrupt = false
 # Delay after sending Interrupt signal
 kill_delay = 500 # nanosecond
@@ -52,6 +62,32 @@ kill_delay = 500 # nanosecond
 rerun = false
 # Delay after each execution
 rerun_delay = 500
+
+# Rules watch files and run a command when they change, without rebuilding
+# and restarting the main binary. Useful for assets, code generation, etc.
+# A file matched by a rule never triggers a rebuild; if the rule's command
+# generates watched files (e.g. .go files), the rebuild follows naturally.
+# [[build.rules]]
+# # Rule name used in logs. Defaults to "rule-<index>".
+# name = "assets"
+# # Command to run when a matched file changes. Required.
+# cmd = "npm run build"
+# # Match files under these directories, even ones listed in exclude_dir.
+# include_dir = ["web"]
+# # Match these filename extensions. Empty matches any extension.
+# include_ext = ["js", "ts", "css"]
+# # Match these files.
+# include_file = []
+# # Exclude specific regular expressions.
+# exclude_regex = []
+# # Debounce delay in milliseconds before running cmd.
+# delay = 1000
+
+# Platform-specific build overrides
+[build.windows]
+cmd = "go build -o ./tmp/main.exe ."
+bin = "tmp\\main.exe"
+entrypoint = ["tmp\\main.exe"]
 
 [log]
 # Show log time
@@ -71,6 +107,8 @@ runner = "green"
 [misc]
 # Delete tmp directory on exit
 clean_on_exit = true
+# Startup banner text. Set to "" to hide the banner.
+# startup_banner = ""
 
 [screen]
 clear_on_rebuild = true
@@ -81,3 +119,8 @@ keep_scroll = true
 enabled = true
 proxy_port = 8090
 app_port = 8080
+# Timeout in milliseconds for waiting for the app to start and become available.
+# Useful when your app has slow startup time (e.g., database connections, config loading).
+# The proxy will retry connecting to your app for this duration before giving up.
+# Default is 5000ms (5 seconds). Increase this if you see "unable to reach app" errors.
+app_start_timeout = 5000

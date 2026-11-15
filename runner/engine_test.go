@@ -3,11 +3,14 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -17,11 +20,12 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewEngine(t *testing.T) {
 	_ = os.Unsetenv(airWd)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -38,18 +42,20 @@ func TestNewEngine(t *testing.T) {
 
 func TestCheckRunEnv(t *testing.T) {
 	_ = os.Unsetenv(airWd)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	nestedTmpDir := filepath.Join(t.TempDir(), "nested", "build")
+	engine.config.TmpDir = nestedTmpDir
+
 	err = engine.checkRunEnv()
-	if err == nil {
-		t.Fatal("should throw a err")
-	}
+	require.NoError(t, err)
+	assert.DirExists(t, nestedTmpDir)
 }
 
 func TestWatching(t *testing.T) {
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -57,19 +63,23 @@ func TestWatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	path = strings.Replace(path, "_testdata/toml", "", 1)
-	err = engine.watching(path + "/_testdata/watching")
+	path = strings.Replace(path, filepath.Join("_testdata", "toml"), "", 1)
+	err = engine.watching(filepath.Join(path, "_testdata", "watching"))
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 }
 
 func TestRegexes(t *testing.T) {
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	engine.config.Build.ExcludeRegex = []string{"foo\\.html$", "bar", "_test\\.go"}
+	err = engine.config.preprocess(nil)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 
 	result, err := engine.isExcludeRegex("./test/foo.html")
 	if err != nil {
@@ -112,6 +122,10 @@ func TestRegexes(t *testing.T) {
 }
 
 func TestRunCommand(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -119,7 +133,7 @@ func TestRunCommand(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -142,11 +156,15 @@ func TestRunPreCmd(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	if runtime.GOOS == "windows" {
+		engine.config.Build.PreCmd = []string{`cmd.exe /c "echo hello air > pre_cmd.txt"`}
+	} else {
+		engine.config.Build.PreCmd = []string{"echo 'hello air' > pre_cmd.txt"}
+	}
 	err = engine.runPreCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -167,12 +185,15 @@ func TestRunPostCmd(t *testing.T) {
 	// change dir to tmpDir
 	chdir(t, tmpDir)
 
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-
-	engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	if runtime.GOOS == "windows" {
+		engine.config.Build.PostCmd = []string{`cmd.exe /c "echo hello air > post_cmd.txt"`}
+	} else {
+		engine.config.Build.PostCmd = []string{"echo 'hello air' > post_cmd.txt"}
+	}
 	err = engine.runPostCmd()
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -186,7 +207,7 @@ func TestRunPostCmd(t *testing.T) {
 }
 
 func TestRunBin(t *testing.T) {
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -197,18 +218,328 @@ func TestRunBin(t *testing.T) {
 	}
 }
 
+func TestRunBinDoesNotStopExistingBin(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX sleep command")
+	}
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Entrypoint = entrypoint{}
+	engine.config.Build.Bin = "sleep 1"
+
+	oldStopped := make(chan struct{})
+	shutdown := make(chan chan int)
+	engine.binStopCh = shutdown
+	go func() {
+		closer, ok := <-shutdown
+		if !ok {
+			return
+		}
+		close(closer)
+		close(oldStopped)
+	}()
+
+	err = engine.runBin()
+	require.NoError(t, err)
+	defer func() {
+		engine.stopBin()
+		close(shutdown)
+	}()
+
+	select {
+	case <-oldStopped:
+		t.Fatal("runBin should not stop the previous binary; buildRun stops it after a successful build")
+	default:
+	}
+
+	err = waitForCondition(t, time.Second, func() bool {
+		stillOld := false
+		engine.withLock(func() {
+			stillOld = engine.binStopCh == shutdown
+		})
+		return !stillOld
+	}, "runBin to register the new binary stop channel")
+	require.NoError(t, err)
+
+	select {
+	case <-oldStopped:
+		t.Fatal("runBin should not stop the previous binary; buildRun stops it after a successful build")
+	default:
+	}
+}
+
+func TestBuildRunStopsExistingBinAfterSuccessfulBuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell commands")
+	}
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "true"
+	engine.config.Build.Entrypoint = entrypoint{}
+	engine.config.Build.Bin = "sleep 1"
+
+	stopped := make(chan struct{})
+	shutdown := make(chan chan int)
+	engine.binStopCh = shutdown
+	go func() {
+		closer := <-shutdown
+		close(closer)
+		close(stopped)
+	}()
+	defer engine.stopBin()
+
+	engine.buildRun()
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("expected successful build to stop the existing binary before running the new one")
+	}
+}
+
+func TestBuildRunKeepsFreshBinaryAfterSuccessfulBuildWithStopOnError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell commands")
+	}
+
+	tmpDir := t.TempDir()
+	chdir(t, tmpDir)
+
+	require.NoError(t, os.Mkdir("tmp", 0o755))
+	binPath := filepath.Join("tmp", "dev")
+	initialScript := []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n")
+	require.NoError(t, os.WriteFile(binPath, initialScript, 0o755))
+	require.NoError(t, os.WriteFile("next.sh", initialScript, 0o755))
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "cp ./next.sh ./tmp/dev && chmod +x ./tmp/dev"
+	engine.config.Build.Entrypoint = entrypoint{"./tmp/dev"}
+	engine.config.Build.StopOnError = true
+	engine.config.Build.SendInterrupt = true
+	engine.config.Build.KillDelay = 100 * time.Millisecond
+
+	require.NoError(t, engine.runBin())
+	defer engine.stopBin()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "initial binary process to start")
+	require.NoError(t, err)
+
+	engine.buildRun()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "rebuilt binary process to start")
+	require.NoError(t, err)
+	require.FileExists(t, binPath)
+}
+
+func TestBuildRunKeepsIssue910GoBuildEntrypoint(t *testing.T) {
+	if runtime.GOOS == PlatformWindows {
+		t.Skip("issue #910 was reported on Linux; Windows stops before build because running executables are locked")
+	}
+
+	tmpDir := t.TempDir()
+	chdir(t, tmpDir)
+
+	require.NoError(t, os.Mkdir("tmp", 0o755))
+	require.NoError(t, os.WriteFile("go.mod", []byte("module issue910.test\n\ngo 1.17\n"), 0o644))
+	require.NoError(t, os.WriteFile("main.go", []byte(`package main
+
+import "time"
+
+func main() {
+	for {
+		time.Sleep(time.Second)
+	}
+}
+`), 0o644))
+
+	binPath := filepath.Join("tmp", "dev")
+	require.NoError(t, exec.Command("go", "build", "-o", binPath, ".").Run())
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "go build -o ./tmp/dev .; echo 'build ok'; sleep 1"
+	engine.config.Build.Entrypoint = entrypoint{"./tmp/dev"}
+	engine.config.Build.StopOnError = true
+	engine.config.Build.SendInterrupt = true
+	engine.config.Build.KillDelay = 500 * time.Millisecond
+
+	require.NoError(t, engine.runBin())
+	defer engine.stopBin()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "initial issue #910 binary process to start")
+	require.NoError(t, err)
+
+	engine.buildRun()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "rebuilt issue #910 binary process to start")
+	require.NoError(t, err)
+	require.FileExists(t, binPath)
+}
+
+func TestBuildRunStopsExistingBinWhenBuildFailsWithStopOnError(t *testing.T) {
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "exit 1"
+	engine.config.Build.StopOnError = true
+
+	stopped := make(chan struct{})
+	shutdown := make(chan chan int, 1)
+	engine.binStopCh = shutdown
+	go func() {
+		closer := <-shutdown
+		close(closer)
+		close(stopped)
+	}()
+
+	engine.buildRun()
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("expected failed build with stop_on_error to stop the existing binary")
+	}
+}
+
+func TestBuildRunKeepsBinaryAfterFailedBuildWithStopOnError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses POSIX shell commands")
+	}
+
+	tmpDir := t.TempDir()
+	chdir(t, tmpDir)
+
+	require.NoError(t, os.Mkdir("tmp", 0o755))
+	binPath := filepath.Join("tmp", "dev")
+	script := []byte("#!/bin/sh\ntrap 'exit 0' INT TERM\nwhile :; do sleep 1; done\n")
+	require.NoError(t, os.WriteFile(binPath, script, 0o755))
+
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+	engine.config.Build.Cmd = "false"
+	engine.config.Build.Entrypoint = entrypoint{"./tmp/dev"}
+	engine.config.Build.StopOnError = true
+	engine.config.Build.SendInterrupt = true
+	engine.config.Build.KillDelay = 100 * time.Millisecond
+
+	require.NoError(t, engine.runBin())
+	defer engine.stopBin()
+
+	err = waitForCondition(t, time.Second, func() bool {
+		started := false
+		engine.withLock(func() {
+			started = engine.binStopCh != nil
+		})
+		return started
+	}, "initial binary process to start")
+	require.NoError(t, err)
+
+	engine.buildRun()
+
+	require.FileExists(t, binPath)
+}
+
+func TestShouldStopBinBeforeBuild(t *testing.T) {
+	tests := []struct {
+		goos string
+		want bool
+	}{
+		{goos: PlatformWindows, want: true},
+		{goos: PlatformDarwin, want: false},
+		{goos: PlatformLinux, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.goos, func(t *testing.T) {
+			assert.Equal(t, tt.want, shouldStopBinBeforeBuild(tt.goos))
+		})
+	}
+}
+
+func TestStopBinBeforeBuildIfNeeded(t *testing.T) {
+	engine, err := NewEngine("", nil, true)
+	require.NoError(t, err)
+	engine.config.Log.Silent = true
+
+	stopped := make(chan struct{})
+	shutdown := make(chan chan int, 1)
+	engine.binStopCh = shutdown
+	go func() {
+		closer := <-shutdown
+		close(closer)
+		close(stopped)
+	}()
+
+	engine.stopBinBeforeBuildIfNeeded(PlatformWindows)
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("expected Windows pre-build stop to stop the existing binary")
+	}
+
+	shutdown = make(chan chan int, 1)
+	engine.binStopCh = shutdown
+
+	engine.stopBinBeforeBuildIfNeeded(PlatformLinux)
+
+	select {
+	case <-shutdown:
+		t.Fatal("non-Windows pre-build step should keep the existing binary running")
+	default:
+	}
+}
+
 func GetPort() (int, func()) {
-	l, err := net.Listen("tcp", ":0")
-	port := l.Addr().(*net.TCPAddr).Port
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic(err)
 	}
+	port := l.Addr().(*net.TCPAddr).Port
 	return port, func() {
 		_ = l.Close()
 	}
 }
 
 func TestRebuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -217,8 +548,9 @@ func TestRebuild(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	engine.config.Build.ExcludeUnchanged = true
+	engine.config.Build.PreCmd = []string{"sleep 1"}
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -239,24 +571,22 @@ func TestRebuild(t *testing.T) {
 
 	t.Logf("start change main.go")
 	// change file of main.go
-	// just append a new empty line to main.go
-	time.Sleep(time.Second * 2)
-	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
+	err = writeGoCode(tmpDir, port, `http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("rebuilt"))
+	})`)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	defer file.Close()
-	_, err = file.WriteString("\n")
-	if err != nil {
-		t.Fatalf("Should not be fail: %s.", err)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if !checkPortHaveBeenUsed(port) {
+			t.Fatal("previous binary should keep serving while rebuild is in progress")
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	err = waitingPortConnectionRefused(t, port, time.Second*10)
-	if err != nil {
-		t.Fatalf("timeout: %s.", err)
-	}
-	t.Logf("connection refused")
-	time.Sleep(time.Second * 2)
-	err = waitingPortReady(t, port, time.Second*10)
+
+	err = waitingHTTPBody(t, port, "rebuilt", time.Second*10)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -264,33 +594,75 @@ func TestRebuild(t *testing.T) {
 	// stop engine
 	engine.Stop()
 	t.Logf("engine stopped")
+	// Wait for engine to fully stop
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	wg.Wait()
-	time.Sleep(time.Second * 1)
 	assert.True(t, checkPortConnectionRefused(port))
 }
 
-func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration) error {
-	t.Logf("waiting port %d connection refused", port)
-	timer := time.NewTimer(timeout)
-	ticker := time.NewTicker(time.Millisecond * 100)
+func waitingHTTPBody(t *testing.T, port int, want string, timeout time.Duration) error {
+	t.Helper()
+	t.Logf("waiting port %d HTTP body %q", port, want)
+
+	client := http.Client{Timeout: 200 * time.Millisecond}
+	deadline := time.Now().Add(timeout)
+	ticker := time.NewTicker(20 * time.Millisecond)
 	defer ticker.Stop()
-	defer timer.Stop()
+
 	for {
-		select {
-		case <-timer.C:
-			return fmt.Errorf("timeout")
-		case <-ticker.C:
-			print(".")
-			_, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-			if errors.Is(err, syscall.ECONNREFUSED) {
+		resp, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/", port))
+		if err == nil {
+			body, readErr := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if readErr == nil && string(body) == want {
 				return nil
 			}
-			time.Sleep(time.Millisecond * 100)
 		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d HTTP body %q", port, want)
+		}
+		<-ticker.C
+	}
+}
+
+func waitingPortConnectionRefused(t *testing.T, port int, timeout time.Duration) error {
+	t.Helper()
+	t.Logf("waiting port %d connection refused", port)
+
+	// Use environment-aware timeout for CI compatibility
+	timeoutMultiplier := 1.0
+	if os.Getenv("CI") != "" {
+		timeoutMultiplier = 2.0
+	}
+	adjustedTimeout := time.Duration(float64(timeout) * timeoutMultiplier)
+
+	deadline := time.Now().Add(adjustedTimeout)
+	ticker := time.NewTicker(20 * time.Millisecond) // Reduced from 100ms to 20ms
+	defer ticker.Stop()
+
+	for {
+		_, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return nil
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d connection refused (timeout: %v)", port, adjustedTimeout)
+		}
+
+		<-ticker.C
 	}
 }
 
 func TestCtrlCWhenHaveKillDelay(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// fix https://github.com/air-verse/air/issues/278
 	// generate a random port
 	data := []byte("[build]\n  kill_delay = \"2s\"")
@@ -306,14 +678,14 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 	engine.config.Build.KillDelay = c.Build.KillDelay
 	engine.config.Build.Delay = 2000
 	engine.config.Build.SendInterrupt = true
-	if err := engine.config.preprocess(); err != nil {
+	if err := engine.config.preprocess(nil); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
 
@@ -336,11 +708,19 @@ func TestCtrlCWhenHaveKillDelay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(time.Second * 3)
-	assert.False(t, engine.running)
+	// Wait for engine to fully stop - the test has kill_delay="2s"
+	err = waitForEngineState(t, engine, false, time.Second*5)
+	if err != nil {
+		t.Logf("engine may not have stopped in time: %s", err)
+	}
+	assert.False(t, engine.running.Load())
 }
 
 func TestCtrlCWhenREngineIsRunning(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -349,7 +729,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -373,7 +753,7 @@ func TestCtrlCWhenREngineIsRunning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	assert.False(t, engine.running)
+	assert.False(t, engine.running.Load())
 }
 
 func TestCtrlCWithFailedBin(t *testing.T) {
@@ -382,7 +762,7 @@ func TestCtrlCWithFailedBin(t *testing.T) {
 	go func() {
 		dir := initWithQuickExitGoCode(t)
 		chdir(t, dir)
-		engine, err := NewEngine("", true)
+		engine, err := NewEngine("", nil, true)
 		assert.NoError(t, err)
 		engine.config.Build.Bin = "<WRONGCOMAMND>"
 		sigs := make(chan os.Signal, 1)
@@ -412,15 +792,23 @@ func TestCtrlCWithFailedBin(t *testing.T) {
 }
 
 func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unstable on Windows")
+	}
+
 	// fix https://github.com/air-verse/air/issues/294
 	dir := initWithBuildFailedCode(t)
 	chdir(t, dir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	// Silence engine logs to keep this test output readable.
+	engine.config.Log.Silent = true
+	silenceBuildCmd(engine.config)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigs)
 	go func() {
 		engine.Run()
 		t.Logf("engine stopped")
@@ -431,8 +819,16 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 		engine.Stop()
 		t.Logf("engine stopped")
 	}()
-	// waiting for compile error
-	time.Sleep(time.Second * 3)
+	buildLogPath := engine.config.buildLogPath()
+	if err := waitForCondition(t, time.Second*5, func() bool {
+		info, err := os.Stat(buildLogPath)
+		if err != nil {
+			return false
+		}
+		return info.Size() > 0
+	}, "first build failure log"); err != nil {
+		t.Fatalf("build did not fail as expected: %s", err)
+	}
 	port, f := GetPort()
 	f()
 	// correct code
@@ -447,11 +843,13 @@ func TestFixCloseOfChannelAfterCtrlC(t *testing.T) {
 
 	// ctrl + c
 	sigs <- syscall.SIGINT
-	time.Sleep(time.Second * 1)
 	if err := waitingPortConnectionRefused(t, port, time.Second*10); err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	assert.False(t, engine.running)
+	if err := waitForEngineState(t, engine, false, time.Second*5); err != nil {
+		t.Fatalf("engine did not stop: %s", err)
+	}
+	assert.False(t, engine.running.Load())
 }
 
 func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
@@ -460,10 +858,12 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	dir := initWithBuildFailedCode(t)
 	// change dir to tmpDir
 	chdir(t, dir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
+	engine.config.Log.Silent = true
+	silenceBuildCmd(engine.config)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -477,8 +877,9 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 		t.Logf("engine stopped")
 	}()
 
-	// waiting for compile error
-	time.Sleep(time.Second * 3)
+	// Wait for first build to complete (with error) - reduced from 3s to 1s
+	// Since the build fails immediately, 1s is sufficient
+	time.Sleep(time.Millisecond * 500)
 
 	// edit *.go file to create build error again
 	file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
@@ -490,30 +891,46 @@ func TestFixCloseOfChannelAfterTwoFailedBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
-	time.Sleep(time.Second * 3)
+	// Wait for second build attempt - reduced from 3s to 500ms
+	time.Sleep(time.Millisecond * 500)
 	// ctrl + c
 	sigs <- syscall.SIGINT
-	time.Sleep(time.Second * 1)
-	assert.False(t, engine.running)
+	// Wait for engine to stop
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Logf("engine may not have stopped cleanly: %s", err)
+	}
+	assert.False(t, engine.running.Load())
 }
 
 // waitingPortReady waits until the port is ready to be used.
 func waitingPortReady(t *testing.T, port int, timeout time.Duration) error {
+	t.Helper()
 	t.Logf("waiting port %d ready", port)
-	timeoutChan := time.After(timeout)
-	ticker := time.NewTicker(time.Millisecond * 100)
+
+	// Use environment-aware timeout for CI compatibility
+	timeoutMultiplier := 1.0
+	if os.Getenv("CI") != "" {
+		timeoutMultiplier = 2.0
+	}
+	adjustedTimeout := time.Duration(float64(timeout) * timeoutMultiplier)
+
+	deadline := time.Now().Add(adjustedTimeout)
+	ticker := time.NewTicker(20 * time.Millisecond) // Reduced from 100ms to 20ms
 	defer ticker.Stop()
+
 	for {
-		select {
-		case <-timeoutChan:
-			return fmt.Errorf("timeout")
-		case <-ticker.C:
-			conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-			if err == nil {
-				_ = conn.Close()
-				return nil
-			}
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if err == nil {
+			_ = conn.Close()
+			return nil
 		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for port %d ready (timeout: %v)", port, adjustedTimeout)
+		}
+
+		<-ticker.C
 	}
 }
 
@@ -526,7 +943,7 @@ func TestRun(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -534,11 +951,21 @@ func TestRun(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	time.Sleep(time.Second * 2)
+
+	// Wait for port to be ready instead of fixed sleep
+	err = waitingPortReady(t, port, time.Second*10)
+	if err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 	assert.True(t, checkPortHaveBeenUsed(port))
 	t.Logf("try to stop")
 	engine.Stop()
-	time.Sleep(time.Second * 1)
+
+	// Wait for engine to stop instead of fixed sleep
+	err = waitForEngineState(t, engine, false, time.Second*3)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	assert.False(t, checkPortHaveBeenUsed(port))
 	t.Logf("stopped")
 }
@@ -554,7 +981,7 @@ func checkPortConnectionRefused(port int) bool {
 }
 
 func checkPortHaveBeenUsed(port int) bool {
-	conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return false
 	}
@@ -564,6 +991,7 @@ func checkPortHaveBeenUsed(port int) bool {
 
 func initTestEnv(t *testing.T, port int) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, tempDir)
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateGoCode(tempDir, port)
@@ -575,6 +1003,7 @@ func initTestEnv(t *testing.T, port int) string {
 
 func initWithBuildFailedCode(t *testing.T) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, tempDir)
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateBuildErrorGoCode(tempDir)
@@ -586,6 +1015,7 @@ func initWithBuildFailedCode(t *testing.T) string {
 
 func initWithQuickExitGoCode(t *testing.T) string {
 	tempDir := t.TempDir()
+	t.Setenv(airWd, tempDir)
 	t.Logf("tempDir: %s", tempDir)
 	// generate golang code to tempdir
 	err := generateQuickExitGoCode(tempDir)
@@ -612,6 +1042,10 @@ func main() {
 	}
 	_, err = file.WriteString(code)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -626,6 +1060,10 @@ go 1.17
 	}
 	_, err = file.WriteString(mod)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
@@ -647,6 +1085,10 @@ func main() {
 	}
 	_, err = file.WriteString(code)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 
@@ -661,13 +1103,16 @@ go 1.17
 	}
 	_, err = file.WriteString(mod)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
 }
 
-// generateGoCode generates golang code to tempdir
-func generateGoCode(dir string, port int) error {
+func writeGoCode(dir string, port int, setup string) error {
 	code := fmt.Sprintf(`package main
 
 import (
@@ -676,15 +1121,28 @@ import (
 )
 
 func main() {
-	log.Fatal(http.ListenAndServe(":%v", nil))
+	%s
+	log.Fatal(http.ListenAndServe("127.0.0.1:%v", nil))
 }
-`, port)
+`, setup, port)
 	file, err := os.Create(dir + "/main.go")
 	if err != nil {
 		return err
 	}
 	_, err = file.WriteString(code)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// generateGoCode generates golang code to tempdir
+func generateGoCode(dir string, port int) error {
+	if err := writeGoCode(dir, port, ""); err != nil {
 		return err
 	}
 
@@ -693,18 +1151,41 @@ func main() {
 
 go 1.17
 `
-	file, err = os.Create(dir + "/go.mod")
+	file, err := os.Create(dir + "/go.mod")
 	if err != nil {
 		return err
 	}
 	_, err = file.WriteString(mod)
 	if err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
 		return err
 	}
 	return nil
 }
 
+func silenceBuildCmd(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		cfg.Build.Cmd = fmt.Sprintf("%s > $null 2>&1", cfg.Build.Cmd)
+		return
+	}
+	cfg.Build.Cmd = fmt.Sprintf("%s >/dev/null 2>&1", cfg.Build.Cmd)
+}
+
 func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
+	if _, err := exec.LookPath("dlv"); err != nil {
+		t.Skip("dlv not available in PATH")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -712,7 +1193,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -721,7 +1202,7 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	dlvPort, f := GetPort()
 	f()
 	engine.config.Build.FullBin = fmt.Sprintf("dlv exec --accept-multiclient --log --headless --continue --listen :%d --api-version 2 ./tmp/main", dlvPort)
-	_ = engine.config.preprocess()
+	_ = engine.config.preprocess(nil)
 	go func() {
 		engine.Run()
 	}()
@@ -732,7 +1213,6 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("start change main.go")
 	// change file of main.go
 	// just append a new empty line to main.go
-	time.Sleep(time.Second * 2)
 	go func() {
 		file, err := os.OpenFile("main.go", os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
@@ -749,7 +1229,6 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 		t.Fatalf("timeout: %s.", err)
 	}
 	t.Logf("connection refused")
-	time.Sleep(time.Second * 2)
 	err = waitingPortReady(t, port, time.Second*40)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
@@ -757,7 +1236,11 @@ func TestRebuildWhenRunCmdUsingDLV(t *testing.T) {
 	t.Logf("port is ready")
 	// stop engine
 	engine.Stop()
-	time.Sleep(time.Second * 3)
+	// Wait for engine to stop
+	err = waitForEngineState(t, engine, false, time.Second*5)
+	if err != nil {
+		t.Fatalf("engine did not stop: %s.", err)
+	}
 	t.Logf("engine stopped")
 	assert.True(t, checkPortConnectionRefused(port))
 }
@@ -774,17 +1257,37 @@ func TestWriteDefaultConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// check the file is exist
+	// check the file exists
 	if _, err := os.Stat(configName); err != nil {
 		t.Fatal(err)
 	}
+
+	raw, err := os.ReadFile(configName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedPrefix := schemaHeader + "\n\n"
+	assert.True(t, strings.HasPrefix(string(raw), expectedPrefix), "config should start with schema header")
 
 	// check the file content is right
 	actual, err := readConfig(configName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expect := defaultConfig()
+	expect := defaultConfigBase()
+	setEntrypointFromBin(&expect)
+	addPlatformOverridesForInit(&expect, runtime.GOOS)
+	if expect.Build.Windows != nil {
+		if expect.Build.Windows.PreCmd == nil {
+			expect.Build.Windows.PreCmd = []string{}
+		}
+		if expect.Build.Windows.PostCmd == nil {
+			expect.Build.Windows.PostCmd = []string{}
+		}
+		if expect.Build.Windows.ArgsBin == nil {
+			expect.Build.Windows.ArgsBin = []string{}
+		}
+	}
 
 	assert.Equal(t, expect, *actual)
 }
@@ -814,7 +1317,7 @@ include_file = ["test/not_a_test.go"]
 	if err := os.WriteFile(dftTOML, []byte(config), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := NewEngine(".air.toml", true)
+	engine, err := NewEngine(".air.toml", nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -828,6 +1331,10 @@ include_file = ["test/not_a_test.go"]
 }
 
 func TestShouldIncludeGoTestFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sed")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -857,25 +1364,27 @@ func Test(t *testing.T) {
 		t.Fatal(err)
 	}
 	// run sed
-	// check the file is exist
+	// check the file exists
 	if _, err := os.Stat(dftTOML); err != nil {
 		t.Fatal(err)
 	}
 	// check is MacOS
 	var cmd *exec.Cmd
+	toolName := "sed"
+
 	if runtime.GOOS == "darwin" {
-		cmd = exec.Command("gsed", "-i", "s/\"_test.*go\"//g", ".air.toml")
-	} else {
-		cmd = exec.Command("sed", "-i", "s/\"_test.*go\"//g", ".air.toml")
+		toolName = "gsed"
 	}
+
+	cmd = exec.Command(toolName, "-i", "s/\"_test.*go\"//g", ".air.toml")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		t.Fatal(err)
+		t.Skipf("unable to run %s, make sure the tool is installed to run this test", toolName)
 	}
 
 	time.Sleep(time.Second * 2)
-	engine, err := NewEngine(".air.toml", false)
+	engine, err := NewEngine(".air.toml", nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -903,6 +1412,10 @@ func Test(t *testing.T) {
 }
 
 func TestCreateNewDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires touch")
+	}
+
 	// generate a random port
 	port, f := GetPort()
 	f()
@@ -911,7 +1424,7 @@ func TestCreateNewDir(t *testing.T) {
 	tmpDir := initTestEnv(t, port)
 	// change dir to tmpDir
 	chdir(t, tmpDir)
-	engine, err := NewEngine("", true)
+	engine, err := NewEngine("", nil, true)
 	if err != nil {
 		t.Fatalf("Should not be fail: %s.", err)
 	}
@@ -919,8 +1432,9 @@ func TestCreateNewDir(t *testing.T) {
 	go func() {
 		engine.Run()
 	}()
-	time.Sleep(time.Second * 2)
-	assert.True(t, checkPortHaveBeenUsed(port))
+	if err := waitingPortReady(t, port, 5*time.Second); err != nil {
+		t.Fatalf("Should not be fail: %s.", err)
+	}
 
 	// create a new dir make dir
 	if err = os.Mkdir(tmpDir+"/dir", 0o644); err != nil {
@@ -936,6 +1450,10 @@ func TestCreateNewDir(t *testing.T) {
 }
 
 func TestShouldIncludeIncludedFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -961,7 +1479,7 @@ include_file = ["main.sh"]
 		t.Fatal(err)
 	}
 
-	engine, err := NewEngine(dftTOML, false)
+	engine, err := NewEngine(dftTOML, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -994,7 +1512,11 @@ include_file = ["main.sh"]
 	assert.Equal(t, []byte("modified"), bytes)
 }
 
-func TestShouldIncludeIncludedFileWihtoutIncludedExt(t *testing.T) {
+func TestShouldIncludeIncludedFileWithoutIncludedExt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires sh")
+	}
+
 	port, f := GetPort()
 	f()
 	t.Logf("port: %d", port)
@@ -1020,7 +1542,7 @@ include_file = ["main.sh"]
 		t.Fatal(err)
 	}
 
-	engine, err := NewEngine(dftTOML, false)
+	engine, err := NewEngine(dftTOML, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1038,7 +1560,7 @@ include_file = ["main.sh"]
 
 	t.Logf("start change main.sh")
 	go func() {
-		err := os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
+		err = os.WriteFile("main.sh", []byte("#!/bin/sh\nprintf modified > output"), 0o755)
 		if err != nil {
 			log.Fatalf("Error updating file: %s.", err)
 		}
@@ -1051,4 +1573,261 @@ include_file = ["main.sh"]
 		t.Fatal(err)
 	}
 	assert.Equal(t, []byte("modified"), bytes)
+}
+
+type testExiter struct {
+	t          *testing.T
+	called     bool
+	expectCode int
+}
+
+func (te *testExiter) Exit(code int) {
+	te.called = true
+	if code != te.expectCode {
+		te.t.Fatalf("expected exit code %d, got %d", te.expectCode, code)
+	}
+}
+
+func TestEngineExit(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(*Engine, chan<- int)
+		expectCode int
+		wantCalled bool
+	}{
+		{
+			name: "normal exit - no error",
+			setup: func(_ *Engine, exitCode chan<- int) {
+				go func() {
+					exitCode <- 0
+				}()
+			},
+			expectCode: 0,
+			wantCalled: false,
+		},
+		{
+			name: "error exit - non-zero code",
+			setup: func(_ *Engine, exitCode chan<- int) {
+				go func() {
+					exitCode <- 1
+				}()
+			},
+			expectCode: 1,
+			wantCalled: true,
+		},
+		{
+			name: "process timeout",
+			setup: func(_ *Engine, _ chan<- int) {
+			},
+			expectCode: 0,
+			wantCalled: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, err := NewEngine("", nil, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			exiter := &testExiter{
+				t:          t,
+				expectCode: tt.expectCode,
+			}
+			e.exiter = exiter
+
+			exitCode := make(chan int)
+
+			if tt.setup != nil {
+				tt.setup(e, exitCode)
+			}
+			select {
+			case ret := <-exitCode:
+				if ret != 0 {
+					e.exiter.Exit(ret)
+				}
+			case <-time.After(1 * time.Millisecond):
+				// timeout case
+			}
+
+			if tt.wantCalled != exiter.called {
+				t.Errorf("Exit() called = %v, want %v", exiter.called, tt.wantCalled)
+			}
+		})
+	}
+}
+
+// TestBuildRunRaceCondition tests that a new build does not receive
+// stop signals meant for a previous build. This is a regression test for issue #784.
+//
+// The fix uses a channel-of-channels pattern where each build gets its own unique
+// stop channel. When a new build is triggered, it retrieves the previous build's
+// stop channel and closes it to signal cancellation.
+func TestBuildRunRaceCondition(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.config.Log.Silent = true
+
+	// Simulate the race condition scenario from issue #784:
+	// 1. Build A starts and puts its stop channel in buildRunCh
+	// 2. Build B is triggered, retrieves Build A's channel and closes it
+	// 3. Build B puts its own fresh channel in buildRunCh
+	// 4. Build B should NOT be affected by Build A's closed channel
+
+	// Simulate Build A putting its stop channel in buildRunCh
+	buildAStopCh := make(chan struct{})
+	e.buildRunCh <- buildAStopCh
+
+	// Simulate Build B being triggered (mimics what start() does)
+	var retrievedChannel chan struct{}
+	select {
+	case retrievedChannel = <-e.buildRunCh:
+		close(retrievedChannel) // Signal Build A to stop
+	default:
+		t.Fatal("Expected Build A's stop channel to be in buildRunCh")
+	}
+
+	// Verify we got Build A's channel
+	if retrievedChannel != buildAStopCh {
+		t.Error("Should have retrieved Build A's stop channel")
+	}
+
+	// Verify Build A's channel is closed
+	select {
+	case <-buildAStopCh:
+		// Good - Build A was signaled to stop
+	default:
+		t.Error("Build A's stop channel should have been closed")
+	}
+
+	// Now simulate Build B starting with its own channel
+	buildBStopCh := make(chan struct{})
+	e.buildRunCh <- buildBStopCh
+
+	// Build B should NOT be affected by Build A's closed channel
+	select {
+	case <-buildBStopCh:
+		t.Error("Build B's stop channel should NOT be closed yet")
+	case <-time.After(50 * time.Millisecond):
+		// Good - Build B is still running
+	}
+
+	// Test that closing Build B's channel does signal Build B to stop
+	close(buildBStopCh)
+	select {
+	case <-buildBStopCh:
+		// Good - Build B received the stop signal
+	case <-time.After(50 * time.Millisecond):
+		t.Error("Build B should have been stopped when its channel was closed")
+	}
+
+	// Clean up - remove Build B's channel from buildRunCh
+	select {
+	case <-e.buildRunCh:
+		// Successfully cleaned up
+	default:
+		t.Error("Expected Build B's channel to still be in buildRunCh")
+	}
+}
+
+// TestBuildRunRaceConditionRapidChanges tests rapid file changes don't cause deadlock
+func TestBuildRunRaceConditionRapidChanges(t *testing.T) {
+	e, err := NewEngine("", nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.config.Log.Silent = true
+
+	// Simulate 5 rapid builds in succession
+	channels := make([]chan struct{}, 5)
+
+	for i := 0; i < 5; i++ {
+		// If there's a previous build, stop it
+		select {
+		case oldCh := <-e.buildRunCh:
+			close(oldCh)
+		default:
+		}
+
+		// Start new build
+		channels[i] = make(chan struct{})
+		e.buildRunCh <- channels[i]
+	}
+
+	// All previous builds should be signaled to stop
+	for i := 0; i < 4; i++ {
+		select {
+		case <-channels[i]:
+			// Good - was signaled to stop
+		default:
+			t.Errorf("Build %d should have been signaled to stop", i)
+		}
+	}
+
+	// Last build should NOT be stopped
+	select {
+	case <-channels[4]:
+		t.Error("Last build should still be running")
+	default:
+		// Good
+	}
+
+	// Clean up
+	<-e.buildRunCh
+}
+
+func TestEngineLoadEnvFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	envPath := filepath.Join(tmpDir, ".env")
+
+	originalValue := "original_global_value"
+	t.Setenv("TEST_GLOBAL_VAR", originalValue)
+
+	const initialEnv = `TEST_VAR1=value1
+TEST_VAR2=value2
+TEST_GLOBAL_VAR=overridden_value
+`
+
+	err := os.WriteFile(envPath, []byte(initialEnv), 0o644)
+	require.NoError(t, err)
+
+	cfg := defaultConfig()
+	cfg.Root = tmpDir
+	cfg.EnvFiles = []string{".env"}
+
+	engine, err := NewEngineWithConfig(&cfg, false)
+	require.NoError(t, err)
+
+	engine.loadEnvFile()
+
+	assert.Equal(t, "value1", os.Getenv("TEST_VAR1"), "TEST_VAR1 should be set")
+	assert.Equal(t, "value2", os.Getenv("TEST_VAR2"), "TEST_VAR2 should be set")
+	assert.Equal(t, "original_global_value", os.Getenv("TEST_GLOBAL_VAR"), "TEST_GLOBAL_VAR should NOT be overridden")
+
+	// remove TEST_VAR2
+	const updatedEnv = `TEST_VAR1=updated_value1
+TEST_GLOBAL_VAR=still_overridden
+`
+	err = os.WriteFile(envPath, []byte(updatedEnv), 0o644)
+	require.NoError(t, err)
+
+	engine.loadEnvFile()
+
+	assert.Equal(t, "updated_value1", os.Getenv("TEST_VAR1"), "TEST_VAR1 should be updated")
+	// since TEST_VAR2 only exists in environment thanks to air, it should get unset on removal
+	_, exists := os.LookupEnv("TEST_VAR2")
+	assert.False(t, exists, "TEST_VAR2 should be unset after removal from .env")
+	assert.Equal(t, "original_global_value", os.Getenv("TEST_GLOBAL_VAR"), "TEST_GLOBAL_VAR should NOT be overridden")
+
+	const finalEnv = `TEST_VAR1=final_value`
+	err = os.WriteFile(envPath, []byte(finalEnv), 0o644)
+	require.NoError(t, err)
+
+	engine.loadEnvFile()
+
+	assert.Equal(t, "final_value", os.Getenv("TEST_VAR1"), "TEST_VAR1 should be final")
+	assert.Equal(t, originalValue, os.Getenv("TEST_GLOBAL_VAR"), "TEST_GLOBAL_VAR should be restored to original value")
 }

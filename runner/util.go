@@ -1,9 +1,13 @@
 package runner
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,12 +16,15 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 const (
 	sliceCmdArgSeparator = ","
+	// extWildcard is used in include_ext to match all file extensions
+	extWildcard = "*"
 )
 
 func (e *Engine) mainLog(format string, v ...interface{}) {
@@ -96,6 +103,24 @@ func cleanPath(path string) string {
 	return strings.TrimSuffix(strings.TrimSpace(path), "/")
 }
 
+func isSubPath(base, target string) bool {
+	if base == "" || target == "" {
+		return false
+	}
+	base = filepath.Clean(base)
+	target = filepath.Clean(target)
+	rel, err := filepath.Rel(base, target)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	rel = filepath.Clean(rel)
+	prefix := ".." + string(os.PathSeparator)
+	return rel != ".." && !strings.HasPrefix(rel, prefix)
+}
+
 func (e *Engine) isExcludeDir(path string) bool {
 	cleanName := cleanPath(e.config.rel(path))
 	for _, d := range e.config.Build.ExcludeDir {
@@ -108,23 +133,23 @@ func (e *Engine) isExcludeDir(path string) bool {
 
 // return isIncludeDir, walkDir
 func (e *Engine) checkIncludeDir(path string) (bool, bool) {
-	cleanName := cleanPath(e.config.rel(path))
-	iDir := e.config.Build.IncludeDir
-	if len(iDir) == 0 { // ignore empty
+	path = filepath.Clean(path)
+
+	if len(e.config.Build.includeDirAbs) == 0 {
 		return true, true
 	}
-	if cleanName == "." {
-		return false, true
+
+	if !isSubPath(e.config.Root, path) {
+		return true, true
 	}
+
 	walkDir := false
-	for _, d := range iDir {
-		if d == cleanName {
+	for _, dir := range e.config.Build.includeDirAbs {
+		dir = filepath.Clean(dir)
+		if isSubPath(dir, path) {
 			return true, true
 		}
-		if strings.HasPrefix(cleanName, d) { // current dir is sub-directory of `d`
-			return true, true
-		}
-		if strings.HasPrefix(d, cleanName) { // `d` is sub-directory of current dir
+		if isSubPath(path, dir) {
 			walkDir = true
 		}
 	}
@@ -151,11 +176,33 @@ func (e *Engine) checkIncludeFile(path string) bool {
 func (e *Engine) isIncludeExt(path string) bool {
 	ext := filepath.Ext(path)
 	for _, v := range e.config.Build.IncludeExt {
+		if strings.TrimSpace(v) == extWildcard {
+			// Wildcard matches all files, but exclude the binary file
+			return !e.isBinPath(path)
+		}
 		if ext == "."+strings.TrimSpace(v) {
 			return true
 		}
 	}
 	return false
+}
+
+// isBinPath checks if the given path is the binary file path
+func (e *Engine) isBinPath(path string) bool {
+	binPath := e.config.binPath()
+	if binPath == "" {
+		return false
+	}
+	// Normalize the path for comparison
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	absBinPath, err := filepath.Abs(binPath)
+	if err != nil {
+		return false
+	}
+	return absPath == absBinPath
 }
 
 func (e *Engine) isExcludeRegex(path string) (bool, error) {
@@ -206,23 +253,44 @@ func (e *Engine) logWithLock(f func()) {
 	e.ll.Unlock()
 }
 
+func copyOutput(dst io.Writer, src io.Reader) {
+	scanner := bufio.NewScanner(src)
+	for scanner.Scan() {
+		_, _ = dst.Write([]byte(scanner.Text() + "\n"))
+	}
+}
+
+// Expands a path, resolving any tilde prefixes, dereferencing symbolic links,
+// and converting relative paths to absolute. The result will always be an
+// absolute path.
+// For paths that do not exist on the filesystem, the dereferencing step will
+// be skipped.
+// An error will be thrown if dereferencing fails due to something other than
+// the path not existing on the filesystem.
 func expandPath(path string) (string, error) {
+	expanded := path
+
 	if strings.HasPrefix(path, "~/") {
 		home := os.Getenv("HOME")
-		return home + path[1:], nil
+		expanded = filepath.Join(home, path[1:])
 	}
-	var err error
-	wd, err := os.Getwd()
+
+	expanded, err := filepath.Abs(expanded)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error getting absolute path to %v: %w", expanded, err)
 	}
-	if path == "." {
-		return wd, nil
+
+	// filepath.EvalSymlinks only works on real files
+	dereferenced, err := filepath.EvalSymlinks(expanded)
+	if err == nil {
+		return dereferenced, nil
 	}
-	if strings.HasPrefix(path, "./") {
-		return wd + path[1:], nil
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("unexpected error while dereferencing %v: %w", expanded, err)
 	}
-	return path, nil
+
+	return expanded, nil
 }
 
 func isDir(path string) bool {
@@ -236,11 +304,17 @@ func isDir(path string) bool {
 func validEvent(ev fsnotify.Event) bool {
 	return ev.Op&fsnotify.Create == fsnotify.Create ||
 		ev.Op&fsnotify.Write == fsnotify.Write ||
-		ev.Op&fsnotify.Remove == fsnotify.Remove
+		ev.Op&fsnotify.Remove == fsnotify.Remove ||
+		ev.Op&fsnotify.Rename == fsnotify.Rename
 }
 
 func removeEvent(ev fsnotify.Event) bool {
 	return ev.Op&fsnotify.Remove == fsnotify.Remove
+}
+
+func renameOrRemoveEvent(ev fsnotify.Event) bool {
+	return ev.Op&fsnotify.Remove == fsnotify.Remove ||
+		ev.Op&fsnotify.Rename == fsnotify.Rename
 }
 
 func cmdPath(path string) string {
@@ -251,8 +325,6 @@ func adaptToVariousPlatforms(c *Config) {
 	// Fix the default configuration is not used in Windows
 	// Use the unix configuration on Windows
 	if runtime.GOOS == PlatformWindows {
-
-		runName := "start"
 		extName := ".exe"
 		originBin := c.Build.Bin
 
@@ -260,9 +332,6 @@ func adaptToVariousPlatforms(c *Config) {
 
 			if !strings.HasSuffix(c.Build.FullBin, extName) {
 				c.Build.FullBin += extName
-			}
-			if !strings.HasPrefix(c.Build.FullBin, runName) {
-				c.Build.FullBin = runName + " /wait /b " + c.Build.FullBin
 			}
 		}
 
@@ -272,6 +341,19 @@ func adaptToVariousPlatforms(c *Config) {
 		}
 	}
 }
+
+// errEmptyFile is returned when a file reads back as zero bytes. The read may
+// have landed in the middle of somebody else's write, so no checksum is stored.
+var errEmptyFile = errors.New("empty file, forcing rebuild without updating checksum")
+
+// Writers that truncate before writing (shell redirection, os.Create, editors
+// running format-on-save) leave the file at zero bytes for a moment. Reading it
+// there reports a change that never happened, so give the writer a bounded
+// chance to finish before deciding. See air-verse/air#527.
+const (
+	emptyReadRetries    = 5
+	emptyReadRetryDelay = 20 * time.Millisecond
+)
 
 // fileChecksum returns a checksum for the given file's contents.
 func fileChecksum(filename string) (checksum string, err error) {
@@ -284,7 +366,7 @@ func fileChecksum(filename string) (checksum string, err error) {
 	// This can happen often if editors are configured to run format after save.
 	// Instead of calculating a new checksum, we'll assume the file was unchanged, but return an error to force a rebuild anyway.
 	if len(contents) == 0 {
-		return "", errors.New("empty file, forcing rebuild without updating checksum")
+		return "", errEmptyFile
 	}
 
 	h := sha256.New()
@@ -293,6 +375,19 @@ func fileChecksum(filename string) (checksum string, err error) {
 	}
 
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// settledFileChecksum is fileChecksum for live change events, where the write
+// that triggered the event may still be in flight. A file that stays empty for
+// the whole retry budget is treated as genuinely empty.
+func settledFileChecksum(filename string) (checksum string, err error) {
+	for attempt := 0; ; attempt++ {
+		checksum, err = fileChecksum(filename)
+		if !errors.Is(err, errEmptyFile) || attempt == emptyReadRetries {
+			return checksum, err
+		}
+		time.Sleep(emptyReadRetryDelay)
+	}
 }
 
 // checksumMap is a thread-safe map to store file checksums.
@@ -315,9 +410,17 @@ func (a *checksumMap) updateFileChecksum(filename, newChecksum string) (ok bool)
 
 // TomlInfo is a struct for toml config file
 type TomlInfo struct {
-	fieldPath string
-	field     reflect.StructField
-	Value     *string
+	fieldPath  string
+	field      reflect.StructField
+	Value      *string
+	fieldValue string
+	usage      string
+}
+
+// changed reports whether the flag value differs from the built-in default.
+// A flag supplied with its literal default is treated as not changed.
+func (t TomlInfo) changed() bool {
+	return t.Value != nil && *t.Value != t.fieldValue
 }
 
 func setValue2Struct(v reflect.Value, fieldName string, value string) {
@@ -340,11 +443,17 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 		case reflect.String:
 			field.SetString(value)
 		case reflect.Slice:
+			var parts []string
 			if len(value) == 0 {
-				field.Set(reflect.ValueOf([]string{}))
+				parts = []string{}
 			} else {
-				field.Set(reflect.ValueOf(strings.Split(value, sliceCmdArgSeparator)))
+				parts = strings.Split(value, sliceCmdArgSeparator)
 			}
+			slice := reflect.MakeSlice(field.Type(), len(parts), len(parts))
+			for i, part := range parts {
+				slice.Index(i).Set(reflect.ValueOf(part))
+			}
+			field.Set(slice)
 		case reflect.Int64:
 			i, _ := strconv.ParseInt(value, 10, 64)
 			field.SetInt(i)
@@ -355,7 +464,12 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 			b, _ := strconv.ParseBool(value)
 			field.SetBool(b)
 		case reflect.Ptr:
-			field.SetString(value)
+			if field.Type().Elem().Kind() != reflect.String {
+				log.Fatalf("unsupported pointer type %s", field.Type().Elem().Kind())
+			}
+			v := reflect.New(field.Type().Elem())
+			v.Elem().SetString(value)
+			field.Set(v)
 		default:
 			log.Fatalf("unsupported type %s", v.FieldByName(fields[0]).Kind())
 		}
@@ -372,28 +486,113 @@ func setValue2Struct(v reflect.Value, fieldName string, value string) {
 func flatConfig(stut interface{}) map[string]TomlInfo {
 	m := make(map[string]TomlInfo)
 	t := reflect.TypeOf(stut)
-	setTage2Map("", t, m, "")
+	v := reflect.ValueOf(stut)
+	setTage2Map("", t, v, m, "")
 	return m
 }
 
-func setTage2Map(root string, t reflect.Type, m map[string]TomlInfo, fieldPath string) {
+func getFieldValueString(fieldValue reflect.Value) string {
+	switch fieldValue.Kind() {
+	case reflect.Slice:
+		sliceLen := fieldValue.Len()
+		strSlice := make([]string, sliceLen)
+		for j := 0; j < sliceLen; j++ {
+			strSlice[j] = fmt.Sprintf("%v", fieldValue.Index(j).Interface())
+		}
+		return strings.Join(strSlice, ",")
+	default:
+		return fmt.Sprintf("%v", fieldValue.Interface())
+	}
+}
+
+func setTage2Map(root string, t reflect.Type, v reflect.Value, m map[string]TomlInfo, fieldPath string) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+		fieldValue := v.Field(i)
 		tomlVal := field.Tag.Get("toml")
-		switch field.Type.Kind() {
-		case reflect.Struct:
-			path := fieldPath + field.Name + "."
-			setTage2Map(root+tomlVal+".", field.Type, m, path)
-		default:
-			if tomlVal == "" {
+
+		if field.Type.Kind() == reflect.Struct {
+			if field.Anonymous {
+				setTage2Map(root, field.Type, fieldValue, m, fieldPath)
 				continue
 			}
-			tomlPath := root + tomlVal
-			path := fieldPath + field.Name
-			var v *string
-			str := ""
-			v = &str
-			m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path}
+			path := fieldPath + field.Name + "."
+			setTage2Map(root+tomlVal+".", field.Type, fieldValue, m, path)
+			continue
+		}
+
+		if tomlVal == "" {
+			continue
+		}
+
+		// slices of tables (e.g. build.rules) cannot be expressed as CLI flags
+		if field.Type.Kind() == reflect.Slice && field.Type.Elem().Kind() == reflect.Struct {
+			continue
+		}
+
+		tomlPath := root + tomlVal
+		path := fieldPath + field.Name
+		var v *string
+		str := ""
+		v = &str
+
+		fieldValueStr := getFieldValueString(fieldValue)
+		usage := field.Tag.Get("usage")
+		m[tomlPath] = TomlInfo{field: field, Value: v, fieldPath: path, fieldValue: fieldValueStr, usage: usage}
+	}
+}
+
+func joinPath(root, path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+
+	return filepath.Join(root, path)
+}
+
+func formatPath(path string) string {
+	if !filepath.IsAbs(path) || !strings.Contains(path, " ") {
+		return path
+	}
+
+	quotedPath := fmt.Sprintf(`"%s"`, path)
+
+	if runtime.GOOS == PlatformWindows {
+		return fmt.Sprintf(`& %s`, quotedPath)
+	}
+
+	return quotedPath
+}
+
+// isDangerousRoot checks if the given path is a dangerous root directory
+// that could cause excessive file watching (home dir, root dir, etc.)
+// Returns true and a description if the path is dangerous.
+func isDangerousRoot(path string) (bool, string) {
+	// Get absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false, ""
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Check root directory
+	if absPath == "/" {
+		return true, "root directory (/)"
+	}
+
+	// Check home directory
+	home, err := os.UserHomeDir()
+	if err == nil {
+		home = filepath.Clean(home)
+		if absPath == home {
+			return true, "home directory (~)"
 		}
 	}
+
+	// Check /root (root user's home, in case UserHomeDir returns something else)
+	if absPath == "/root" {
+		return true, "/root directory"
+	}
+
+	return false, ""
 }

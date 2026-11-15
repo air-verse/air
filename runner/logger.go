@@ -68,9 +68,9 @@ func newLogFunc(colorname string, cfg cfgLog) logFunc {
 			msg = fmt.Sprintf("[%s] %s", t, msg)
 		}
 		if colorname == rawColor {
-			fmt.Fprintf(os.Stdout, msg, v...)
+			fmt.Fprintf(os.Stderr, msg, v...)
 		} else {
-			color.New(getColor(colorname)).Fprintf(color.Output, msg, v...)
+			color.New(getColor(colorname)).Fprintf(color.Error, msg, v...)
 		}
 	}
 }

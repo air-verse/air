@@ -19,17 +19,21 @@ jobs:
         id: go
         uses: actions/setup-go@v5
         with:
-          go-version: ^1.23
-      - name: Install golangci-lint
-        uses: golangci/golangci-lint-action@v6
+          go-version: ^1.25
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.61
+          # Build golangci-lint from source with the configured Go version
+          install-mode: goinstall
+          version: latest
       - name: Install dependency
         run: if [ $(uname) == "Darwin" ]; then brew install gnu-sed ;fi
       - name: Build
         run: make build
       - name: Run unit tests
-        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -covermode=count -coverprofile=coverage.txt
+        env:
+          CI: "true"
+        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -timeout=5m -covermode=count -coverprofile=coverage.txt
       - name: Upload Coverage report to CodeCov
         uses: codecov/codecov-action@v4
         with:
@@ -37,11 +41,45 @@ jobs:
           file: ./coverage.txt
           verbose: true
 
+  unit_tests_windows:
+    name: Unit Tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Normalize line endings (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          git config core.autocrlf false
+          git config core.eol lf
+          git checkout-index -f -a
+      - name: Setup Go
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ^1.25
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          install-mode: goinstall
+          version: latest
+      - name: Run unit tests
+        env:
+          CI: "true"
+        run: go install github.com/go-delve/delve/cmd/dlv@latest && go test ./... -v -timeout=5m -covermode=count -coverprofile=coverage.txt
+
   push_to_docker_latest:
     name: Push master code to docker latest image
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
+      # Without a checkout, build-push-action builds from the remote Git
+      # context, which has no .git directory, so `git describe --tags` inside
+      # the image cannot stamp a version. Fetch tags for the same reason.
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -51,12 +89,21 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v5
         with:
+          context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: cosmtrek/air:latest
+          tags: |
+            cosmtrek/air:latest
+            ghcr.io/${{ github.repository_owner }}/air:latest
       - name: Show image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

@@ -3,7 +3,9 @@ package runner
 import (
 	"flag"
 	"log"
-	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 )
 
 func TestFlag(t *testing.T) {
+	t.Parallel()
 	// table driven tests
 	type testCase struct {
 		name     string
@@ -50,9 +53,22 @@ func TestFlag(t *testing.T) {
 			expected: `["_test.go"]`,
 			key:      "build.exclude_regex",
 		},
+		{
+			name:     "repeated slice flag appends",
+			args:     []string{"--env_files", "a,b", "--env_files", "c", "--env_files", "d,e"},
+			expected: "a,b,c,d,e",
+			key:      "env_files",
+		},
+		{
+			name:     "repeated slice flag overrides default on first use",
+			args:     []string{"--build.exclude_dir", "foo", "--build.exclude_dir", "bar"},
+			expected: "foo,bar",
+			key:      "build.exclude_dir",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
 			require.NoError(t, flag.Parse(tc.args))
@@ -118,20 +134,83 @@ func TestConfigRuntimeArgs(t *testing.T) {
 				assert.NotEqual(t, []string{}, conf.Build.ExcludeDir)
 			},
 		},
+		{
+			name: "check full_bin",
+			args: []string{"--build.full_bin", "APP_ENV=dev APP_USER=air ./tmp/main"},
+			check: func(t *testing.T, conf *Config) {
+				want := "APP_ENV=dev APP_USER=air ./tmp/main"
+				if runtime.GOOS == "windows" {
+					want += ".exe"
+				}
+				assert.Equal(t, want, conf.Build.Bin)
+			},
+		},
+
+		{
+			name: "check exclude_regex patterns compiled",
+			args: []string{"--build.exclude_regex", "test_pattern\\.go"},
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, []string{"test_pattern\\.go"}, conf.Build.ExcludeRegex)
+				patterns, err := conf.Build.RegexCompiled()
+				require.NoError(t, err)
+				require.NotNil(t, patterns)
+				require.Len(t, patterns, 1)
+				assert.True(t, patterns[0].MatchString("test_pattern.go"), "regex should match test_pattern.go")
+				assert.False(t, patterns[0].MatchString("other_file.go"), "regex shouldn't match other_file.go")
+			},
+		},
+		{
+			name: "check entrypoint flag",
+			args: []string{"--build.entrypoint", "./tmp/server"},
+			check: func(t *testing.T, conf *Config) {
+				want := filepath.Join("tmp", "server")
+				assert.True(t, strings.HasSuffix(conf.Build.Entrypoint.binary(), want), "entrypoint %s does not end with %s", conf.Build.Entrypoint.binary(), want)
+			},
+		},
+		{
+			name: "build.bin alone is honored when no config file exists",
+			args: []string{"--build.bin", "tmp/server"},
+			check: func(t *testing.T, conf *Config) {
+				assert.Empty(t, conf.Build.Entrypoint,
+					"Entrypoint should stay empty so Bin wins in runnerBin/binPath")
+				want := filepath.Join("tmp", "server")
+				assert.True(t, strings.HasSuffix(conf.Build.Bin, want),
+					"Build.Bin = %q, want suffix %q", conf.Build.Bin, want)
+				assert.True(t, strings.HasSuffix(conf.runnerBin(), want),
+					"runnerBin() = %q, want suffix %q", conf.runnerBin(), want)
+				assert.True(t, strings.HasSuffix(conf.binPath(), want),
+					"binPath() = %q, want suffix %q", conf.binPath(), want)
+			},
+		},
+		{
+			name: "build.bin + build.cmd together (issue repro)",
+			args: []string{
+				"--build.cmd", "go build -o ./tmp/server ./main.go",
+				"--build.bin", "tmp/server",
+			},
+			check: func(t *testing.T, conf *Config) {
+				assert.Equal(t, "go build -o ./tmp/server ./main.go", conf.Build.Cmd)
+				want := filepath.Join("tmp", "server")
+				assert.True(t, strings.HasSuffix(conf.runnerBin(), want),
+					"runnerBin() = %q, want suffix %q", conf.runnerBin(), want)
+				assert.True(t, strings.HasSuffix(conf.binPath(), want),
+					"binPath() = %q, want suffix %q", conf.binPath(), want)
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.Chdir(dir))
+			chdir(t, dir)
+			silenceWarnings(t)
 			flag := flag.NewFlagSet(t.Name(), flag.ExitOnError)
 			cmdArgs := ParseConfigFlag(flag)
-			_ = flag.Parse(tc.args)
-			cfg, err := InitConfig("")
+			require.NoError(t, flag.Parse(tc.args))
+			cfg, err := InitConfig("", cmdArgs)
 			if err != nil {
 				log.Fatal(err)
 				return
 			}
-			cfg.WithArgs(cmdArgs)
 			tc.check(t, cfg)
 		})
 	}

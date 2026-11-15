@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,27 +14,30 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type reloader struct {
 	subCh    chan struct{}
-	reloadCh chan struct{}
+	reloadCh chan StreamMessage
 }
 
 func (r *reloader) AddSubscriber() *Subscriber {
 	r.subCh <- struct{}{}
-	return &Subscriber{reloadCh: r.reloadCh}
+	return &Subscriber{msgCh: r.reloadCh}
 }
 
 func (r *reloader) RemoveSubscriber(_ int32) {
 	close(r.subCh)
 }
 
-func (r *reloader) Reload() {}
-func (r *reloader) Stop()   {}
+func (r *reloader) Reload()                    {}
+func (r *reloader) BuildFailed(BuildFailedMsg) {}
+func (r *reloader) Stop()                      {}
 
 var proxyPort = 8090
 
@@ -201,7 +205,7 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				},
 				Body: io.NopCloser(strings.NewReader(`<body><h1>test</h1></body>`)),
 			},
-			expect: `<body><h1>test</h1><script>new EventSource("/internal/reload").onmessage = () => { location.reload() }</script></body>`,
+			expect: fmt.Sprintf(`<body><h1>test</h1><script>%s</script></body>`, ProxyScript),
 		},
 	}
 	for _, tt := range tests {
@@ -211,8 +215,15 @@ func TestProxy_injectLiveReload(t *testing.T) {
 				ProxyPort: 1111,
 				AppPort:   2222,
 			})
-			if got, _ := proxy.injectLiveReload(tt.given); got != tt.expect {
-				t.Errorf("expected page %+v, got %v", tt.expect, got)
+			got, _, _ := proxy.injectLiveReload(tt.given)
+			if got != tt.expect {
+				// Use a more descriptive error message
+				if len(got) > 100 || len(tt.expect) > 100 {
+					t.Errorf("Script injection mismatch.\nGot length: %d\nExpected length: %d",
+						len(got), len(tt.expect))
+				} else {
+					t.Errorf("expected page %+v, got %v", tt.expect, got)
+				}
 			}
 		})
 	}
@@ -225,7 +236,7 @@ func TestProxy_reloadHandler(t *testing.T) {
 	srvPort := getServerPort(t, srv)
 	defer srv.Close()
 
-	reloader := &reloader{subCh: make(chan struct{}), reloadCh: make(chan struct{})}
+	reloader := &reloader{subCh: make(chan struct{}), reloadCh: make(chan StreamMessage)}
 	cfg := &cfgProxy{
 		Enabled:   true,
 		ProxyPort: proxyPort,
@@ -248,11 +259,12 @@ func TestProxy_reloadHandler(t *testing.T) {
 		proxy.reloadHandler(rec, req)
 	}()
 
-	// wait for subscriber to be added
 	<-reloader.subCh
 
-	// send a reload event and wait for http response
-	reloader.reloadCh <- struct{}{}
+	reloader.reloadCh <- StreamMessage{
+		Type: StreamMessageReload,
+		Data: nil,
+	}
 	close(reloader.reloadCh)
 	wg.Wait()
 
@@ -265,7 +277,596 @@ func TestProxy_reloadHandler(t *testing.T) {
 	if err != nil {
 		t.Errorf("reading body: %v", err)
 	}
-	if got, exp := string(bodyBytes), "data: reload\n\n"; got != exp {
-		t.Errorf("expected %q but got %q", exp, got)
+
+	expected := "event: reload\ndata: null\n\n"
+	if got := string(bodyBytes); got != expected {
+		t.Errorf("expected %q but got %q", expected, got)
+	}
+
+	expectedHeaders := map[string]string{
+		"Access-Control-Allow-Origin": "*",
+		"Content-Type":                "text/event-stream",
+		"Cache-Control":               "no-cache",
+		"Connection":                  "keep-alive",
+	}
+
+	for key, value := range expectedHeaders {
+		if got := resp.Header.Get(key); got != value {
+			t.Errorf("expected header %s to be %q but got %q", key, value, got)
+		}
+	}
+}
+
+func TestProxy_proxyHandler_GzipHTML(t *testing.T) {
+	body := "<body><h1>gzip</h1></body>"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Encoding", "gzip")
+		gzipWriter := gzip.NewWriter(w)
+		if _, err := io.WriteString(gzipWriter, body); err != nil {
+			t.Errorf("write gzip body: %v", err)
+		}
+		if err := gzipWriter.Close(); err != nil {
+			t.Errorf("close gzip writer: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", proxyPort), nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Empty(t, resp.Header.Get("Content-Encoding"))
+
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(responseBody), ProxyScript)
+}
+
+func TestProxy_proxyHandler_BrotliHTML(t *testing.T) {
+	body := "<body><h1>brotli</h1></body>"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Content-Encoding", "br")
+		brotliWriter := brotli.NewWriter(w)
+		if _, err := io.WriteString(brotliWriter, body); err != nil {
+			t.Errorf("write brotli body: %v", err)
+		}
+		if err := brotliWriter.Close(); err != nil {
+			t.Errorf("close brotli writer: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", proxyPort), nil)
+	req.Header.Set("Accept-Encoding", "br")
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Empty(t, resp.Header.Get("Content-Encoding"))
+
+	responseBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Contains(t, string(responseBody), ProxyScript)
+}
+
+func TestDetectContentEncoding(t *testing.T) {
+	tests := []struct {
+		name     string
+		encoding string
+		expected contentEncoding
+	}{
+		{name: "empty", encoding: "", expected: encodingNone},
+		{name: "gzip", encoding: "gzip", expected: encodingGzip},
+		{name: "x-gzip", encoding: "x-gzip", expected: encodingGzip},
+		{name: "gzip_uppercase", encoding: "GZIP", expected: encodingGzip},
+		{name: "brotli", encoding: "br", expected: encodingBrotli},
+		{name: "brotli_uppercase", encoding: "BR", expected: encodingBrotli},
+		{name: "deflate_unsupported", encoding: "deflate", expected: encodingNone},
+		{name: "multiple_encodings", encoding: "gzip, br", expected: encodingNone},
+		{name: "unknown", encoding: "unknown", expected: encodingNone},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			header := http.Header{}
+			if tt.encoding != "" {
+				header.Set("Content-Encoding", tt.encoding)
+			}
+			result := detectContentEncoding(header)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestProxy_proxyHandler_SSE(t *testing.T) {
+	events := []string{
+		"event: message\ndata: {\"id\":1}\n\n",
+		"event: message\ndata: {\"id\":2}\n\n",
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+		w.WriteHeader(http.StatusOK)
+		for _, event := range events {
+			fmt.Fprint(w, event)
+			flusher.Flush()
+		}
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/events", proxyPort), nil)
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "text/event-stream", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	expected := strings.Join(events, "")
+	assert.Equal(t, expected, string(body))
+}
+
+func TestIsStreamingResponse(t *testing.T) {
+	tests := []struct {
+		name     string
+		headers  http.Header
+		expected bool
+	}{
+		{
+			name: "SSE content type",
+			headers: http.Header{
+				"Content-Type": []string{"text/event-stream"},
+			},
+			expected: true,
+		},
+		{
+			name: "SSE with charset",
+			headers: http.Header{
+				"Content-Type": []string{"text/event-stream; charset=utf-8"},
+			},
+			expected: true,
+		},
+		{
+			name: "chunked encoding",
+			headers: http.Header{
+				"Transfer-Encoding": []string{"chunked"},
+			},
+			expected: true,
+		},
+		{
+			name: "both SSE and chunked",
+			headers: http.Header{
+				"Content-Type":      []string{"text/event-stream"},
+				"Transfer-Encoding": []string{"chunked"},
+			},
+			expected: true,
+		},
+		{
+			name: "regular JSON",
+			headers: http.Header{
+				"Content-Type": []string{"application/json"},
+			},
+			expected: false,
+		},
+		{
+			name: "regular HTML",
+			headers: http.Header{
+				"Content-Type": []string{"text/html"},
+			},
+			expected: false,
+		},
+		{
+			name:     "no headers",
+			headers:  http.Header{},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := &http.Response{
+				Header: tt.headers,
+			}
+			result := isStreamingResponse(resp)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// mockFlusher is a simple mock implementation of http.Flusher for testing
+type mockFlusher struct {
+	flushed bool
+}
+
+func (m *mockFlusher) Flush() {
+	m.flushed = true
+}
+
+func TestStreamCopy(t *testing.T) {
+	t.Run("copies data and flushes", func(t *testing.T) {
+		data := []byte("test data for streaming")
+		src := bytes.NewReader(data)
+		dst := &bytes.Buffer{}
+		flusher := &mockFlusher{}
+
+		err := streamCopy(dst, src, flusher)
+
+		require.NoError(t, err)
+		assert.Equal(t, data, dst.Bytes())
+		assert.True(t, flusher.flushed, "should have called Flush")
+	})
+
+	t.Run("handles empty source", func(t *testing.T) {
+		src := bytes.NewReader([]byte{})
+		dst := &bytes.Buffer{}
+		flusher := &mockFlusher{}
+
+		err := streamCopy(dst, src, flusher)
+
+		require.NoError(t, err)
+		assert.Empty(t, dst.Bytes())
+	})
+
+	t.Run("handles large data", func(t *testing.T) {
+		// Create data larger than buffer size (512 bytes)
+		data := bytes.Repeat([]byte("x"), 2048)
+		src := bytes.NewReader(data)
+		dst := &bytes.Buffer{}
+		flusher := &mockFlusher{}
+
+		err := streamCopy(dst, src, flusher)
+
+		require.NoError(t, err)
+		assert.Equal(t, data, dst.Bytes())
+		assert.True(t, flusher.flushed)
+	})
+}
+
+func TestProxy_proxyHandler_Chunked(t *testing.T) {
+	chunks := []string{"chunk1", "chunk2", "chunk3"}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Transfer-Encoding", "chunked")
+		w.Header().Set("Content-Type", "application/octet-stream")
+
+		flusher, ok := w.(http.Flusher)
+		assert.True(t, ok, "expected flusher")
+
+		w.WriteHeader(http.StatusOK)
+		for _, chunk := range chunks {
+			fmt.Fprint(w, chunk)
+			flusher.Flush()
+			time.Sleep(10 * time.Millisecond)
+		}
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/stream", proxyPort), nil)
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	// Note: httptest.ResponseRecorder may not preserve Transfer-Encoding header
+	// but the actual HTTP response will work correctly
+	assert.Empty(t, resp.Header.Get("Content-Length"), "streaming response should not have Content-Length")
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "chunk1chunk2chunk3", string(body))
+}
+
+func TestProxy_proxyHandler_NonStreaming(t *testing.T) {
+	content := "regular response content"
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Length", strconv.Itoa(len(content)))
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, content)
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/api", proxyPort), nil)
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "application/json", resp.Header.Get("Content-Type"))
+	assert.Equal(t, strconv.Itoa(len(content)), resp.Header.Get("Content-Length"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, content, string(body))
+}
+
+func TestDelHopByHopHeaders(t *testing.T) {
+	tests := []struct {
+		name   string
+		header http.Header
+		want   http.Header
+	}{
+		{
+			name: "removes_standard_hop_by_hop_headers",
+			header: http.Header{
+				"Connection":          {"keep-alive"},
+				"Keep-Alive":          {"timeout=5"},
+				"Proxy-Authenticate":  {"Basic"},
+				"Proxy-Authorization": {"Bearer secret"},
+				"Proxy-Connection":    {"keep-alive"},
+				"Te":                  {"trailers"},
+				"Trailer":             {"Expires"},
+				"Transfer-Encoding":   {"chunked"},
+				"Upgrade":             {"websocket"},
+			},
+			want: http.Header{},
+		},
+		{
+			name: "removes_headers_named_by_connection",
+			header: http.Header{
+				"Connection":   {"keep-alive, X-Custom-Hop"},
+				"X-Custom-Hop": {"drop me"},
+			},
+			want: http.Header{},
+		},
+		{
+			name: "removes_headers_named_across_multiple_connection_values",
+			header: http.Header{
+				"Connection": {"X-First", "X-Second"},
+				"X-First":    {"drop me"},
+				"X-Second":   {"drop me too"},
+			},
+			want: http.Header{},
+		},
+		{
+			name: "keeps_end_to_end_headers",
+			header: http.Header{
+				"Connection":   {"keep-alive"},
+				"Content-Type": {"application/json"},
+				"Accept":       {"*/*"},
+				"X-Real-Ip":    {"127.0.0.1"},
+			},
+			want: http.Header{
+				"Content-Type": {"application/json"},
+				"Accept":       {"*/*"},
+				"X-Real-Ip":    {"127.0.0.1"},
+			},
+		},
+		{
+			name:   "no_connection_header_is_a_no_op",
+			header: http.Header{"Content-Type": {"text/html"}},
+			want:   http.Header{"Content-Type": {"text/html"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			delHopByHopHeaders(tt.header)
+			assert.Equal(t, tt.want, tt.header)
+		})
+	}
+}
+
+func TestProxy_proxyHandler_StripsHopByHopRequestHeaders(t *testing.T) {
+	var upstream http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		upstream = r.Header.Clone()
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d", proxyPort), nil)
+	req.Header.Set("Connection", "keep-alive, X-Custom-Hop")
+	req.Header.Set("X-Custom-Hop", "should not reach the app")
+	req.Header.Set("Proxy-Authorization", "Bearer secret")
+	req.Header.Set("Keep-Alive", "timeout=5")
+	req.Header.Set("X-Real-Header", "should reach the app")
+	proxy.proxyHandler(httptest.NewRecorder(), req)
+
+	require.NotNil(t, upstream)
+	for _, name := range []string{"X-Custom-Hop", "Proxy-Authorization", "Keep-Alive"} {
+		assert.Empty(t, upstream.Get(name), "%s must not be forwarded upstream", name)
+	}
+	// End-to-end headers must still make it through.
+	assert.Equal(t, "should reach the app", upstream.Get("X-Real-Header"))
+}
+
+func TestProxy_proxyHandler_StripsHopByHopResponseHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Connection", "X-Custom-Hop")
+		w.Header().Set("X-Custom-Hop", "should not reach the client")
+		w.Header().Set("Keep-Alive", "timeout=5")
+		w.Header().Set("X-Real-Header", "should reach the client")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	srvPort := getServerPort(t, srv)
+	proxy := NewProxy(&cfgProxy{
+		Enabled:   true,
+		ProxyPort: proxyPort,
+		AppPort:   srvPort,
+	})
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d", proxyPort), nil)
+	rec := httptest.NewRecorder()
+	proxy.proxyHandler(rec, req)
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+	for _, name := range []string{"X-Custom-Hop", "Keep-Alive"} {
+		assert.Empty(t, resp.Header.Get(name), "%s must not be returned to the client", name)
+	}
+	assert.Equal(t, "should reach the client", resp.Header.Get("X-Real-Header"))
+}
+
+func TestProxy_appStartTimeout(t *testing.T) {
+	tests := []struct {
+		name            string
+		appStartDelay   int // milliseconds - simulated app startup delay
+		configTimeout   int // milliseconds - configured timeout (0 = use default)
+		expectSuccess   bool
+		expectInBody    string
+		expectNotInBody string
+	}{
+		{
+			name:          "fast_startup_succeeds",
+			appStartDelay: 50,
+			configTimeout: 1000,
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+		{
+			name:          "slow_startup_within_timeout_succeeds",
+			appStartDelay: 500,
+			configTimeout: 1000,
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+		{
+			name:            "slow_startup_exceeds_timeout_fails",
+			appStartDelay:   1500,
+			configTimeout:   500,
+			expectSuccess:   false,
+			expectInBody:    "unable to reach app",
+			expectNotInBody: "OK",
+		},
+		{
+			name:          "uses_default_timeout_when_zero",
+			appStartDelay: 500,
+			configTimeout: 0, // Should use defaultProxyAppStartTimeout (5000ms)
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+		{
+			name:          "custom_timeout_respected",
+			appStartDelay: 800,
+			configTimeout: 1000,
+			expectSuccess: true,
+			expectInBody:  "OK",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Track whether server has "started"
+			var serverReady sync.WaitGroup
+			serverReady.Add(1)
+
+			// Create a test server that delays before responding
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				// Wait for simulated startup delay on first request
+				serverReady.Wait()
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprint(w, "OK")
+			}))
+			defer srv.Close()
+
+			// Simulate app startup delay in background
+			go func() {
+				if tt.appStartDelay > 0 {
+					// Sleep to simulate app initialization time
+					time.Sleep(time.Duration(tt.appStartDelay) * time.Millisecond)
+				}
+				serverReady.Done()
+			}()
+
+			srvPort := getServerPort(t, srv)
+			proxy := NewProxy(&cfgProxy{
+				Enabled:         true,
+				ProxyPort:       proxyPort,
+				AppPort:         srvPort,
+				AppStartTimeout: tt.configTimeout,
+			})
+
+			req := httptest.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", proxyPort), nil)
+			rec := httptest.NewRecorder()
+
+			proxy.proxyHandler(rec, req)
+
+			resp := rec.Result()
+			bodyBytes, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			body := string(bodyBytes)
+
+			if tt.expectSuccess {
+				assert.Equal(t, http.StatusOK, resp.StatusCode, "expected successful response")
+				assert.Contains(t, body, tt.expectInBody, "response body should contain expected content")
+			} else {
+				assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "expected error response")
+				assert.Contains(t, body, tt.expectInBody, "error message should contain expected text")
+				if tt.expectNotInBody != "" {
+					assert.NotContains(t, body, tt.expectNotInBody, "response should not contain unexpected content")
+				}
+			}
+		})
 	}
 }
