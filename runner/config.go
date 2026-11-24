@@ -130,7 +130,7 @@ type cfgBuild struct {
 	Delay                  int                `toml:"delay" usage:"It's not necessary to trigger build each time file changes if it's too frequent"`
 	StopOnError            bool               `toml:"stop_on_error" usage:"Stop running old binary when build errors occur"`
 	SendInterrupt          bool               `toml:"send_interrupt" usage:"Send Interrupt signal before killing process (windows does not support this feature)"`
-	KillDelay              time.Duration      `toml:"kill_delay" usage:"Delay after sending Interrupt signal"`
+	KillDelay              time.Duration      `toml:"kill_delay" usage:"How long to wait for the process to exit after sending Interrupt signal before killing it"`
 	Rerun                  bool               `toml:"rerun" usage:"Rerun binary or not"`
 	RerunDelay             int                `toml:"rerun_delay" usage:"Delay after each execution"`
 	Rules                  []cfgRule          `toml:"rules"`

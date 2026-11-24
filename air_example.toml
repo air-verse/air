@@ -56,8 +56,8 @@ delay = 0 # ms
 stop_on_error = true
 # Send Interrupt signal before killing process (ignored on Windows; uses TASKKILL)
 send_interrupt = false
-# Delay after sending Interrupt signal before killing the process; Air waits for the process to exit up to this delay plus 5s
-kill_delay = 500 # nanosecond
+# How long to wait for the process to exit after sending Interrupt signal before killing it
+kill_delay = 500 # ms
 # Rerun binary or not
 rerun = false
 # Delay after each execution
