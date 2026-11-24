@@ -866,7 +866,7 @@ func (e *Engine) stopBin() {
 		if ret != 0 {
 			e.exiter.Exit(ret) // Use exiter instead of direct os.Exit, it's for tests purpose.
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(e.config.stopBinTimeout()):
 		e.mainDebug("timed out waiting for process exit")
 	}
 }
