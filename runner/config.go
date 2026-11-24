@@ -850,6 +850,21 @@ func (c *Config) killDelay() time.Duration {
 	return time.Duration(c.Build.KillDelay.Milliseconds()) * time.Millisecond
 }
 
+// stopBinGrace bounds the wait for the process to exit once it has been killed.
+const stopBinGrace = 5 * time.Second
+
+// stopBinTimeout is how long stopBin waits for the process to exit. With
+// send_interrupt the process gets kill_delay to shut down gracefully before
+// SIGKILL, so the wait must cover it: returning earlier lets Air exit (killing
+// the process when Air is PID 1 in a container) or start the rebuilt binary
+// while the old one still runs.
+func (c *Config) stopBinTimeout() time.Duration {
+	if c.Build.SendInterrupt {
+		return c.killDelay() + stopBinGrace
+	}
+	return stopBinGrace
+}
+
 func (c *Config) binPath() string {
 	if len(c.Build.Entrypoint) > 0 {
 		return c.Build.Entrypoint.binary()

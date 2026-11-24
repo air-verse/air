@@ -357,6 +357,30 @@ func TestKillDelay(t *testing.T) {
 	}
 }
 
+func TestStopBinTimeout(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		sendInterrupt bool
+		killDelay     time.Duration
+		want          time.Duration
+	}{
+		{name: "kill without interrupt", killDelay: 20 * time.Second, want: stopBinGrace},
+		{name: "interrupt without delay", sendInterrupt: true, want: stopBinGrace},
+		{name: "interrupt waits for kill_delay", sendInterrupt: true, killDelay: 20 * time.Second, want: 20*time.Second + stopBinGrace},
+		{name: "interrupt with millisecond kill_delay", sendInterrupt: true, killDelay: 500, want: 500*time.Millisecond + stopBinGrace},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			config := Config{Build: cfgBuild{SendInterrupt: tt.sendInterrupt, KillDelay: tt.killDelay}}
+			if got := config.stopBinTimeout(); got != tt.want {
+				t.Fatalf("stopBinTimeout() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestApplyBuildOverrides(t *testing.T) {
 	base := defaultConfigBase()
 	override := &cfgBuildOverrides{
